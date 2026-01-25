@@ -2,7 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 
 const menuItems = [
-    { label: 'Dashboard', icon: '📊', route: '/dashboard' },
+    { label: 'Dashboard', icon: '📊', route: route('dashboard') },
     { label: 'Users', icon: '👤', route: '/users' },      // Simple Admin user
     { label: 'Stores', icon: '🏪', route: '/stores' },    // Storefront icon
     { label: 'Staff', icon: '🪪', route: '/pos_users' }, // ID Card for POS Staff

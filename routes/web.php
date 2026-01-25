@@ -18,7 +18,7 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
-})->middleware('auth:web');
+})->middleware('auth:web')->name('dashboard');
 
 Route::get('/login', [DashboardLoginController::class, 'show'])
     ->middleware('guest:web')
