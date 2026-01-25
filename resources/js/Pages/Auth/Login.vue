@@ -10,7 +10,7 @@ const form = useForm({
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-100">
     <form
-      @submit.prevent="form.post('/login')"
+      @submit.prevent="form.post(route('login'))"
       class="bg-white p-6 rounded shadow w-96"
     >
         <h1 class="text-xl font-bold mb-4">Dashboard Login</h1>
