@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->validateCsrfTokens(except: [
+            'api/*', // This stops the "Page Expired" errors for Unity
+        ]);
         $middleware->statefulApi();    
         $middleware->web(append: [
             HandleInertiaRequests::class,
