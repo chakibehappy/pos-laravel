@@ -3,10 +3,10 @@ import { Link } from '@inertiajs/vue3';
 
 const menuItems = [
     { label: 'Dashboard', icon: '📊', route: route('dashboard') },
-    { label: 'Users', icon: '👤', route: '/users' },      // Simple Admin user
-    { label: 'Stores', icon: '🏪', route: '/stores' },    // Storefront icon
-    { label: 'Staff', icon: '🪪', route: '/pos_users' }, // ID Card for POS Staff
-    { label: 'Products', icon: '📦', route: '/products' },
+    { label: 'Users', icon: '👤', route: route('users.index') },      // Simple Admin user
+    { label: 'Stores', icon: '🏪', route: route('stores.index') },    // Storefront icon
+    { label: 'Staff', icon: '🪪', route: route('pos_users.index') }, // ID Card for POS Staff
+    { label: 'Products', icon: '📦', route: route('products.index') },
 ];
 </script>
 
