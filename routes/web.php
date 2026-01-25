@@ -30,25 +30,58 @@ Route::post('/login', [DashboardLoginController::class, 'login'])
 Route::post('/logout', [DashboardLoginController::class, 'logout'])
     ->middleware('auth:web');
 
-Route::middleware(['auth'])->group(function () {
-    // Users (Dashboard Admins)
-    Route::get('/users', [UserController::class, 'index'])->name('users.index');
-    Route::post('/users', [UserController::class, 'store'])->name('users.store');
-    Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+Route::prefix('pos')->group(function () {
 
-    // Store
-    Route::get('/stores', [StoreController::class, 'index'])->name('stores.index');
-    Route::post('/stores', [StoreController::class, 'store'])->name('stores.store');
-    Route::delete('/stores/{id}', [StoreController::class, 'destroy'])->name('stores.destroy');
+    Route::get('/', function () {
+        if (auth()->guard('web')->check()) {
+            return redirect()->route('dashboard');
+        }
+        return redirect()->route('login');
+    });
 
-    // Pos User
-    Route::get('/pos_users', [PosUserController::class, 'index'])->name('pos_users.index');
-    Route::post('/pos_users', [PosUserController::class, 'store'])->name('pos_users.store');
-    Route::delete('/pos_users/{id}', [PosUserController::class, 'destroy'])->name('pos_users.destroy');
+    Route::get('/dashboard', function () {
+        return Inertia::render('Dashboard');
+    })->middleware('auth:web')->name('dashboard');
 
-      // Pos Product
-    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::get('/login', [DashboardLoginController::class, 'show'])
+        ->middleware('guest:web')
+        ->name('login');
 
+    Route::post('/login', [DashboardLoginController::class, 'login'])
+        ->middleware('guest:web');
+
+    Route::post('/logout', [DashboardLoginController::class, 'logout'])
+        ->middleware('auth:web')
+        ->name('logout');
+
+    Route::middleware(['auth'])->group(function () {
+        // Users
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+
+        // Stores, Products, etc... move them all inside this 'pos' prefix group
+    });
 });
+// Route::middleware(['auth'])->group(function () {
+//     // Users (Dashboard Admins)
+//     Route::get('/users', [UserController::class, 'index'])->name('users.index');
+//     Route::post('/users', [UserController::class, 'store'])->name('users.store');
+//     Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+
+//     // Store
+//     Route::get('/stores', [StoreController::class, 'index'])->name('stores.index');
+//     Route::post('/stores', [StoreController::class, 'store'])->name('stores.store');
+//     Route::delete('/stores/{id}', [StoreController::class, 'destroy'])->name('stores.destroy');
+
+//     // Pos User
+//     Route::get('/pos_users', [PosUserController::class, 'index'])->name('pos_users.index');
+//     Route::post('/pos_users', [PosUserController::class, 'store'])->name('pos_users.store');
+//     Route::delete('/pos_users/{id}', [PosUserController::class, 'destroy'])->name('pos_users.destroy');
+
+//       // Pos Product
+//     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+//     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+//     Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+// });
