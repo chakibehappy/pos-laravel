@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Models\Product;
 
 Route::middleware('auth:api')->get('/test', function (Request $request) {
     return response()->json([
