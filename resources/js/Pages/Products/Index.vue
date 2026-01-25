@@ -56,7 +56,7 @@ const submit = () => {
 
 <template>
     <AuthenticatedLayout>
-        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
             <h2 class="font-black uppercase mb-4 italic">{{ form.id ? 'Edit Product' : 'Add Item' }}</h2>
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <input v-model="form.name" type="text" placeholder="NAME" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
@@ -78,7 +78,7 @@ const submit = () => {
 
         <div class="mb-4 flex justify-between items-end">
             <h1 class="text-2xl font-black uppercase tracking-tighter italic">Inventory</h1>
-            <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:shadow-none">
+            <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)] transition-all active:shadow-none">
                 Add Item
             </button>
         </div>
