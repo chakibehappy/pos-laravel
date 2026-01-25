@@ -28,7 +28,7 @@ Route::post('/login', [DashboardLoginController::class, 'login'])
     ->middleware('guest:web');
 
 Route::post('/logout', [DashboardLoginController::class, 'logout'])
-    ->middleware('auth:web');
+    ->middleware('auth:web')->name('logout');
 
 Route::middleware(['auth'])->group(function () {
     // Users (Dashboard Admins)

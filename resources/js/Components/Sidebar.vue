@@ -26,7 +26,7 @@ const menuItems = [
         </nav>
 
         <div class="p-4 border-t border-gray-800">
-            <Link href="/logout" method="post" as="button" 
+            <Link :href="route('logout')" method="post" as="button" 
                 class="w-full text-left p-3 text-gray-400 hover:text-red-500">
                 LOGOUT
             </Link>
