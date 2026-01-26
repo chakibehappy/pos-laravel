@@ -62,17 +62,9 @@ Route::post('/login', function (Request $request) {
     ]);
 });
 
-Route::middleware('auth:api')->get('/test', function (Request $request) {
-    return response()->json([
-        'user' => $request->user(),
-        'message' => 'API token is working!'
-    ]);
-})->name('api.test'); 
-
-
 
 // Protected Routes (Requires Token)
-Route::middleware('auth:api')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     Route::get('/products', function () {
         return Product::all()->map(function ($product) {
             return [
@@ -88,7 +80,7 @@ Route::middleware('auth:api')->group(function () {
 
 });
 
-Route::middleware('auth:api')->post('/transactions', function (Request $request) {
+Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
 
     $request->validate([
         'transaction_at' => 'required|date',
