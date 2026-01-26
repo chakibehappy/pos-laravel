@@ -53,7 +53,6 @@ return [
         // Update this part:
         'api' => [
             'driver' => 'sanctum',
-            'provider' => 'users',
         ],
     ],
 
