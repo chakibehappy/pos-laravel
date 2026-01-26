@@ -7,6 +7,7 @@ const menuItems = [
     { label: 'Stores', icon: '🏪', route: route('stores.index') },    // Storefront icon
     { label: 'Staff', icon: '🪪', route: route('pos_users.index') }, // ID Card for POS Staff
     { label: 'Products', icon: '📦', route: route('products.index') },
+    { label: 'Account', icon: '👤', route: route('accounts.index') }
 ];
 </script>
 
