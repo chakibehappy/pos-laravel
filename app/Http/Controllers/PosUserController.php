@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PosUser;
 use App\Models\Store;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class PosUserController extends Controller
