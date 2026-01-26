@@ -28,6 +28,8 @@ class PosUserController extends Controller
             'pin'      => 'required|numeric|digits_between:4,6',
             'role'     => 'required|string',
         ]);
+        // Hash the PIN before saving
+        $data['pin'] = Hash::make($data['pin']);
 
         PosUser::updateOrCreate(['id' => $request->id], $data);
 
