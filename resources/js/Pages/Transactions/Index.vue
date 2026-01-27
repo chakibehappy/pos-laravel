@@ -234,7 +234,7 @@ const submit = () => {
         </div>
 
         <div class="mb-6 flex justify-between items-center">
-            <h1 class="text-4xl font-black uppercase italic tracking-tighter">Transaksi</h1>
+            <h1 class="text-4xl font-black uppercase italic tracking-tighter">Daftar Transaksi</h1>
             <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-8 py-3 font-black uppercase hover:translate-x-1 hover:translate-y-1 transition-all">Tambahkan</button>
         </div>
 

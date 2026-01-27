@@ -100,7 +100,7 @@ const destroy = (id) => {
         </div>
 
         <div class="mb-4 flex justify-between items-end">
-            <h1 class="text-2xl font-black uppercase tracking-tighter italic">Pengelolaan Staff</h1>
+            <h1 class="text-2xl font-black uppercase tracking-tighter italic">Daftar Staff</h1>
             <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)] active:shadow-none transition-all">
                 Tambahkan
             </button>

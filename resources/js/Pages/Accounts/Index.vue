@@ -42,7 +42,7 @@ const resetForm = () => {
 <template>
     <AuthenticatedLayout>
         <div class="p-6">
-            <h1 class="text-2xl font-black uppercase mb-6 italic tracking-tighter">Pengelolaan Akun</h1>
+            <h1 class="text-2xl font-black uppercase mb-6 italic tracking-tighter">Daftar Akun</h1>
 
             <div class="mb-8 p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                 <h2 class="font-bold uppercase mb-4 text-sm">{{ form.id ? 'Perbarui Akun' : 'Registrasi Perusaan Baru' }}</h2>
