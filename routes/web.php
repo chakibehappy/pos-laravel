@@ -7,6 +7,7 @@ use App\Http\Controllers\StoreController;
 use App\Http\Controllers\PosUserController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\TransactionController;
 use Inertia\Inertia;
 
@@ -57,8 +58,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/account', [AccountController::class, 'index'])->name('accounts.index');
     Route::post('/account', [AccountController::class, 'store'])->name('accounts.store');
     Route::delete('/account/{id}', [AccountController::class, 'destroy'])->name('accounts.destroy');
-
-    // 2. TRANSACTION ROUTES
+   
+    // Pos PaymentMethods
+    Route::get('/payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
+    Route::post('/payment-methods', [PaymentMethodController::class, 'store'])->name('payment-methods.store');
+    Route::delete('/payment-methods/{id}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
+   
+    // Pos Transactions
     Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');

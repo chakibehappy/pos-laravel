@@ -8,6 +8,7 @@ const menuItems = [
     { label: 'Staff', icon: '🪪', route: route('pos_users.index') }, // ID Card for POS Staff
     { label: 'Produk', icon: '📦', route: route('products.index') },
     { label: 'Akun', icon: '⚙️', route: route('accounts.index') },
+    { label: 'Metode Bayar', icon: '💳', route: route('payment-methods.index') },
     { label: 'Transaksi', icon: '🛒', route: route('transactions.index') }
 ];
 </script>
