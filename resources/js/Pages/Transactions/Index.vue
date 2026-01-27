@@ -12,10 +12,10 @@ const props = defineProps({
 });
 
 const columns = [
-    { label: 'DATE', key: 'transaction_at' },
-    { label: 'STORE', key: 'store_name' }, 
-    { label: 'CASHIER', key: 'cashier_name' },
-    { label: 'TOTAL', key: 'total' }
+    { label: 'Tanggal', key: 'transaction_at' },
+    { label: 'Toko', key: 'store_name' }, 
+    { label: 'Kasir', key: 'cashier_name' },
+    { label: 'Total', key: 'total' }
 ];
 
 const showForm = ref(false);
@@ -117,39 +117,39 @@ const submit = () => {
     <AuthenticatedLayout>
         <div v-if="showForm" class="mb-8 p-6 border-4 border-black bg-white">
             <h2 class="font-black uppercase mb-6 italic text-2xl underline decoration-yellow-400">
-                {{ form.id ? 'Edit Transaction' : 'New Transaction' }}
+                {{ form.id ? 'Edit Transaksi' : 'Transaksi Baru' }}
             </h2>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div class="flex flex-col gap-2">
-                    <label class="font-black text-xs uppercase text-gray-400">Date & Time</label>
+                    <label class="font-black text-xs uppercase text-gray-400">Waktu</label>
                     <input v-model="form.transaction_at" type="datetime-local" class="border-2 border-black p-3 font-bold" />
                 </div>
                 <div class="flex flex-col gap-2">
-                    <label class="font-black text-xs uppercase text-gray-400">Store</label>
+                    <label class="font-black text-xs uppercase text-gray-400">Toko</label>
                     <select v-model="form.store_id" class="border-2 border-black p-3 font-bold bg-white">
-                        <option value="" disabled>SELECT STORE</option>
+                        <option value="" disabled>Pilih Toko</option>
                         <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="font-black text-xs uppercase text-gray-400">Staff</label>
                     <select v-model="form.pos_user_id" class="border-2 border-black p-3 font-bold bg-white">
-                        <option value="" disabled>SELECT STAFF</option>
+                        <option value="" disabled>Pilih Staff</option>
                         <option v-for="u in pos_users" :key="u.id" :value="u.id">{{ u.name }}</option>
                     </select>
                 </div>
             </div>
 
             <div class="mb-6 p-4 bg-gray-50 border-2 border-dashed border-black">
-                <p class="font-black uppercase text-xs mb-2 italic">Add Products To Cart:</p>
+                <p class="font-black uppercase text-xs mb-2 italic">Tambahkan Produk Pembelian:</p>
                 <div class="flex flex-col md:flex-row gap-4">
                     <select v-model="selectedProductId" class="flex-1 border-2 border-black p-2 font-bold">
-                        <option value="" disabled>CHOOSE PRODUCT</option>
+                        <option value="" disabled>Pilih Produk</option>
                         <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }} - Rp{{ Number(p.price).toLocaleString() }}</option>
                     </select>
                     <input v-model.number="qtyInput" type="number" min="1" class="w-24 border-2 border-black p-2 font-bold text-center" />
-                    <button @click="addItem" type="button" class="bg-blue-500 text-white px-6 py-2 font-black border-2 border-black transition-all uppercase">Add</button>
+                    <button @click="addItem" type="button" class="bg-blue-500 text-white px-6 py-2 font-black border-2 border-black transition-all uppercase">Tambahkan</button>
                 </div>
             </div>
 
@@ -179,16 +179,16 @@ const submit = () => {
             </div>
 
             <div class="flex flex-col items-end gap-2 mb-8">
-                <div class="font-bold uppercase text-sm">Subtotal: Rp {{ Number(form.subtotal).toLocaleString() }}</div>
-                <div class="font-bold uppercase text-sm">Tax (10%): Rp {{ Number(form.tax).toLocaleString() }}</div>
+                <div class="font-bold uppercase text-sm">Subtotal: Rp. {{ Number(form.subtotal).toLocaleString() }}</div>
+                <div class="font-bold uppercase text-sm">Pajak (10%): Rp. {{ Number(form.tax).toLocaleString() }}</div>
                 <div class="text-3xl font-black bg-yellow-300 border-4 border-black p-4">
                     TOTAL: Rp {{ Number(form.total).toLocaleString() }}
                 </div>
             </div>
 
             <div class="flex gap-x-4">
-                <button @click="submit" class="bg-black text-white px-8 py-4 font-black uppercase hover:bg-gray-800 transition-all">Process & Save</button>
-                <button @click="showForm = false" class="border-2 border-black px-8 py-4 font-black uppercase hover:bg-gray-100 transition-all">Cancel</button>
+                <button @click="submit" class="bg-black text-white px-8 py-4 font-black uppercase hover:bg-gray-800 transition-all">Simpan</button>
+                <button @click="showForm = false" class="border-2 border-black px-8 py-4 font-black uppercase hover:bg-gray-100 transition-all">Batalkan</button>
             </div>
         </div>
 
@@ -234,8 +234,8 @@ const submit = () => {
         </div>
 
         <div class="mb-6 flex justify-between items-center">
-            <h1 class="text-4xl font-black uppercase italic tracking-tighter">Transactions</h1>
-            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-8 py-3 font-black uppercase hover:translate-x-1 hover:translate-y-1 transition-all">Add New Sale</button>
+            <h1 class="text-4xl font-black uppercase italic tracking-tighter">Transaksi</h1>
+            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-8 py-3 font-black uppercase hover:translate-x-1 hover:translate-y-1 transition-all">Tambahkan</button>
         </div>
 
         <DataTable :resource="transactions" :columns="columns">
@@ -246,9 +246,9 @@ const submit = () => {
             </template>
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-4 justify-end font-black text-xs uppercase italic">
-                    <button @click="openDetail(row)" class="underline decoration-2 text-blue-600">DETAIL</button>
-                    <button @click="openEdit(row)" class="underline decoration-2">EDIT</button>
-                    <button @click="$inertia.delete(route('transactions.destroy', row.id))" class="underline text-red-500 decoration-2">DELETE</button>
+                    <button @click="openDetail(row)" class="underline decoration-2 text-blue-600">Detail</button>
+                    <button @click="openEdit(row)" class="underline decoration-2">Edit</button>
+                    <button @click="$inertia.delete(route('transactions.destroy', row.id))" class="underline text-red-500 decoration-2">Hapus</button>
                 </div>
             </template>
         </DataTable>

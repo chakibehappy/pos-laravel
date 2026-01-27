@@ -3,11 +3,11 @@ import { Link } from '@inertiajs/vue3';
 
 const menuItems = [
     { label: 'Dashboard', icon: '📊', route: route('dashboard') },
-    { label: 'Users', icon: '👤', route: route('users.index') },      // Simple Admin user
-    { label: 'Stores', icon: '🏪', route: route('stores.index') },    // Storefront icon
+    { label: 'Pengguna', icon: '👤', route: route('users.index') },      // Simple Admin user
+    { label: 'Toko', icon: '🏪', route: route('stores.index') },    // Storefront icon
     { label: 'Staff', icon: '🪪', route: route('pos_users.index') }, // ID Card for POS Staff
-    { label: 'Products', icon: '📦', route: route('products.index') },
-    { label: 'Account', icon: '⚙️', route: route('accounts.index') },
+    { label: 'Produk', icon: '📦', route: route('products.index') },
+    { label: 'Akun', icon: '⚙️', route: route('accounts.index') },
     { label: 'Transaksi', icon: '🛒', route: route('transactions.index') }
 ];
 </script>
@@ -15,7 +15,7 @@ const menuItems = [
 <template>
     <div class="w-64 bg-black text-white flex flex-col h-screen">
         <div class="p-6 text-l font-bold border-b border-gray-800">
-            MAARS COMPANY
+            MAAR COMPANY
         </div>
         
         <nav class="flex-1 p-4 space-y-1">
@@ -30,7 +30,7 @@ const menuItems = [
         <div class="p-4 border-t border-gray-800">
             <Link :href="route('logout')" method="post" as="button" 
                 class="w-full text-left p-3 text-gray-400 hover:text-red-500">
-                LOGOUT
+                Keluar
             </Link>
         </div>
     </div>
