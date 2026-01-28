@@ -13,7 +13,8 @@ const columns = [
     { label: 'SKU', key: 'sku' },
     { label: 'Nama', key: 'name' }, 
     { label: 'Toko', key: 'store_name' },
-    { label: 'Harga (Rp)', key: 'price' },
+    // GANTI: key price menjadi selling_price
+    { label: 'Harga (Rp)', key: 'selling_price' }, 
     { label: 'Stok', key: 'stock' }
 ];
 
@@ -23,7 +24,7 @@ const form = useForm({
     store_id: '',
     name: '',
     sku: '',
-    price: 0,
+    selling_price: 0, // GANTI: price menjadi selling_price
     stock: 0
 });
 
@@ -39,7 +40,8 @@ const openEdit = (row) => {
     form.store_id = row.store_id;
     form.name = row.name;
     form.sku = row.sku;
-    form.price = row.price;
+    // GANTI: mengambil dari row.selling_price
+    form.selling_price = row.selling_price; 
     form.stock = row.stock;
     showForm.value = true;
 };
@@ -67,7 +69,7 @@ const submit = () => {
                     <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
                 </select>
 
-                <input v-model="form.price" type="number" step="0.01" placeholder="PRICE" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
+                <input v-model="form.selling_price" type="number" step="0.01" placeholder="PRICE" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
                 <input v-model="form.stock" type="number" placeholder="STOCK" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
             </div>
             <div class="mt-4 flex gap-x-2">
@@ -84,7 +86,7 @@ const submit = () => {
         </div>
 
         <DataTable :resource="products" :columns="columns">
-            <template #price="{ value }">
+            <template #selling_price="{ value }">
                 <span class="font-mono font-bold">{{ value }}</span>
             </template>
             <template #actions="{ row }">

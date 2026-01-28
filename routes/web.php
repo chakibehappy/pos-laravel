@@ -64,9 +64,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/payment-methods', [PaymentMethodController::class, 'store'])->name('payment-methods.store');
     Route::delete('/payment-methods/{id}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
    
-    // Pos Transactions
-    Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
-    Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
-    Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
-
+   // Pos Transactions
+Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
+Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
+Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update'); // TAMBAHKAN INI
+Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 });

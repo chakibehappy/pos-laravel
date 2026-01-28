@@ -15,7 +15,7 @@ class Product extends Model
         'store_id',
         'name',
         'sku',
-        'price',
+        'selling_price',
         'stock',
     ];
 }
