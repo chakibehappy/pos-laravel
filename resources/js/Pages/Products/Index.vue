@@ -10,28 +10,33 @@ const props = defineProps({
 });
 
 const columns = [
+    { label: 'Gambar', key: 'image_url' }, // Kolom Gambar
     { label: 'SKU', key: 'sku' },
     { label: 'Nama', key: 'name' }, 
     { label: 'Toko', key: 'store_name' },
-    { label: 'Modal (Rp)', key: 'buying_price' }, // Kolom Baru
+    { label: 'Modal (Rp)', key: 'buying_price' }, 
     { label: 'Jual (Rp)', key: 'selling_price' }, 
     { label: 'Stok', key: 'stock' }
 ];
 
 const showForm = ref(false);
+const imagePreview = ref(null);
+
 const form = useForm({
     id: null,
     store_id: '',
     name: '',
     sku: '',
-    buying_price: 0,  // Field Baru
+    buying_price: 0,
     selling_price: 0, 
-    stock: 0
+    stock: 0,
+    image: null, // Field baru untuk file
 });
 
 const openCreate = () => {
     form.reset();
     form.id = null;
+    imagePreview.value = null;
     showForm.value = true;
 };
 
@@ -41,17 +46,31 @@ const openEdit = (row) => {
     form.store_id = row.store_id;
     form.name = row.name;
     form.sku = row.sku;
-    form.buying_price = row.buying_price; // Ambil data buying_price
+    form.buying_price = row.buying_price; 
     form.selling_price = row.selling_price; 
     form.stock = row.stock;
+    form.image = null; // Reset input file saat edit
+    imagePreview.value = row.image_url; // Tampilkan gambar yang sudah ada
     showForm.value = true;
 };
 
+const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    form.image = file;
+    if (file) {
+        imagePreview.value = URL.createObjectURL(file);
+    }
+};
+
 const submit = () => {
+    // Karena kita mengupload file, gunakan method POST 
+    // Laravel/Inertia akan menangani _method PUT secara otomatis jika form.id ada (tergantung setup route)
+    // Namun cara paling aman untuk file upload di Laravel adalah POST
     form.post(route('products.store'), {
         onSuccess: () => {
             showForm.value = false;
             form.reset();
+            imagePreview.value = null;
         },
     });
 };
@@ -64,8 +83,19 @@ const submit = () => {
                 {{ form.id ? 'Edit Produk' : 'Tambah Produk' }}
             </h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div class="flex flex-col gap-1">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div class="flex flex-col gap-1 md:row-span-2">
+                    <label class="text-[10px] font-black uppercase text-gray-400">Foto Produk</label>
+                    <div class="border-2 border-black aspect-square flex items-center justify-center overflow-hidden bg-gray-50 relative group">
+                        <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" />
+                        <span v-else class="text-gray-300 font-black text-2xl">NO IMAGE</span>
+                        <input type="file" @change="handleFileChange" class="absolute inset-0 opacity-0 cursor-pointer" />
+                        <div class="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[8px] text-center py-1 opacity-0 group-hover:opacity-100 transition-opacity">KLIK UNTUK GANTI</div>
+                    </div>
+                    <span v-if="form.errors.image" class="text-red-500 text-[10px] font-bold">{{ form.errors.image }}</span>
+                </div>
+
+                <div class="flex flex-col gap-1 md:col-span-2">
                     <label class="text-[10px] font-black uppercase text-gray-400">Nama Produk</label>
                     <input v-model="form.name" type="text" placeholder="NAME" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
                     <span v-if="form.errors.name" class="text-red-500 text-[10px] font-bold">{{ form.errors.name }}</span>
@@ -85,25 +115,20 @@ const submit = () => {
                     </select>
                     <span v-if="form.errors.store_id" class="text-red-500 text-[10px] font-bold">{{ form.errors.store_id }}</span>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-red-500 italic">Harga Beli (Modal)</label>
                     <input v-model="form.buying_price" type="number" step="0.01" class="border-2 border-black p-2 font-bold bg-red-50 focus:bg-white outline-none" />
-                    <span v-if="form.errors.buying_price" class="text-red-500 text-[10px] font-bold">{{ form.errors.buying_price }}</span>
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-blue-600 italic">Harga Jual</label>
                     <input v-model="form.selling_price" type="number" step="0.01" class="border-2 border-black p-2 font-bold bg-blue-50 focus:bg-white outline-none" />
-                    <span v-if="form.errors.selling_price" class="text-red-500 text-[10px] font-bold">{{ form.errors.selling_price }}</span>
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-gray-400">Stok Tersedia</label>
                     <input v-model="form.stock" type="number" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
-                    <span v-if="form.errors.stock" class="text-red-500 text-[10px] font-bold">{{ form.errors.stock }}</span>
                 </div>
             </div>
 
@@ -125,6 +150,13 @@ const submit = () => {
         </div>
 
         <DataTable :resource="products" :columns="columns">
+            <template #image_url="{ value }">
+                <div class="w-10 h-10 border border-black overflow-hidden bg-gray-100">
+                    <img v-if="value" :src="value" class="w-full h-full object-cover" />
+                    <div v-else class="flex items-center justify-center h-full text-[8px] text-gray-400">N/A</div>
+                </div>
+            </template>
+
             <template #buying_price="{ value }">
                 <span class="font-mono text-gray-500 text-sm">
                     {{ Number(value).toLocaleString('id-ID') }}
