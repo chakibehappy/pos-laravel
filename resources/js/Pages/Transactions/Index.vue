@@ -39,7 +39,7 @@ const form = useForm({
 });
 
 const deleteTransaction = (id) => {
-    if (confirm('Hapus transaksi ini?')) {
+    if (confirm('Hapus transaksi ini? Stok akan dikembalikan otomatis.')) {
         router.delete(route('transactions.destroy', id), {
             preserveScroll: true
         });
@@ -52,9 +52,18 @@ const addItem = () => {
         alert("Pilih produk terlebih dahulu!");
         return;
     }
-    const price = Number(product.price || 0);
+
     const qty = Number(qtyInput.value);
     const existingIndex = form.details.findIndex(d => d.product_id === product.id);
+    const currentQtyInCart = existingIndex > -1 ? form.details[existingIndex].quantity : 0;
+
+    // VALIDASI STOK (FRONTEND)
+    if ((currentQtyInCart + qty) > product.stock) {
+        alert(`Stok tidak cukup! Sisa stok ${product.name}: ${product.stock}`);
+        return;
+    }
+
+    const price = Number(product.price || 0);
     
     if (existingIndex > -1) {
         form.details[existingIndex].quantity += qty;
@@ -107,7 +116,6 @@ const openEdit = (row) => {
             product_id: d.product_id,
             name: d.product ? d.product.name : 'Unknown Product',
             price: Number(d.selling_prices), 
-            buying_price: Number(d.buying_prices), // Ikut ambil data buying_prices saat edit
             quantity: Number(d.quantity),
             subtotal: Number(d.subtotal)
         };
@@ -140,7 +148,12 @@ const submit = () => {
             form.reset();
             alert("Berhasil disimpan!");
         },
-        onError: (err) => console.error(err),
+        onError: (errors) => {
+            // Menangkap pesan error dari throw Exception di Controller
+            if (errors.message) {
+                alert("ERROR: " + errors.message);
+            }
+        },
         preserveScroll: true
     });
 };
@@ -156,90 +169,99 @@ const submit = () => {
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div class="flex flex-col gap-2">
                     <label class="font-black text-xs uppercase text-gray-400">Waktu</label>
-                    <input v-model="form.transaction_at" type="datetime-local" class="border-2 border-black p-3 font-bold" />
+                    <input v-model="form.transaction_at" type="datetime-local" class="border-2 border-black p-3 font-bold focus:bg-yellow-50 outline-none" />
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="font-black text-xs uppercase text-gray-400">Toko</label>
-                    <select v-model="form.store_id" class="border-2 border-black p-3 font-bold bg-white">
+                    <select v-model="form.store_id" class="border-2 border-black p-3 font-bold bg-white outline-none">
                         <option value="" disabled>Pilih Toko</option>
                         <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="font-black text-xs uppercase text-gray-400">Staff</label>
-                    <select v-model="form.pos_user_id" class="border-2 border-black p-3 font-bold bg-white">
+                    <select v-model="form.pos_user_id" class="border-2 border-black p-3 font-bold bg-white outline-none">
                         <option value="" disabled>Pilih Staff</option>
                         <option v-for="u in pos_users" :key="u.id" :value="u.id">{{ u.name }}</option>
                     </select>
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="font-black text-xs uppercase text-blue-600 italic">Metode Bayar</label>
-                    <select v-model="form.payment_id" class="border-2 border-black p-3 font-bold bg-yellow-50">
+                    <select v-model="form.payment_id" class="border-2 border-black p-3 font-bold bg-yellow-50 outline-none">
                         <option value="">Pilih Metode</option>
                         <option v-for="m in paymentMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
                     </select>
                 </div>
             </div>
 
-            <div class="mb-6 p-4 bg-gray-50 border-2 border-dashed border-black flex flex-col md:flex-row gap-4">
-                <select v-model="selectedProductId" class="flex-1 border-2 border-black p-2 font-bold">
-                    <option value="" disabled>Pilih Produk</option>
-                    <option v-for="p in products" :key="p.id" :value="p.id">
-                        {{ p.name }} - Rp{{ Number(p.price).toLocaleString('id-ID') }}
-                    </option>
-                </select>
-                <input v-model.number="qtyInput" type="number" min="1" class="w-24 border-2 border-black p-2 font-bold text-center" />
-                <button @click="addItem" type="button" class="bg-blue-500 text-white px-6 py-2 font-black border-2 border-black uppercase hover:bg-blue-600">Tambah</button>
+            <div class="mb-6 p-4 bg-gray-50 border-2 border-dashed border-black flex flex-col md:flex-row gap-4 items-end">
+                <div class="flex-1 flex flex-col gap-1">
+                    <label class="font-black text-[10px] uppercase text-gray-400">Pilih Produk (Sisa Stok Tertera)</label>
+                    <select v-model="selectedProductId" class="w-full border-2 border-black p-2 font-bold outline-none">
+                        <option value="" disabled>Pilih Produk</option>
+                        <option v-for="p in products" :key="p.id" :value="p.id" :disabled="p.stock <= 0">
+                            {{ p.name }} — Rp{{ Number(p.price).toLocaleString('id-ID') }} (Stok: {{ p.stock }})
+                        </option>
+                    </select>
+                </div>
+                <div class="w-24 flex flex-col gap-1">
+                    <label class="font-black text-[10px] uppercase text-gray-400 text-center">Jumlah</label>
+                    <input v-model.number="qtyInput" type="number" min="1" class="w-full border-2 border-black p-2 font-bold text-center outline-none" />
+                </div>
+                <button @click="addItem" type="button" class="bg-blue-500 text-white px-8 py-2 font-black border-2 border-black uppercase hover:bg-blue-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all">Tambah</button>
             </div>
 
             <div class="overflow-x-auto mb-8">
                 <table class="w-full border-collapse border-2 border-black">
                     <thead class="bg-black text-white italic uppercase text-xs">
                         <tr>
-                            <th class="p-3 text-left">Product</th>
+                            <th class="p-3 text-left">Produk</th>
                             <th class="p-3 text-right">Harga</th>
                             <th class="p-3 text-center">Qty</th>
                             <th class="p-3 text-right">Subtotal</th>
-                            <th class="p-3 text-center">Action</th>
+                            <th class="p-3 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="font-bold">
-                        <tr v-for="(item, index) in form.details" :key="index" class="border-b-2 border-black">
+                        <tr v-for="(item, index) in form.details" :key="index" class="border-b-2 border-black hover:bg-gray-50">
                             <td class="p-3 uppercase">{{ item.name }}</td>
-                            <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
+                            <td class="p-3 text-right">Rp{{ Number(item.price).toLocaleString('id-ID') }}</td>
                             <td class="p-3 text-center">{{ item.quantity }}</td>
-                            <td class="p-3 text-right text-blue-600">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
+                            <td class="p-3 text-right text-blue-600">Rp{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
                             <td class="p-3 text-center">
-                                <button @click="removeItem(index)" class="text-red-500 underline uppercase text-xs">Remove</button>
+                                <button @click="removeItem(index)" class="bg-red-100 text-red-600 px-3 py-1 border border-red-600 font-black uppercase text-[10px] hover:bg-red-600 hover:text-white transition-colors">Hapus</button>
                             </td>
+                        </tr>
+                        <tr v-if="form.details.length === 0">
+                            <td colspan="5" class="p-8 text-center text-gray-300 italic uppercase">Keranjang Kosong</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
             <div class="flex flex-col items-end gap-2 mb-8">
-                <div class="text-right font-bold uppercase text-xs text-gray-500">
+                <div class="text-right font-bold uppercase text-xs text-gray-400 space-y-1">
                     <div>Subtotal: Rp {{ Number(form.subtotal).toLocaleString('id-ID') }}</div>
                     <div class="text-red-500 font-black">Pajak (10%): Rp {{ Number(form.tax).toLocaleString('id-ID') }}</div>
                 </div>
-                <div class="text-3xl font-black bg-yellow-300 border-4 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div class="text-3xl font-black bg-yellow-300 border-4 border-black p-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] italic">
                     TOTAL: Rp {{ Number(form.total).toLocaleString('id-ID') }}
                 </div>
             </div>
 
             <div class="flex gap-x-4">
-                <button @click.prevent="submit" :disabled="form.processing" class="bg-black text-white px-8 py-4 font-black uppercase hover:bg-gray-800 disabled:bg-gray-400">
-                    {{ form.processing ? 'Menyimpan...' : 'Simpan Transaksi' }}
+                <button @click.prevent="submit" :disabled="form.processing" class="bg-black text-white px-10 py-4 font-black uppercase hover:bg-gray-800 disabled:bg-gray-400 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none transition-all">
+                    {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
                 </button>
-                <button @click="showForm = false" type="button" class="border-2 border-black px-8 py-4 font-black uppercase hover:bg-gray-100">Batal</button>
+                <button @click="showForm = false" type="button" class="border-2 border-black px-10 py-4 font-black uppercase hover:bg-gray-100 transition-colors">Batal</button>
             </div>
         </div>
 
-        <div v-if="showDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div v-if="showDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div class="bg-white border-4 border-black w-full max-w-4xl overflow-hidden shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
-                <div class="p-4 border-b-4 border-black flex justify-between items-center bg-gray-100">
-                    <h3 class="font-black uppercase italic text-xl">Detail Transaksi</h3>
-                    <button @click="showDetail = false" class="font-black text-2xl hover:text-red-500">×</button>
+                <div class="p-4 border-b-4 border-black flex justify-between items-center bg-yellow-400 font-black uppercase italic">
+                    <span>Detail Transaksi</span>
+                    <button @click="showDetail = false" class="text-2xl hover:scale-125 transition-transform">×</button>
                 </div>
                 <div class="p-6">
                     <table class="w-full border-2 border-black mb-6">
@@ -254,13 +276,9 @@ const submit = () => {
                         <tbody class="font-bold text-sm">
                             <tr v-for="d in selectedTransaction.details" :key="d.id" class="border-b-2 border-black">
                                 <td class="p-2 uppercase">{{ d.product?.name }}</td>
-                                <td class="p-2 text-right text-gray-600">
-                                    Rp {{ Number(d.selling_prices).toLocaleString('id-ID') }}
-                                </td>
+                                <td class="p-2 text-right text-gray-500">Rp{{ Number(d.selling_prices).toLocaleString('id-ID') }}</td>
                                 <td class="p-2 text-center">{{ d.quantity }}</td>
-                                <td class="p-2 text-right text-blue-600 font-black">
-                                    Rp {{ Number(d.subtotal).toLocaleString('id-ID') }}
-                                </td>
+                                <td class="p-2 text-right text-blue-600 font-black">Rp{{ Number(d.subtotal).toLocaleString('id-ID') }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -270,40 +288,45 @@ const submit = () => {
                             <span>Subtotal</span>
                             <span>Rp {{ Number(selectedTransaction.subtotal).toLocaleString('id-ID') }}</span>
                         </div>
-                        <div class="flex justify-between text-red-600">
+                        <div class="flex justify-between text-red-600 font-black">
                             <span>Pajak (10%)</span>
                             <span>Rp {{ Number(selectedTransaction.tax).toLocaleString('id-ID') }}</span>
                         </div>
-                        <div class="flex justify-between items-center font-black text-lg bg-yellow-300 border-t-2 border-black pt-2 mt-2">
+                        <div class="flex justify-between items-center font-black text-xl bg-yellow-300 border-t-2 border-black pt-3 mt-3">
                             <span>Total Akhir</span>
                             <span>Rp {{ Number(selectedTransaction.total).toLocaleString('id-ID') }}</span>
                         </div>
                     </div>
                 </div>
-                <div class="flex border-t-4 border-black">
-                    <button @click="() => { showDetail = false; openEdit(selectedTransaction); }" class="flex-1 p-4 bg-blue-500 text-white font-black uppercase border-r-4 border-black hover:bg-blue-600">Edit</button>
-                    <button @click="showDetail = false" class="flex-1 p-4 bg-red-500 text-white font-black uppercase hover:bg-red-600">Keluar</button>
+                <div class="flex border-t-4 border-black font-black uppercase italic">
+                    <button @click="() => { showDetail = false; openEdit(selectedTransaction); }" class="flex-1 p-4 bg-blue-500 text-white border-r-4 border-black hover:bg-blue-600">Edit Transaksi</button>
+                    <button @click="showDetail = false" class="flex-1 p-4 bg-black text-white hover:bg-gray-800">Tutup</button>
                 </div>
             </div>
         </div>
 
         <div class="mb-6 flex justify-between items-center">
-            <h1 class="text-4xl font-black uppercase italic tracking-tighter">Daftar Transaksi</h1>
-            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-8 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-all">Tambahkan</button>
+            <div>
+                <h1 class="text-5xl font-black uppercase italic tracking-tighter leading-none">Transaksi</h1>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">Log penjualan dan arus kas</p>
+            </div>
+            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-10 py-4 font-black uppercase shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-1.5 active:translate-y-1.5 active:shadow-none">
+                + Baru
+            </button>
         </div>
 
         <DataTable :resource="transactions" :columns="columns">
             <template #payment_name="{ value }">
-                <span class="bg-blue-100 border border-black px-2 py-0.5 text-[10px] font-black uppercase">{{ value || 'Tunai' }}</span>
+                <span class="bg-blue-600 text-white border-2 border-black px-3 py-1 text-[9px] font-black uppercase italic shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{{ value || 'Tunai' }}</span>
             </template>
             <template #total="{ value }">
-                <span class="font-mono font-black text-lg text-green-700">{{ Number(value).toLocaleString('id-ID') }}</span>
+                <span class="font-mono font-black text-xl text-black">Rp{{ Number(value).toLocaleString('id-ID') }}</span>
             </template>
             <template #actions="{ row }">
-                <div class="flex flex-row gap-x-4 justify-end">
-                    <button @click="openDetail(row)" title="Detail">🔎</button>
-                    <button @click="openEdit(row)" title="Edit">✏️</button>
-                    <button @click="deleteTransaction(row.id)" class="text-red-500" title="Hapus">❌</button>
+                <div class="flex flex-row gap-x-5 justify-end items-center">
+                    <button @click="openDetail(row)" title="Detail" class="hover:scale-150 transition-transform">🔎</button>
+                    <button @click="openEdit(row)" title="Edit" class="hover:scale-150 transition-transform">✏️</button>
+                    <button @click="deleteTransaction(row.id)" class="hover:scale-150 transition-transform" title="Hapus">❌</button>
                 </div>
             </template>
         </DataTable>

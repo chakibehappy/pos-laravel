@@ -31,11 +31,8 @@ class TransactionController extends Controller
 
         $transactions->getCollection()->transform(function ($transaction) {
             foreach ($transaction->details as $detail) {
-                // Alias agar Vue tetap menggunakan key 'price' untuk tampilan
                 $detail->price = $detail->selling_prices; 
-                
                 if ($detail->product) {
-                    // Menyinkronkan harga produk di dropdown jika diperlukan
                     $detail->product->price = $detail->product->selling_price;
                 }
             }
@@ -46,8 +43,7 @@ class TransactionController extends Controller
             'transactions' => $transactions,
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
-            // Kirim data product dengan alias price untuk frontend
-            'products' => Product::all(['id', 'name', 'selling_price as price']), 
+            'products' => Product::where('stock', '>', 0)->get(['id', 'name', 'selling_price as price', 'stock']), 
             'paymentMethods' => PaymentMethod::all(['id', 'name']),
         ]);
     }
@@ -61,48 +57,68 @@ class TransactionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id'             => 'nullable',
-            'store_id'       => 'required|exists:stores,id',
-            'pos_user_id'    => 'required|exists:pos_users,id',
-            'payment_id'     => 'required|exists:payment_methods,id',
-            'transaction_at' => 'required',
-            'subtotal'       => 'required|numeric',
-            'tax'            => 'required|numeric',
-            'total'          => 'required|numeric',
-            'details'        => 'required|array|min:1',
+            'id'                   => 'nullable',
+            'store_id'             => 'required|exists:stores,id',
+            'pos_user_id'          => 'required|exists:pos_users,id',
+            'payment_id'           => 'required|exists:payment_methods,id',
+            'transaction_at'       => 'required',
+            'subtotal'             => 'required|numeric',
+            'tax'                  => 'required|numeric',
+            'total'                => 'required|numeric',
+            'details'              => 'required|array|min:1',
             'details.*.product_id' => 'required|exists:products,id',
             'details.*.quantity'   => 'required|numeric|min:1',
             'details.*.price'      => 'required|numeric', 
             'details.*.subtotal'   => 'required|numeric',
         ]);
 
-        DB::transaction(function () use ($request) {
-            $transaction = Transaction::updateOrCreate(
-                ['id' => $request->id],
-                $request->only(['store_id', 'pos_user_id', 'payment_id', 'transaction_at', 'subtotal', 'tax', 'total'])
-            );
+        try {
+            DB::transaction(function () use ($request) {
+                // 1. JIKA EDIT: Kembalikan stok lama sebelum data detail lama dihapus
+                if ($request->id) {
+                    $oldDetails = TransactionDetail::where('transaction_id', $request->id)->get();
+                    foreach ($oldDetails as $oldItem) {
+                        Product::where('id', $oldItem->product_id)->increment('stock', $oldItem->quantity);
+                    }
+                }
 
-            // Hapus detail lama untuk menghindari duplikasi saat Update
-            $transaction->details()->delete();
+                // 2. Simpan atau Perbarui Header Transaksi
+                $transaction = Transaction::updateOrCreate(
+                    ['id' => $request->id],
+                    $request->only(['store_id', 'pos_user_id', 'payment_id', 'transaction_at', 'subtotal', 'tax', 'total'])
+                );
 
-            // Kumpulkan detail dan capture harga modal (buying_price)
-            $details = collect($request->details)->map(function($item) {
-                // Ambil data produk terbaru dari database untuk mendapatkan buying_price
-                $product = Product::find($item['product_id']);
-                
-                return [
-                    'product_id'     => $item['product_id'],
-                    'quantity'       => $item['quantity'],
-                    'buying_prices'  => $product ? $product->buying_price : 0, // Capture modal
-                    'selling_prices' => $item['price'], // Capture harga jual dari form
-                    'subtotal'       => $item['subtotal'],
-                ];
-            })->toArray();
+                // 3. Bersihkan detail lama (untuk case Update)
+                $transaction->details()->delete();
 
-            $transaction->details()->createMany($details);
-        });
+                // 4. Proses detail baru & Potong Stok
+                foreach ($request->details as $item) {
+                    $product = Product::lockForUpdate()->find($item['product_id']);
 
-        return back()->with('message', 'Transaksi berhasil disimpan!');
+                    // Cek apakah stok cukup
+                    if ($product->stock < $item['quantity']) {
+                        throw new \Exception("Stok produk '{$product->name}' tidak mencukupi (Tersisa: {$product->stock})");
+                    }
+
+                    // Buat detail transaksi
+                    $transaction->details()->create([
+                        'product_id'     => $item['product_id'],
+                        'quantity'       => $item['quantity'],
+                        'buying_prices'  => $product->buying_price, 
+                        'selling_prices' => $item['price'],
+                        'subtotal'       => $item['subtotal'],
+                    ]);
+
+                    // Potong stok produk
+                    $product->decrement('stock', $item['quantity']);
+                }
+            });
+
+            return back()->with('message', 'Transaksi berhasil disimpan!');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => $e->getMessage()]);
+        }
     }
 
     public function destroy($id)
@@ -110,10 +126,15 @@ class TransactionController extends Controller
         $transaction = Transaction::findOrFail($id);
         
         DB::transaction(function () use ($transaction) {
+            // Kembalikan stok saat transaksi dihapus
+            foreach ($transaction->details as $detail) {
+                Product::where('id', $detail->product_id)->increment('stock', $detail->quantity);
+            }
+
             $transaction->details()->delete(); 
             $transaction->delete();
         });
 
-        return back()->with('message', 'Transaksi berhasil dihapus!');
+        return back()->with('message', 'Transaksi berhasil dihapus dan stok dikembalikan!');
     }
 }
