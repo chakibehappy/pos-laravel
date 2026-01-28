@@ -200,7 +200,7 @@ const submit = () => {
                     <select v-model="selectedProductId" class="w-full border-2 border-black p-2 font-bold outline-none">
                         <option value="" disabled>Pilih Produk</option>
                         <option v-for="p in products" :key="p.id" :value="p.id" :disabled="p.stock <= 0">
-                            {{ p.name }} — Rp{{ Number(p.price).toLocaleString('id-ID') }} (Stok: {{ p.stock }})
+                            {{ p.name }} — {{ Number(p.price).toLocaleString('id-ID') }} (Stok: {{ p.stock }})
                         </option>
                     </select>
                 </div>
@@ -216,20 +216,20 @@ const submit = () => {
                     <thead class="bg-black text-white italic uppercase text-xs">
                         <tr>
                             <th class="p-3 text-left">Produk</th>
-                            <th class="p-3 text-right">Harga</th>
+                            <th class="p-3 text-right">Harga (Rp)</th>
                             <th class="p-3 text-center">Qty</th>
-                            <th class="p-3 text-right">Subtotal</th>
+                            <th class="p-3 text-right">Subtotal (Rp)</th>
                             <th class="p-3 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="font-bold">
                         <tr v-for="(item, index) in form.details" :key="index" class="border-b-2 border-black hover:bg-gray-50">
                             <td class="p-3 uppercase">{{ item.name }}</td>
-                            <td class="p-3 text-right">Rp{{ Number(item.price).toLocaleString('id-ID') }}</td>
+                            <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
                             <td class="p-3 text-center">{{ item.quantity }}</td>
-                            <td class="p-3 text-right text-blue-600">Rp{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
+                            <td class="p-3 text-right text-blue-600">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
                             <td class="p-3 text-center">
-                                <button @click="removeItem(index)" class="bg-red-100 text-red-600 px-3 py-1 border border-red-600 font-black uppercase text-[10px] hover:bg-red-600 hover:text-white transition-colors">Hapus</button>
+                                <button @click="removeItem(index)" class="bg-red-100 text-red-600 px-3 py-1 border border-red-600 font-black uppercase text-[10px] hover:bg-red-600 hover:text-white transition-colors">❌</button>
                             </td>
                         </tr>
                         <tr v-if="form.details.length === 0">
@@ -268,17 +268,17 @@ const submit = () => {
                         <thead class="bg-black text-white text-[10px] uppercase italic">
                             <tr>
                                 <th class="p-2 text-left">Nama Produk</th>
-                                <th class="p-2 text-right">Harga Jual</th>
+                                <th class="p-2 text-right">Harga Jual (Rp)</th>
                                 <th class="p-2 text-center">Qty</th>
-                                <th class="p-2 text-right">Subtotal</th>
+                                <th class="p-2 text-right">Subtotal (Rp)</th>
                             </tr>
                         </thead>
                         <tbody class="font-bold text-sm">
                             <tr v-for="d in selectedTransaction.details" :key="d.id" class="border-b-2 border-black">
                                 <td class="p-2 uppercase">{{ d.product?.name }}</td>
-                                <td class="p-2 text-right text-gray-500">Rp{{ Number(d.selling_prices).toLocaleString('id-ID') }}</td>
+                                <td class="p-2 text-right text-gray-500">{{ Number(d.selling_prices).toLocaleString('id-ID') }}</td>
                                 <td class="p-2 text-center">{{ d.quantity }}</td>
-                                <td class="p-2 text-right text-blue-600 font-black">Rp{{ Number(d.subtotal).toLocaleString('id-ID') }}</td>
+                                <td class="p-2 text-right text-blue-600 font-black">{{ Number(d.subtotal).toLocaleString('id-ID') }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -311,7 +311,7 @@ const submit = () => {
                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">Log penjualan dan arus kas</p>
             </div>
             <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-10 py-4 font-black uppercase shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-1.5 active:translate-y-1.5 active:shadow-none">
-                + Baru
+                Tambahkan
             </button>
         </div>
 
@@ -320,7 +320,7 @@ const submit = () => {
                 <span class="bg-blue-600 text-white border-2 border-black px-3 py-1 text-[9px] font-black uppercase italic shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{{ value || 'Tunai' }}</span>
             </template>
             <template #total="{ value }">
-                <span class="font-mono font-black text-xl text-black">Rp{{ Number(value).toLocaleString('id-ID') }}</span>
+                <span class="font-mono font-black text-xl text-black">{{ Number(value).toLocaleString('id-ID') }}</span>
             </template>
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-5 justify-end items-center">

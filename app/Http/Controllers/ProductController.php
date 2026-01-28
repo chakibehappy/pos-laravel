@@ -16,6 +16,8 @@ class ProductController extends Controller
             ->latest('products.created_at')
             ->paginate(10);
 
+        
+
         // Menambahkan URL lengkap untuk gambar agar mudah diakses di Vue
         $products->getCollection()->transform(function ($product) {
             $product->image_url = $product->image 
