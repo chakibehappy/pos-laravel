@@ -9,6 +9,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\StoreTypeController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -65,8 +66,14 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/payment-methods/{id}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
    
    // Pos Transactions
-Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
-Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
-Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update'); // TAMBAHKAN INI
-Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
+    Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
+    Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
+    Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update'); // TAMBAHKAN INI
+    Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
+
+        // Pos PaymentMethods
+    Route::get('/store-types', [StoreTypeController::class, 'index'])->name('store-types.index');
+    Route::post('/store-types', [StoreTypeController::class, 'store'])->name('store-types.store');
+    Route::delete('/store-types/{id}', [StoreTypeController::class, 'destroy'])->name('store-types.destroy');
+   
 });

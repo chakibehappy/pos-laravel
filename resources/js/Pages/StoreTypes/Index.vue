@@ -4,21 +4,20 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue'; 
 
 const props = defineProps({
-    methods: Array,
+    types: Array,
 });
 
 const isEditing = ref(false); 
-
 
 const form = useForm({
     id: null, 
     name: '',
 });
 
-const editMethod = (method) => {
+const editType = (type) => {
     isEditing.value = true;
-    form.id = method.id;   
-    form.name = method.name;
+    form.id = type.id;   
+    form.name = type.name;
 };
 
 const cancelEdit = () => {
@@ -27,21 +26,21 @@ const cancelEdit = () => {
 };
 
 const submit = () => {
-
-    form.post(route('payment-methods.store'), {
+   
+    form.post(route('store-types.store'), {
         onSuccess: () => cancelEdit(),
     });
 };
 
-const deleteMethod = (id) => {
-    if (confirm('Apakah Anda yakin ingin menghapus metode ini?')) {
-        form.delete(route('payment-methods.destroy', id));
+const deleteType = (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus  Jenis Usaha ini?')) {
+        form.delete(route('store-types.destroy', id));
     }
 };
 </script>
 
 <template>
-    <Head title="Metode Pembayaran" />
+    <Head title=" Jenis Usaha  " />
 
     <AuthenticatedLayout>
         <div class="py-12">
@@ -51,16 +50,16 @@ const deleteMethod = (id) => {
                     
                     <div class="bg-white border-4 border-black p-6 h-fit shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         <h3 class="text-xl font-black mb-4 uppercase italic">
-                            {{ isEditing ? 'Edit Metode' : 'Tambah Metode' }}
+                            {{ isEditing ? 'Edit  Jenis Usaha' : 'Tambah Jenis Usaha' }}
                         </h3>
                         <form @submit.prevent="submit">
                             <div>
-                                <label class="block font-bold mb-2 uppercase text-sm">Nama Metode</label>
+                                <label class="block font-bold mb-2 uppercase text-sm">Jenis Usaha</label>
                                 <input 
                                     v-model="form.name"
                                     type="text" 
                                     class="w-full border-4 border-black p-3 font-bold focus:ring-0 focus:border-yellow-400 uppercase"
-                                    placeholder="Contoh: QRIS, DEBIT, dll"
+                                    placeholder="Contoh: Konveksi,Konter, dll"
                                     required
                                 />
                                 <div v-if="form.errors.name" class="text-red-600 mt-2 font-bold italic text-xs uppercase">{{ form.errors.name }}</div>
@@ -87,28 +86,28 @@ const deleteMethod = (id) => {
                     </div>
 
                     <div class="md:col-span-2 bg-white border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                        <h3 class="text-xl font-black mb-4 uppercase italic text-left">Daftar Metode Pembayaran</h3>
+                        <h3 class="text-xl font-black mb-4 uppercase italic text-left">Daftar  Jenis Usaha  </h3>
                         <div class="overflow-x-auto">
                             <table class="w-full border-collapse">
                                 <thead>
                                     <tr class="bg-black text-white text-left uppercase text-sm italic">
-                                        <th class="p-4 border-2 border-black">Nama Metode</th>
+                                        <th class="p-4 border-2 border-black">  Jenis Usaha</th>
                                         <th class="p-4 border-2 border-black text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="method in methods" :key="method.id" class="border-b-4 border-black font-bold hover:bg-gray-50 transition-colors">
-                                        <td class="p-4 border-2 border-black uppercase text-lg text-left">{{ method.name }}</td>
+                                    <tr v-for="type in types" :key="type.id" class="border-b-4 border-black font-bold hover:bg-gray-50 transition-colors">
+                                        <td class="p-4 border-2 border-black uppercase text-lg text-left">{{ type.name }}</td>
                                         <td class="p-4 border-2 border-black text-center">
                                             <div class="flex justify-center gap-4">
                                                 <button 
-                                                    @click="editMethod(method)"
+                                                    @click="editType(type)"
                                                     class="font-black uppercase text-xs text-blue-600 decoration-2 hover:bg-blue-600 hover:text-white px-2 py-1 transition-all"
                                                 >
                                                     ✏️
                                                 </button>
                                                 <button 
-                                                    @click="deleteMethod(method.id)"
+                                                    @click="deleteType(type.id)"
                                                     class="font-black uppercase text-xs text-red-500 decoration-2 hover:bg-red-500 hover:text-white px-2 py-1 transition-all"
                                                 >
                                                     ❌
@@ -116,9 +115,9 @@ const deleteMethod = (id) => {
                                             </div>
                                         </td>
                                     </tr>
-                                    <tr v-if="methods.length === 0">
+                                    <tr v-if="types.length === 0">
                                         <td colspan="2" class="p-10 text-center font-bold text-gray-500 uppercase italic">
-                                            Belum ada data metode pembayaran.
+                                            Belum ada data  Jenis Usaha  .
                                         </td>
                                     </tr>
                                 </tbody>

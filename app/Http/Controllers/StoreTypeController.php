@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PaymentMethod;
+use App\Models\StoreType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
-class PaymentMethodController extends Controller
+class StoreTypeController extends Controller
 {
-    
+
     public function index()
     {
-        return Inertia::render('PaymentMethods/Index', [
-            'methods' => PaymentMethod::latest()->get()
+        return Inertia::render('StoreTypes/Index', [
+            'types' => StoreType::latest()->get()
         ]);
     }
 
@@ -22,10 +22,10 @@ class PaymentMethodController extends Controller
         $request->validate([
             'id'   => 'nullable|numeric',
 
-            'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
+            'name' => 'required|string|max:255|unique:store_types,name,' . $request->id,
         ]);
 
-        PaymentMethod::updateOrCreate(
+        StoreType::updateOrCreate(
             ['id' => $request->id],
             ['name' => $request->name]
         );
@@ -36,9 +36,9 @@ class PaymentMethodController extends Controller
 
     public function destroy($id)
     {
-        $method = PaymentMethod::findOrFail($id);
-        $method->delete();
+        $type = StoreType::findOrFail($id);
+        $type->delete();
 
-        return redirect()->back()->with('success', 'Metode pembayaran berhasil dihapus!');
+        return redirect()->back()->with('success', 'Tipe Usaha berhasil dihapus!');
     }
 }
