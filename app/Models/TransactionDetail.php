@@ -10,8 +10,9 @@ class TransactionDetail extends Model
     protected $fillable = [
         'transaction_id',
         'product_id',
-        'quantity',
+        'buying_prices',   // Tambahkan ini
         'selling_prices',
+        'quantity',
         'subtotal'
     ];
 

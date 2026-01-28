@@ -31,10 +31,11 @@ class TransactionController extends Controller
 
         $transactions->getCollection()->transform(function ($transaction) {
             foreach ($transaction->details as $detail) {
-                // Tambahkan alias agar Vue tidak bingung mencari key 'selling_prices'
+                // Alias agar Vue tetap menggunakan key 'price' untuk tampilan
                 $detail->price = $detail->selling_prices; 
                 
                 if ($detail->product) {
+                    // Menyinkronkan harga produk di dropdown jika diperlukan
                     $detail->product->price = $detail->product->selling_price;
                 }
             }
@@ -45,15 +46,14 @@ class TransactionController extends Controller
             'transactions' => $transactions,
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
+            // Kirim data product dengan alias price untuk frontend
             'products' => Product::all(['id', 'name', 'selling_price as price']), 
             'paymentMethods' => PaymentMethod::all(['id', 'name']),
         ]);
     }
 
-    // Fungsi Update Baru
     public function update(Request $request, $id)
     {
-        // Masukkan ID dari URL ke dalam request agar dibaca oleh updateOrCreate di fungsi store
         $request->merge(['id' => $id]);
         return $this->store($request);
     }
@@ -77,22 +77,25 @@ class TransactionController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
-            // updateOrCreate akan mencari berdasarkan ID, jika ada diupdate, jika tidak ada dibuat baru
             $transaction = Transaction::updateOrCreate(
                 ['id' => $request->id],
                 $request->only(['store_id', 'pos_user_id', 'payment_id', 'transaction_at', 'subtotal', 'tax', 'total'])
             );
 
-            // Bersihkan detail lama (penting saat proses Update)
+            // Hapus detail lama untuk menghindari duplikasi saat Update
             $transaction->details()->delete();
 
-            // Simpan detail baru
+            // Kumpulkan detail dan capture harga modal (buying_price)
             $details = collect($request->details)->map(function($item) {
+                // Ambil data produk terbaru dari database untuk mendapatkan buying_price
+                $product = Product::find($item['product_id']);
+                
                 return [
-                    'product_id' => $item['product_id'],
-                    'quantity'   => $item['quantity'],
-                    'selling_prices'      => $item['price'], 
-                    'subtotal'   => $item['subtotal'],
+                    'product_id'     => $item['product_id'],
+                    'quantity'       => $item['quantity'],
+                    'buying_prices'  => $product ? $product->buying_price : 0, // Capture modal
+                    'selling_prices' => $item['price'], // Capture harga jual dari form
+                    'subtotal'       => $item['subtotal'],
                 ];
             })->toArray();
 

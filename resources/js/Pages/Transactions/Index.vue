@@ -52,7 +52,6 @@ const addItem = () => {
         alert("Pilih produk terlebih dahulu!");
         return;
     }
-    // Menggunakan alias .price yang dikirim controller dari selling_price produk
     const price = Number(product.price || 0);
     const qty = Number(qtyInput.value);
     const existingIndex = form.details.findIndex(d => d.product_id === product.id);
@@ -104,11 +103,11 @@ const openEdit = (row) => {
     form.transaction_at = row.transaction_at.replace(' ', 'T').slice(0, 16);
     
     form.details = row.details.map(d => {
-        // Menggunakan selling_prices (dengan 's') sesuai nama baru kolom DB kamu
         return {
             product_id: d.product_id,
             name: d.product ? d.product.name : 'Unknown Product',
             price: Number(d.selling_prices), 
+            buying_price: Number(d.buying_prices), // Ikut ambil data buying_prices saat edit
             quantity: Number(d.quantity),
             subtotal: Number(d.subtotal)
         };
@@ -237,7 +236,7 @@ const submit = () => {
         </div>
 
         <div v-if="showDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div class="bg-white border-4 border-black w-full max-w-3xl overflow-hidden shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+            <div class="bg-white border-4 border-black w-full max-w-4xl overflow-hidden shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
                 <div class="p-4 border-b-4 border-black flex justify-between items-center bg-gray-100">
                     <h3 class="font-black uppercase italic text-xl">Detail Transaksi</h3>
                     <button @click="showDetail = false" class="font-black text-2xl hover:text-red-500">×</button>
@@ -247,7 +246,8 @@ const submit = () => {
                         <thead class="bg-black text-white text-[10px] uppercase italic">
                             <tr>
                                 <th class="p-2 text-left">Nama Produk</th>
-                                <th class="p-2 text-right">Harga Jual</th> <th class="p-2 text-center">Qty</th>
+                                <th class="p-2 text-right">Harga Jual</th>
+                                <th class="p-2 text-center">Qty</th>
                                 <th class="p-2 text-right">Subtotal</th>
                             </tr>
                         </thead>
