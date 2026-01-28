@@ -99,8 +99,8 @@ const resetForm = () => {
                                 </span>
                             </td>
                             <td class="p-3 text-right font-black uppercase text-xs">
-                                <button @click="edit(account)" class="underline mr-4 hover:text-blue-600">Edit</button>
-                                <button @click="destroy(account.id)" class="underline text-red-500 hover:text-red-700">Hapus</button>
+                                <button @click="edit(account)" class=" mr-4 hover:text-blue-600">✏️</button>
+                                <button @click="destroy(account.id)" class=" text-red-500 hover:text-red-700">❌</button>
                             </td>
                         </tr>
                     </tbody>

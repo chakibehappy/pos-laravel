@@ -8,34 +8,30 @@ const props = defineProps({
 });
 
 const isEditing = ref(false); 
-const editId = ref(null);    
 
+// 1. Form sekarang menyertakan ID agar Controller tahu kapan harus Update atau Create
 const form = useForm({
+    id: null, 
     name: '',
 });
 
 const editMethod = (method) => {
     isEditing.value = true;
-    editId.value = method.id;
+    form.id = method.id;   // Masukkan ID data yang akan diedit
     form.name = method.name;
 };
 
 const cancelEdit = () => {
     isEditing.value = false;
-    editId.value = null;
-    form.reset();
+    form.reset(); // reset() otomatis mengembalikan id ke null dan name ke kosong
 };
 
 const submit = () => {
-    if (isEditing.value) {
-        form.put(route('payment-methods.update', editId.value), {
-            onSuccess: () => cancelEdit(),
-        });
-    } else {
-        form.post(route('payment-methods.store'), {
-            onSuccess: () => form.reset(),
-        });
-    }
+    // 2. Gunakan satu jalur POST ke route store (Sistem Satu Pintu)
+    // Cara ini jauh lebih stabil daripada menggunakan PUT/PATCH di Inertia
+    form.post(route('payment-methods.store'), {
+        onSuccess: () => cancelEdit(),
+    });
 };
 
 const deleteMethod = (id) => {
@@ -68,13 +64,13 @@ const deleteMethod = (id) => {
                                     placeholder="Contoh: QRIS, DEBIT, dll"
                                     required
                                 />
-                                <div v-if="form.errors.name" class="text-red-600 mt-2 font-bold italic text-xs">{{ form.errors.name }}</div>
+                                <div v-if="form.errors.name" class="text-red-600 mt-2 font-bold italic text-xs uppercase">{{ form.errors.name }}</div>
                             </div>
 
                             <button 
                                 type="submit" 
                                 :disabled="form.processing"
-                                class="mt-6 w-full border-4 border-black p-3 font-black uppercase transition-all hover:-translate-x-1 hover:-translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-0 active:translate-y-0"
+                                class="mt-6 w-full border-4 border-black p-3 font-black uppercase transition-all hover:-translate-x-1 hover:-translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-0 active:translate-y-0 disabled:bg-gray-400"
                                 :class="isEditing ? 'bg-blue-400 hover:bg-blue-500' : 'bg-yellow-400 hover:bg-yellow-500'"
                             >
                                 {{ isEditing ? 'Update Data' : 'Simpan Data' }}
@@ -86,37 +82,37 @@ const deleteMethod = (id) => {
                                 @click="cancelEdit"
                                 class="mt-4 w-full bg-gray-200 border-4 border-black p-2 font-black uppercase text-xs hover:bg-gray-300 transition-colors"
                             >
-                                Batal
+                                Batal / Tambah Baru
                             </button>
                         </form>
                     </div>
 
                     <div class="md:col-span-2 bg-white border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                        <h3 class="text-xl font-black mb-4 uppercase italic">Daftar Metode Pembayaran</h3>
+                        <h3 class="text-xl font-black mb-4 uppercase italic text-left">Daftar Metode Pembayaran</h3>
                         <div class="overflow-x-auto">
                             <table class="w-full border-collapse">
                                 <thead>
-                                    <tr class="bg-black text-white text-left uppercase text-sm">
+                                    <tr class="bg-black text-white text-left uppercase text-sm italic">
                                         <th class="p-4 border-2 border-black">Nama Metode</th>
                                         <th class="p-4 border-2 border-black text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="method in methods" :key="method.id" class="border-b-4 border-black font-bold hover:bg-gray-50">
-                                        <td class="p-4 border-2 border-black uppercase text-lg">{{ method.name }}</td>
+                                    <tr v-for="method in methods" :key="method.id" class="border-b-4 border-black font-bold hover:bg-gray-50 transition-colors">
+                                        <td class="p-4 border-2 border-black uppercase text-lg text-left">{{ method.name }}</td>
                                         <td class="p-4 border-2 border-black text-center">
-                                            <div class="flex justify-center gap-2">
+                                            <div class="flex justify-center gap-4">
                                                 <button 
                                                     @click="editMethod(method)"
-                                                    class="bg-blue-400 border-2 border-black px-3 py-1 font-black uppercase text-xs hover:bg-blue-500 transition-colors"
+                                                    class="font-black uppercase text-xs text-blue-600 decoration-2 hover:bg-blue-600 hover:text-white px-2 py-1 transition-all"
                                                 >
-                                                    Edit
+                                                    ✏️
                                                 </button>
                                                 <button 
                                                     @click="deleteMethod(method.id)"
-                                                    class="bg-red-500 text-white border-2 border-black px-3 py-1 font-black uppercase text-xs hover:bg-red-700 transition-colors"
+                                                    class="font-black uppercase text-xs text-red-500 decoration-2 hover:bg-red-500 hover:text-white px-2 py-1 transition-all"
                                                 >
-                                                    Hapus
+                                                    ❌
                                                 </button>
                                             </div>
                                         </td>

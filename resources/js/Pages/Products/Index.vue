@@ -13,7 +13,7 @@ const columns = [
     { label: 'SKU', key: 'sku' },
     { label: 'Nama', key: 'name' }, 
     { label: 'Toko', key: 'store_name' },
-    { label: 'Harga', key: 'price' },
+    { label: 'Harga (Rp)', key: 'price' },
     { label: 'Stok', key: 'stock' }
 ];
 
@@ -85,12 +85,12 @@ const submit = () => {
 
         <DataTable :resource="products" :columns="columns">
             <template #price="{ value }">
-                <span class="font-mono font-bold">Rp.{{ value }}</span>
+                <span class="font-mono font-bold">{{ value }}</span>
             </template>
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-[15px] justify-end uppercase text-xs font-black">
-                    <button @click="openEdit(row)" class="underline hover:text-blue-600">Edit</button>
-                    <button @click="$inertia.delete(route('products.destroy', row.id))" class="underline text-red-500">Hapus</button>
+                    <button @click="openEdit(row)" class=" hover:text-blue-600">✏️</button>
+                    <button @click="$inertia.delete(route('products.destroy', row.id))" class=" text-red-500">❌</button>
                 </div>
             </template>
         </DataTable>

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+// Menambahkan router untuk menangani proses delete secara stabil
+import { useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
@@ -17,7 +18,7 @@ const columns = [
     { label: 'Toko', key: 'store_name' }, 
     { label: 'Kasir', key: 'cashier_name' },
     { label: 'Metode', key: 'payment_name' }, 
-    { label: 'Total', key: 'total' }
+    { label: 'Total (Rp)', key: 'total' }
 ];
 
 const showForm = ref(false);
@@ -30,13 +31,22 @@ const form = useForm({
     id: null,
     store_id: '',
     pos_user_id: '',
-    payment_id: '', // Default null/kosong agar kasir memilih
+    payment_id: '', 
     transaction_at: new Date().toISOString().slice(0, 16),
     details: [], 
     subtotal: 0,
     tax: 0,
     total: 0
 });
+
+// Fungsi hapus yang diperbaiki
+const deleteTransaction = (id) => {
+    if (confirm('Hapus transaksi ini?')) {
+        router.delete(route('transactions.destroy', id), {
+            preserveScroll: true
+        });
+    }
+};
 
 const addItem = () => {
     const product = props.products.find(p => p.id === parseInt(selectedProductId.value));
@@ -74,7 +84,7 @@ const calculateAll = () => {
 
 const openCreate = () => {
     form.reset();
-    form.payment_id = ''; // Tetap kosong saat buat baru
+    form.payment_id = ''; 
     form.details = [];
     form.transaction_at = new Date().toISOString().slice(0, 16);
     showForm.value = true;
@@ -85,7 +95,7 @@ const openEdit = (row) => {
     form.id = row.id;
     form.store_id = row.store_id;
     form.pos_user_id = row.pos_user_id;
-    form.payment_id = row.payment_id || ''; // Load null jika tidak ada
+    form.payment_id = row.payment_id || ''; 
     form.transaction_at = row.transaction_at.replace(' ', 'T').slice(0, 16);
     
     form.details = row.details.map(d => ({
@@ -148,10 +158,9 @@ const submit = () => {
                 <div class="flex flex-col gap-2">
                     <label class="font-black text-xs uppercase text-blue-600 italic">Metode Bayar</label>
                     <select v-model="form.payment_id" class="border-2 border-black p-3 font-bold bg-yellow-50 focus:bg-white transition-all">
-                        <option value="">Cash</option>
+                        <option value="">Pilih Metode pembayaran</option>
                         <option v-for="m in paymentMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
                     </select>
-                    <div v-if="form.errors.payment_id" class="text-red-500 font-bold text-[10px] uppercase italic">{{ form.errors.payment_id }}</div>
                 </div>
             </div>
 
@@ -172,18 +181,18 @@ const submit = () => {
                     <thead class="bg-black text-white italic uppercase text-xs">
                         <tr>
                             <th class="p-3 text-left">Product</th>
-                            <th class="p-3 text-right">Harga</th>
+                            <th class="p-3 text-right">Harga (Rp)</th>
                             <th class="p-3 text-center">Qty</th>
-                            <th class="p-3 text-right">Subtotal</th>
+                            <th class="p-3 text-right">Subtotal (Rp)</th>
                             <th class="p-3 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody class="font-bold">
                         <tr v-for="(item, index) in form.details" :key="index" class="border-b-2 border-black hover:bg-gray-50">
                             <td class="p-3 uppercase">{{ item.name }}</td>
-                            <td class="p-3 text-right">Rp {{ Number(item.price).toLocaleString() }}</td>
+                            <td class="p-3 text-right">{{ Number(item.price).toLocaleString() }}</td>
                             <td class="p-3 text-center">{{ item.quantity }}</td>
-                            <td class="p-3 text-right text-blue-600">Rp {{ Number(item.subtotal).toLocaleString() }}</td>
+                            <td class="p-3 text-right text-blue-600">{{ Number(item.subtotal).toLocaleString() }}</td>
                             <td class="p-3 text-center">
                                 <button @click="removeItem(index)" class="text-red-500 underline hover:font-black px-2 uppercase text-xs">Remove</button>
                             </td>
@@ -266,15 +275,15 @@ const submit = () => {
             
             <template #total="{ value }">
                 <span class="font-mono font-black text-lg text-green-700">
-                    Rp {{ Number(value).toLocaleString('id-ID') }}
+                    {{ Number(value).toLocaleString('id-ID') }}
                 </span>
             </template>
             
             <template #actions="{ row }">
-                <div class="flex flex-row gap-x-4 justify-end font-black text-xs uppercase italic text-gray-600">
-                    <button @click="openDetail(row)" class="underline decoration-2 text-blue-600 hover:text-blue-800">Detail</button>
-                    <button @click="openEdit(row)" class="underline decoration-2 hover:bg-black hover:text-white px-1">Edit</button>
-                    <button @click="$inertia.delete(route('transactions.destroy', row.id), { onBefore: () => confirm('Hapus transaksi ini?') })" class="underline text-red-500 decoration-2">Hapus</button>
+                <div class="flex flex-row gap-x-4 justify-end font-black text-xs uppercase text-gray-600">
+                    <button @click="openDetail(row)" class="decoration-2 hover:bg-black hover:text-white px-1">🔎</button>
+                    <button @click="openEdit(row)" class="decoration-2 hover:bg-black hover:text-white px-1">✏️</button>
+                    <button @click="deleteTransaction(row.id)" class="decoration-2 hover:bg-red-500 hover:text-white px-1 text-red-500">❌</button>
                 </div>
             </template>
         </DataTable>

@@ -13,45 +13,30 @@ class PaymentMethodController extends Controller
      */
     public function index()
     {
-        $methods = PaymentMethod::latest()->get();
-        
         return Inertia::render('PaymentMethods/Index', [
-            'methods' => $methods
+            'methods' => PaymentMethod::latest()->get()
         ]);
     }
 
     /**
-     * Menyimpan metode pembayaran baru
+     * Menyimpan atau Memperbarui metode pembayaran (Satu Pintu)
      */
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:payment_methods,name',
+            'id'   => 'nullable|numeric',
+            // Validasi unik, namun abaikan pengecekan jika ID cocok (saat edit)
+            'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
         ]);
 
-        PaymentMethod::create([
-            'name' => $request->name
-        ]);
+        // Jika request memiliki ID, Laravel akan melakukan UPDATE.
+        // Jika ID adalah null/tidak ada, Laravel akan melakukan CREATE.
+        PaymentMethod::updateOrCreate(
+            ['id' => $request->id],
+            ['name' => $request->name]
+        );
 
-        return redirect()->back()->with('success', 'Metode pembayaran berhasil ditambahkan!');
-    }
-
-    /**
-     * Memperbarui metode pembayaran
-     */
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            // Validasi unique kecuali untuk ID yang sedang diedit
-            'name' => 'required|string|max:255|unique:payment_methods,name,' . $id,
-        ]);
-
-        $method = PaymentMethod::findOrFail($id);
-        $method->update([
-            'name' => $request->name
-        ]);
-
-        return redirect()->back()->with('success', 'Metode pembayaran berhasil diperbarui!');
+        return redirect()->back()->with('success', 'Data berhasil diproses!');
     }
 
     /**

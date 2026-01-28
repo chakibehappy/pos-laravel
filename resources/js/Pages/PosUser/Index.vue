@@ -109,8 +109,8 @@ const destroy = (id) => {
         <DataTable :resource="staff" :columns="columns">
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-[15px] justify-end uppercase text-xs">
-                    <button @click="openEdit(row)" class="font-black underline hover:text-blue-600">Edit</button>
-                    <button @click="destroy(row.id)" class="font-black underline text-red-500 hover:text-red-700">Hapus</button>
+                    <button @click="openEdit(row)" class="font-black hover:text-blue-600">✏️</button>
+                    <button @click="destroy(row.id)" class="font-black text-red-500 hover:text-red-700">❌</button>
                 </div>
             </template>
         </DataTable>
