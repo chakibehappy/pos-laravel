@@ -31,6 +31,9 @@ class TransactionController extends Controller
 
         $transactions->getCollection()->transform(function ($transaction) {
             foreach ($transaction->details as $detail) {
+                // Tambahkan alias agar Vue tidak bingung mencari key 'selling_prices'
+                $detail->price = $detail->selling_prices; 
+                
                 if ($detail->product) {
                     $detail->product->price = $detail->product->selling_price;
                 }
@@ -88,7 +91,7 @@ class TransactionController extends Controller
                 return [
                     'product_id' => $item['product_id'],
                     'quantity'   => $item['quantity'],
-                    'price'      => $item['price'], 
+                    'selling_prices'      => $item['price'], 
                     'subtotal'   => $item['subtotal'],
                 ];
             })->toArray();

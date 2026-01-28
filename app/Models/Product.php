@@ -15,6 +15,7 @@ class Product extends Model
         'store_id',
         'name',
         'sku',
+        'buying_price',
         'selling_price',
         'stock',
     ];

@@ -52,7 +52,8 @@ const addItem = () => {
         alert("Pilih produk terlebih dahulu!");
         return;
     }
-    const price = Number(product.price || product.selling_price || 0);
+    // Menggunakan alias .price yang dikirim controller dari selling_price produk
+    const price = Number(product.price || 0);
     const qty = Number(qtyInput.value);
     const existingIndex = form.details.findIndex(d => d.product_id === product.id);
     
@@ -80,7 +81,7 @@ const removeItem = (index) => {
 
 const calculateAll = () => {
     form.subtotal = form.details.reduce((acc, item) => acc + Number(item.subtotal), 0);
-    form.tax = form.subtotal * 0.1; // Pajak 10%
+    form.tax = form.subtotal * 0.1;
     form.total = form.subtotal + form.tax;
 };
 
@@ -103,13 +104,11 @@ const openEdit = (row) => {
     form.transaction_at = row.transaction_at.replace(' ', 'T').slice(0, 16);
     
     form.details = row.details.map(d => {
-        const calculatedPrice = d.quantity > 0 ? (Number(d.subtotal) / Number(d.quantity)) : 0;
-        const itemPrice = Number(d.price) > 0 ? Number(d.price) : (calculatedPrice || Number(d.product?.selling_price) || 0);
-        
+        // Menggunakan selling_prices (dengan 's') sesuai nama baru kolom DB kamu
         return {
             product_id: d.product_id,
             name: d.product ? d.product.name : 'Unknown Product',
-            price: itemPrice,
+            price: Number(d.selling_prices), 
             quantity: Number(d.quantity),
             subtotal: Number(d.subtotal)
         };
@@ -142,9 +141,7 @@ const submit = () => {
             form.reset();
             alert("Berhasil disimpan!");
         },
-        onError: (err) => {
-            console.error(err);
-        },
+        onError: (err) => console.error(err),
         preserveScroll: true
     });
 };
@@ -185,19 +182,15 @@ const submit = () => {
                 </div>
             </div>
 
-            <div class="mb-6 p-4 bg-gray-50 border-2 border-dashed border-black">
-                <div class="flex flex-col md:flex-row gap-4">
-                    <select v-model="selectedProductId" class="flex-1 border-2 border-black p-2 font-bold">
-                        <option value="" disabled>Pilih Produk</option>
-                        <option v-for="p in products" :key="p.id" :value="p.id">
-                            {{ p.name }} - Rp{{ Number(p.price).toLocaleString('id-ID') }}
-                        </option>
-                    </select>
-                    <input v-model.number="qtyInput" type="number" min="1" class="w-24 border-2 border-black p-2 font-bold text-center" />
-                    <button @click="addItem" type="button" class="bg-blue-500 text-white px-6 py-2 font-black border-2 border-black uppercase hover:bg-blue-600">
-                        Tambah
-                    </button>
-                </div>
+            <div class="mb-6 p-4 bg-gray-50 border-2 border-dashed border-black flex flex-col md:flex-row gap-4">
+                <select v-model="selectedProductId" class="flex-1 border-2 border-black p-2 font-bold">
+                    <option value="" disabled>Pilih Produk</option>
+                    <option v-for="p in products" :key="p.id" :value="p.id">
+                        {{ p.name }} - Rp{{ Number(p.price).toLocaleString('id-ID') }}
+                    </option>
+                </select>
+                <input v-model.number="qtyInput" type="number" min="1" class="w-24 border-2 border-black p-2 font-bold text-center" />
+                <button @click="addItem" type="button" class="bg-blue-500 text-white px-6 py-2 font-black border-2 border-black uppercase hover:bg-blue-600">Tambah</button>
             </div>
 
             <div class="overflow-x-auto mb-8">
@@ -226,7 +219,7 @@ const submit = () => {
             </div>
 
             <div class="flex flex-col items-end gap-2 mb-8">
-                <div class="flex flex-col gap-1 text-right font-bold uppercase text-xs text-gray-500">
+                <div class="text-right font-bold uppercase text-xs text-gray-500">
                     <div>Subtotal: Rp {{ Number(form.subtotal).toLocaleString('id-ID') }}</div>
                     <div class="text-red-500 font-black">Pajak (10%): Rp {{ Number(form.tax).toLocaleString('id-ID') }}</div>
                 </div>
@@ -239,14 +232,12 @@ const submit = () => {
                 <button @click.prevent="submit" :disabled="form.processing" class="bg-black text-white px-8 py-4 font-black uppercase hover:bg-gray-800 disabled:bg-gray-400">
                     {{ form.processing ? 'Menyimpan...' : 'Simpan Transaksi' }}
                 </button>
-                <button @click="showForm = false" type="button" class="border-2 border-black px-8 py-4 font-black uppercase hover:bg-gray-100">
-                    Batal
-                </button>
+                <button @click="showForm = false" type="button" class="border-2 border-black px-8 py-4 font-black uppercase hover:bg-gray-100">Batal</button>
             </div>
         </div>
 
         <div v-if="showDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div class="bg-white border-4 border-black w-full max-w-2xl overflow-hidden shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+            <div class="bg-white border-4 border-black w-full max-w-3xl overflow-hidden shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
                 <div class="p-4 border-b-4 border-black flex justify-between items-center bg-gray-100">
                     <h3 class="font-black uppercase italic text-xl">Detail Transaksi</h3>
                     <button @click="showDetail = false" class="font-black text-2xl hover:text-red-500">×</button>
@@ -256,15 +247,20 @@ const submit = () => {
                         <thead class="bg-black text-white text-[10px] uppercase italic">
                             <tr>
                                 <th class="p-2 text-left">Nama Produk</th>
-                                <th class="p-2 text-center">Qty</th>
+                                <th class="p-2 text-right">Harga Jual</th> <th class="p-2 text-center">Qty</th>
                                 <th class="p-2 text-right">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody class="font-bold text-sm">
                             <tr v-for="d in selectedTransaction.details" :key="d.id" class="border-b-2 border-black">
                                 <td class="p-2 uppercase">{{ d.product?.name }}</td>
+                                <td class="p-2 text-right text-gray-600">
+                                    Rp {{ Number(d.selling_prices).toLocaleString('id-ID') }}
+                                </td>
                                 <td class="p-2 text-center">{{ d.quantity }}</td>
-                                <td class="p-2 text-right">Rp {{ Number(d.subtotal).toLocaleString('id-ID') }}</td>
+                                <td class="p-2 text-right text-blue-600 font-black">
+                                    Rp {{ Number(d.subtotal).toLocaleString('id-ID') }}
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -285,33 +281,23 @@ const submit = () => {
                     </div>
                 </div>
                 <div class="flex border-t-4 border-black">
-                    <button @click="() => { showDetail = false; openEdit(selectedTransaction); }" class="flex-1 p-4 bg-blue-500 text-white font-black uppercase border-r-4 border-black hover:bg-blue-600">
-                        Edit
-                    </button>
-                    <button @click="showDetail = false" class="flex-1 p-4 bg-red-500 text-white font-black uppercase hover:bg-red-600">
-                        Keluar
-                    </button>
+                    <button @click="() => { showDetail = false; openEdit(selectedTransaction); }" class="flex-1 p-4 bg-blue-500 text-white font-black uppercase border-r-4 border-black hover:bg-blue-600">Edit</button>
+                    <button @click="showDetail = false" class="flex-1 p-4 bg-red-500 text-white font-black uppercase hover:bg-red-600">Keluar</button>
                 </div>
             </div>
         </div>
 
         <div class="mb-6 flex justify-between items-center">
             <h1 class="text-4xl font-black uppercase italic tracking-tighter">Daftar Transaksi</h1>
-            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-8 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-all">
-                Tambahkan
-            </button>
+            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-8 py-3 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-all">Tambahkan</button>
         </div>
 
         <DataTable :resource="transactions" :columns="columns">
             <template #payment_name="{ value }">
-                <span class="bg-blue-100 border border-black px-2 py-0.5 text-[10px] font-black uppercase">
-                    {{ value || 'Tunai' }}
-                </span>
+                <span class="bg-blue-100 border border-black px-2 py-0.5 text-[10px] font-black uppercase">{{ value || 'Tunai' }}</span>
             </template>
             <template #total="{ value }">
-                <span class="font-mono font-black text-lg text-green-700">
-                    {{ Number(value).toLocaleString('id-ID') }}
-                </span>
+                <span class="font-mono font-black text-lg text-green-700">{{ Number(value).toLocaleString('id-ID') }}</span>
             </template>
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-4 justify-end">

@@ -25,6 +25,7 @@ class ProductController extends Controller
             'store_id' => 'required|exists:stores,id',
             'name'     => 'required|string|max:150',
             'sku'      => 'nullable|string|max:50',
+            'buying_price'  => 'required|numeric|min:0',
             'selling_price'    => 'required|numeric|min:0',
             'stock'    => 'required|integer',
         ]);
