@@ -7,16 +7,15 @@ const props = defineProps({
     units: Array
 });
 
-// State untuk Form Toggle
+
 const showForm = ref(false);
 
-// Inisialisasi Form menggunakan Inertia useForm
+
 const form = useForm({
     id: null,
     name: ''
 });
 
-// Fungsi buka form untuk Tambah
 const openCreate = () => {
     form.reset();
     form.clearErrors();
@@ -24,7 +23,7 @@ const openCreate = () => {
     showForm.value = true;
 };
 
-// Fungsi buka form untuk Edit
+
 const openEdit = (item) => {
     form.clearErrors();
     form.id = item.id;
@@ -32,7 +31,6 @@ const openEdit = (item) => {
     showForm.value = true;
 };
 
-// Eksekusi Simpan (Tambah/Edit)
 const submit = () => {
     form.post(route('unit-types.store'), {
         onSuccess: () => {
@@ -42,7 +40,7 @@ const submit = () => {
     });
 };
 
-// Eksekusi Hapus
+
 const deleteunit = (id) => {
     if (confirm('Hapus Satuan ini? Semua produk terkait mungkin akan kehilangan Satuannya.')) {
         form.delete(route('unit-types.destroy', id));

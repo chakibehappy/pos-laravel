@@ -4,7 +4,7 @@ import { useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
-// 1. Receive the dropdown data from the backend
+
 const props = defineProps({ 
     stores: Object,
     store_types: Array 
@@ -12,7 +12,7 @@ const props = defineProps({
 
 const columns = [
     { label: 'Nama', key: 'name' }, 
-    { label: 'Jenis', key: 'type_name' }, // Dot-walk to the name
+    { label: 'Jenis', key: 'type_name' }, 
     { label: 'Alamat', key: 'address' }
 ];
 
