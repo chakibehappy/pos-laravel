@@ -6,17 +6,21 @@ import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({ 
     products: Object, 
-    stores: Array 
+    stores: Array,
+    categories: Array,
+    unitTypes: Array // Data satuan dari controller
 });
 
 const columns = [
-    { label: 'Gambar', key: 'image_url' }, // Kolom Gambar
+    { label: 'Gambar', key: 'image_url' },
     { label: 'SKU', key: 'sku' },
     { label: 'Nama', key: 'name' }, 
+    { label: 'Kategori', key: 'category_name' },
     { label: 'Toko', key: 'store_name' },
     { label: 'Modal (Rp)', key: 'buying_price' }, 
     { label: 'Jual (Rp)', key: 'selling_price' }, 
-    { label: 'Stok', key: 'stock' }
+    { label: 'Stok', key: 'stock' },
+    { label: 'Satuan', key: 'unit_name' } // Kolom baru setelah stok
 ];
 
 const showForm = ref(false);
@@ -25,17 +29,20 @@ const imagePreview = ref(null);
 const form = useForm({
     id: null,
     store_id: '',
+    product_category_id: '',
+    unit_type_id: 1, // Default set ke ID 1
     name: '',
     sku: '',
     buying_price: 0,
     selling_price: 0, 
     stock: 0,
-    image: null, // Field baru untuk file
+    image: null,
 });
 
 const openCreate = () => {
     form.reset();
     form.id = null;
+    form.unit_type_id = 1; // Pastikan default 1 saat buka form baru
     imagePreview.value = null;
     showForm.value = true;
 };
@@ -44,13 +51,15 @@ const openEdit = (row) => {
     form.clearErrors();
     form.id = row.id;
     form.store_id = row.store_id;
+    form.product_category_id = row.product_category_id;
+    form.unit_type_id = row.unit_type_id; // Set sesuai data saat edit
     form.name = row.name;
     form.sku = row.sku;
     form.buying_price = row.buying_price; 
     form.selling_price = row.selling_price; 
     form.stock = row.stock;
-    form.image = null; // Reset input file saat edit
-    imagePreview.value = row.image_url; // Tampilkan gambar yang sudah ada
+    form.image = null;
+    imagePreview.value = row.image_url;
     showForm.value = true;
 };
 
@@ -63,9 +72,6 @@ const handleFileChange = (e) => {
 };
 
 const submit = () => {
-    // Karena kita mengupload file, gunakan method POST 
-    // Laravel/Inertia akan menangani _method PUT secara otomatis jika form.id ada (tergantung setup route)
-    // Namun cara paling aman untuk file upload di Laravel adalah POST
     form.post(route('products.store'), {
         onSuccess: () => {
             showForm.value = false;
@@ -90,89 +96,101 @@ const submit = () => {
                         <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" />
                         <span v-else class="text-gray-300 font-black text-2xl">NO IMAGE</span>
                         <input type="file" @change="handleFileChange" class="absolute inset-0 opacity-0 cursor-pointer" />
-                        <div class="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[8px] text-center py-1 opacity-0 group-hover:opacity-100 transition-opacity">KLIK UNTUK GANTI</div>
                     </div>
-                    <span v-if="form.errors.image" class="text-red-500 text-[10px] font-bold">{{ form.errors.image }}</span>
                 </div>
 
                 <div class="flex flex-col gap-1 md:col-span-2">
                     <label class="text-[10px] font-black uppercase text-gray-400">Nama Produk</label>
-                    <input v-model="form.name" type="text" placeholder="NAME" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
-                    <span v-if="form.errors.name" class="text-red-500 text-[10px] font-bold">{{ form.errors.name }}</span>
+                    <input v-model="form.name" type="text" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none uppercase" />
                 </div>
                 
                 <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-gray-400">SKU / Kode</label>
-                    <input v-model="form.sku" type="text" placeholder="SKU" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
-                    <span v-if="form.errors.sku" class="text-red-500 text-[10px] font-bold">{{ form.errors.sku }}</span>
+                    <input v-model="form.sku" type="text" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none uppercase" />
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-gray-400">Toko</label>
                     <select v-model="form.store_id" class="border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none">
-                        <option value="" disabled>SELECT STORE</option>
+                        <option value="" disabled>PILIH TOKO</option>
                         <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
-                    <span v-if="form.errors.store_id" class="text-red-500 text-[10px] font-bold">{{ form.errors.store_id }}</span>
                 </div>
 
                 <div class="flex flex-col gap-1">
-                    <label class="text-[10px] font-black uppercase text-red-500 italic">Harga Beli (Modal)</label>
-                    <input v-model="form.buying_price" type="number" step="0.01" class="border-2 border-black p-2 font-bold bg-red-50 focus:bg-white outline-none" />
+                    <label class="text-[10px] font-black uppercase text-gray-400 text-yellow-600">Kategori</label>
+                    <select v-model="form.product_category_id" class="border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none">
+                        <option value="" disabled>PILIH KATEGORI</option>
+                        <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-black uppercase text-red-500 italic">Harga Modal</label>
+                    <input v-model="form.buying_price" type="number" class="border-2 border-black p-2 font-bold bg-red-50 outline-none" />
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-blue-600 italic">Harga Jual</label>
-                    <input v-model="form.selling_price" type="number" step="0.01" class="border-2 border-black p-2 font-bold bg-blue-50 focus:bg-white outline-none" />
+                    <input v-model="form.selling_price" type="number" class="border-2 border-black p-2 font-bold bg-blue-50 outline-none" />
                 </div>
 
                 <div class="flex flex-col gap-1">
-                    <label class="text-[10px] font-black uppercase text-gray-400">Stok Tersedia</label>
+                    <label class="text-[10px] font-black uppercase text-gray-400">Stok</label>
                     <input v-model="form.stock" type="number" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-black uppercase text-green-600">Satuan</label>
+                    <select v-model="form.unit_type_id" class="border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none">
+                        <option v-for="u in unitTypes" :key="u.id" :value="u.id">{{ u.name }}</option>
+                    </select>
                 </div>
             </div>
 
             <div class="mt-6 flex gap-x-2">
-                <button @click="submit" :disabled="form.processing" class="bg-black text-white px-8 py-2 font-bold uppercase hover:bg-gray-800 disabled:bg-gray-400">
-                    {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
+                <button @click="submit" :disabled="form.processing" class="bg-black text-white px-8 py-2 font-bold uppercase">
+                    {{ form.processing ? 'Menyimpan...' : 'Simpan Produk' }}
                 </button>
-                <button @click="showForm = false" class="border-2 border-black px-8 py-2 font-bold uppercase hover:bg-gray-100">
-                    Batalkan
-                </button>
+                <button @click="showForm = false" class="border-2 border-black px-8 py-2 font-bold uppercase hover:bg-gray-100">Batalkan</button>
             </div>
         </div>
 
         <div class="mb-4 flex justify-between items-end">
-            <h1 class="text-2xl font-black uppercase tracking-tighter italic">Daftar Produk</h1>
-            <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)] transition-all active:shadow-none">
-                Tambahkan
-            </button>
+            <div>
+                <h1 class="text-2xl font-black uppercase tracking-tighter italic">Daftar Produk</h1>
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Manajemen stok & inventaris</p>
+            </div>
+            <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">+ Tambah Produk</button>
         </div>
 
         <DataTable :resource="products" :columns="columns">
             <template #image_url="{ value }">
                 <div class="w-10 h-10 border border-black overflow-hidden bg-gray-100">
                     <img v-if="value" :src="value" class="w-full h-full object-cover" />
-                    <div v-else class="flex items-center justify-center h-full text-[8px] text-gray-400">N/A</div>
+                    <div v-else class="flex items-center justify-center h-full text-[8px] text-gray-400 font-bold">N/A</div>
                 </div>
             </template>
 
-            <template #buying_price="{ value }">
-                <span class="font-mono text-gray-500 text-sm">
-                    {{ Number(value).toLocaleString('id-ID') }}
-                </span>
+            <template #category_name="{ value }">
+                <span class="px-2 py-1 border border-black bg-yellow-100 text-[10px] font-black uppercase italic">{{ value }}</span>
             </template>
 
-            <template #selling_price="{ value }">
-                <span class="font-mono font-black text-blue-700">
-                    {{ Number(value).toLocaleString('id-ID') }}
-                </span>
+            <template #stock="{ value }">
+                <span class="font-bold" :class="value <= 5 ? 'text-red-500' : ''">{{ value }}</span>
             </template>
+
+            <template #unit_name="{ value }">
+                <span class="px-2 py-1 border border-black bg-green-50 text-[10px] font-black uppercase">{{ value }}</span>
+            </template>
+
+            <template #buying_price="{ value }">{{ Number(value).toLocaleString('id-ID') }}</template>
+            <template #selling_price="{ value }">{{ Number(value).toLocaleString('id-ID') }}</template>
 
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-[15px] justify-end uppercase text-xs font-black">
-                    <button @click="openEdit(row)" title="Edit" class="hover:scale-125 transition-transform">✏️</button>
-                    <button @click="$inertia.delete(route('products.destroy', row.id))" title="Hapus" class="hover:scale-125 transition-transform text-red-500">❌</button>
+                    <button @click="openEdit(row)" title="Edit">✏️</button>
+                    <button @click="$inertia.delete(route('products.destroy', row.id))" title="Hapus" class="text-red-500">❌</button>
                 </div>
             </template>
         </DataTable>

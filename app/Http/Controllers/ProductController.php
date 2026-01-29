@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\ProductCategory;
+use App\Models\UnitType; // 1. Tambahkan import Model UnitType
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -11,51 +13,70 @@ use Inertia\Inertia;
 class ProductController extends Controller
 {
     public function index() {
-        $products = Product::join('stores', 'products.store_id', '=', 'stores.id')
-            ->select('products.*', 'stores.name as store_name')
-            ->latest('products.created_at')
+        // 2. Tambahkan 'unitType' ke dalam relasi with
+        $products = Product::with(['category', 'store', 'unitType'])
+            ->latest()
             ->paginate(10);
 
-        
-
-        // Menambahkan URL lengkap untuk gambar agar mudah diakses di Vue
         $products->getCollection()->transform(function ($product) {
-            $product->image_url = $product->image 
-                ? asset('storage/' . $product->image) 
-                : null;
-            return $product;
+            return [
+                'id' => $product->id,
+                'store_id' => $product->store_id,
+                'store_name' => $product->store->name ?? 'N/A',
+                'product_category_id' => $product->product_category_id,
+                'category_name' => $product->category->name ?? 'Umum',
+                'unit_type_id' => $product->unit_type_id, // 3. Tambahkan ID satuan
+                'unit_name' => $product->unitType->name ?? '-', // 4. Tambahkan Nama satuan
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'buying_price' => $product->buying_price,
+                'selling_price' => $product->selling_price,
+                'stock' => $product->stock,
+                'image' => $product->image,
+                'image_url' => $product->image ? asset('storage/' . $product->image) : null,
+            ];
         });
 
         return Inertia::render('Products/Index', [
             'products' => $products,
             'stores' => Store::all(['id', 'name']),
+            'categories' => ProductCategory::all(['id', 'name']),
+            'unitTypes' => UnitType::all(['id', 'name']), // 5. Kirim data satuan ke dropdown
         ]);
     }
 
     public function store(Request $request) {
         $request->validate([
-            'id'            => 'nullable|numeric',
-            'store_id'      => 'required|exists:stores,id',
-            'name'          => 'required|string|max:150',
-            'sku'           => 'nullable|string|max:50',
-            'buying_price'  => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0',
-            'stock'         => 'required|integer',
-            'image'         => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // Validasi file gambar
+            'id'                  => 'nullable|numeric',
+            'store_id'            => 'required|exists:stores,id',
+            'product_category_id' => 'required|exists:product_categories,id',
+            'unit_type_id'        => 'required|exists:unit_types,id', // 6. Tambahkan validasi satuan
+            'name'                => 'required|string|max:150',
+            'sku'                 => 'nullable|string|max:50',
+            'buying_price'        => 'required|numeric|min:0',
+            'selling_price'       => 'required|numeric|min:0',
+            'stock'               => 'required|integer',
+            'image'               => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $data = $request->only(['store_id', 'name', 'sku', 'buying_price', 'selling_price', 'stock']);
+        // 7. Masukkan unit_type_id ke array data
+        $data = $request->only([
+            'store_id', 
+            'product_category_id', 
+            'unit_type_id', // Pastikan masuk ke array
+            'name', 
+            'sku', 
+            'buying_price', 
+            'selling_price', 
+            'stock'
+        ]);
 
-        // Cari data produk jika ini adalah proses update
         $product = $request->id ? Product::find($request->id) : null;
 
         if ($request->hasFile('image')) {
-            // 1. Hapus gambar lama jika ada file baru yang diupload
             if ($product && $product->image) {
                 Storage::disk('public')->delete($product->image);
             }
-            
-            // 2. Simpan gambar baru ke folder 'products' di disk 'public'
             $path = $request->file('image')->store('products', 'public');
             $data['image'] = $path;
         }
@@ -68,7 +89,6 @@ class ProductController extends Controller
     public function destroy($id) {
         $product = Product::findOrFail($id);
         
-        // Hapus file gambar dari storage sebelum menghapus data di database
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
