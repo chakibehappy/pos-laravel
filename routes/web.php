@@ -10,6 +10,8 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\StoreTypeController;
+use App\Http\Controllers\ProductCategoryController; // TAMBAHKAN INI
+use App\Http\Controllers\UnitTypeController;        // TAMBAHKAN INI
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -50,30 +52,39 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/pos_users', [PosUserController::class, 'store'])->name('pos_users.store');
     Route::delete('/pos_users/{id}', [PosUserController::class, 'destroy'])->name('pos_users.destroy');
 
-      // Pos Product
+    // Pos Product
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
     Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+    // Product Categories (Kategori)
+    Route::get('/product-categories', [ProductCategoryController::class, 'index'])->name('product-categories.index');
+    Route::post('/product-categories', [ProductCategoryController::class, 'store'])->name('product-categories.store');
+    Route::delete('/product-categories/{id}', [ProductCategoryController::class, 'destroy'])->name('product-categories.destroy');
+
+    // Unit Types (Satuan)
+    Route::get('/unit-types', [UnitTypeController::class, 'index'])->name('unit-types.index');
+    Route::post('/unit-types', [UnitTypeController::class, 'store'])->name('unit-types.store');
+    Route::delete('/unit-types/{id}', [UnitTypeController::class, 'destroy'])->name('unit-types.destroy');
 
     // Pos Account
     Route::get('/account', [AccountController::class, 'index'])->name('accounts.index');
     Route::post('/account', [AccountController::class, 'store'])->name('accounts.store');
     Route::delete('/account/{id}', [AccountController::class, 'destroy'])->name('accounts.destroy');
-   
+    
     // Pos PaymentMethods
     Route::get('/payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
     Route::post('/payment-methods', [PaymentMethodController::class, 'store'])->name('payment-methods.store');
     Route::delete('/payment-methods/{id}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
-   
-   // Pos Transactions
+    
+    // Pos Transactions
     Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
-    Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update'); // TAMBAHKAN INI
+    Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update');
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 
-        // Pos PaymentMethods
+    // Store Types
     Route::get('/store-types', [StoreTypeController::class, 'index'])->name('store-types.index');
     Route::post('/store-types', [StoreTypeController::class, 'store'])->name('store-types.store');
     Route::delete('/store-types/{id}', [StoreTypeController::class, 'destroy'])->name('store-types.destroy');
-   
 });
