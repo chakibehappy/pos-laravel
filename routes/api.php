@@ -159,6 +159,10 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         // 2️⃣ Create Transaction Items
         foreach ($request->items as $item) {
             $topupId = null;
+            $productId = null;
+            if($item['product_id'] > 0){
+                $item['product_id'];
+            }
 
             // 1️⃣ Handle Topup Transaction logic
             if (!empty($item['topup_transaction'])) {
@@ -185,7 +189,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
-                'product_id'     => $item['product_id'] ?? null,
+                'product_id'     => $productId,
                 'topup_transaction_id' => $topupId, // Link to topup
                 'cash_withdrawal_id'   => null,     // Placeholder for future
                 'quantity'       => $item['quantity'],
@@ -194,9 +198,8 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             ]);
 
             // 3️⃣ Reduce stock (if product exists)
-            if (!empty($item['product_id'])) {
-                Product::where('id', $item['product_id'])
-                    ->decrement('stock', $item['quantity']);
+            if (!empty($productId)) {
+                Product::where('id', $productId)->decrement('stock', $item['quantity']);
             }
         }
 
