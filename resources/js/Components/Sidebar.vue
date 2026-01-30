@@ -15,6 +15,7 @@ const menuItems = [
     { label: 'Jenis Usaha', icon: '💼', name: 'store-types.*', route: route('store-types.index') },
     { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
     { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
+    { label: 'Kas Toko', icon: '🏪', name: 'stores.*', route: route('cash-stores.index') },
     
     { 
         label: 'Master Saldo', 
