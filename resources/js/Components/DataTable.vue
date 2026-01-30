@@ -15,7 +15,7 @@ defineProps({
                     <th v-for="col in columns" :key="col.key" class="p-3 text-left font-bold text-sm uppercase">
                         {{ col.label }}
                     </th>
-                    <th class="p-3 text-right">ACTIONS</th>
+                    <th class="p-3 text-right">AKSI</th>
                 </tr>
             </thead>
             <tbody>

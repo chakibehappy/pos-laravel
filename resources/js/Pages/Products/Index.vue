@@ -197,7 +197,10 @@ const submit = () => {
             </div>
         </div>
 
-        <DataTable :resource="products" :columns="columns">
+        <DataTable 
+            :resource="products" 
+            :columns="columns"
+        >
             <template #image_url="{ value }">
                 <div class="w-10 h-10 border border-black overflow-hidden bg-gray-100 ">
                     <img v-if="value" :src="value" class="w-full h-full object-cover" />
