@@ -157,9 +157,14 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
         // 2️⃣ Create Transaction Items
         foreach ($request->items as $item) {
-
             $lineSubtotal = $item['quantity'] * $item['price'];
 
+            // check if there's topup transaction here
+
+            if ($item['topup_transaction']){
+
+            }
+            
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
                 'product_id'     => $item['product_id'] ?? null,
