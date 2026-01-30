@@ -15,6 +15,7 @@ use App\Http\Controllers\UnitTypeController;
 use App\Http\Controllers\StoreProductController;  
 use App\Http\Controllers\DigitalWalletController;
 use App\Http\Controllers\DigitalWalletStoreController;
+use App\Http\Controllers\CashStoreController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -99,13 +100,20 @@ Route::middleware(['auth'])->group(function () {
     // --- SAMPAI DI SINI ---
 
     // --- TAMBAHKAN MULAI DARI SINI ---
-// Manajemen Digital Wallet (CRUD Lengkap)
-Route::get('/digital-wallets', [DigitalWalletController::class, 'index'])->name('digital-wallets.index');
-Route::post('/digital-wallets', [DigitalWalletController::class, 'store'])->name('digital-wallets.store'); // Create & Update
-Route::post('/digital-wallets/{id}/update-balance', [DigitalWalletController::class, 'updateBalance'])->name('wallets.update-balance'); // Khusus Saldo
-Route::delete('/digital-wallets/{id}', [DigitalWalletController::class, 'destroy'])->name('digital-wallets.destroy');
-// --- SAMPAI DI SINI ---
-Route::get('/digital-wallet-stores', [DigitalWalletStoreController::class, 'index'])->name('wallet-stores.index');
-Route::post('/digital-wallet-stores', [DigitalWalletStoreController::class, 'store'])->name('wallet-stores.store');
-Route::delete('/digital-wallet-stores/{id}', [DigitalWalletStoreController::class, 'destroy'])->name('wallet-stores.destroy');
+    // Manajemen Digital Wallet (CRUD Lengkap)
+    Route::get('/digital-wallets', [DigitalWalletController::class, 'index'])->name('digital-wallets.index');
+    Route::post('/digital-wallets', [DigitalWalletController::class, 'store'])->name('digital-wallets.store'); // Create & Update
+    Route::post('/digital-wallets/{id}/update-balance', [DigitalWalletController::class, 'updateBalance'])->name('wallets.update-balance'); // Khusus Saldo
+    Route::delete('/digital-wallets/{id}', [DigitalWalletController::class, 'destroy'])->name('digital-wallets.destroy');
+    // --- SAMPAI DI SINI ---
+    Route::get('/digital-wallet-stores', [DigitalWalletStoreController::class, 'index'])->name('wallet-stores.index');
+    Route::post('/digital-wallet-stores', [DigitalWalletStoreController::class, 'store'])->name('wallet-stores.store');
+    Route::delete('/digital-wallet-stores/{id}', [DigitalWalletStoreController::class, 'destroy'])->name('wallet-stores.destroy');
+
+
+
+    // Rute untuk Manajemen Kas Toko
+    Route::get('/cash-stores', [CashStoreController::class, 'index'])->name('cash-stores.index');
+    Route::post('/cash-stores', [CashStoreController::class, 'store'])->name('cash-stores.store');
+    Route::delete('/cash-stores/{id}', [CashStoreController::class, 'destroy'])->name('cash-stores.destroy');
 });
