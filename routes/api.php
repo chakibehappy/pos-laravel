@@ -206,7 +206,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
         DB::commit();
         // Fetch FRESH data to sync Unity UI immediately
-        $updatedData = $this->getPosData($posUser->store_id);
+        $updatedData = getPosData($posUser->store_id);
         
         return response()->json([
             'message' => 'Transaction created successfully',
