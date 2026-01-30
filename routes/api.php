@@ -13,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use App\Models\TopupTransaction;
+use App\Models\WithdrawalSourceType;
+use App\Models\CashStore;
 
 use Illuminate\Support\Facades\DB;
 
@@ -32,12 +34,22 @@ function getPosData($storeId) {
 
     // Topup Types
     $topupTypes = TopupTransType::select('id', 'name', 'type')
-        ->orderBy('type')->orderBy('name')->get();
+        ->orderBy('id', 'desc')->get();
+
+    $withdrawalSrcTypes = WithdrawalSourceType::select( 'id', 'name')
+        ->orderBy('id', 'desc')
+        ->get();
+
+    $cashStore = CashStore::where('cash_store.store_id', $storeId)
+        ->select('cash_store.*')
+        ->get();
 
     return [
         'products' => $products,
         'store_wallets' => $storeWallets,
-        'topup_types' => $topupTypes
+        'topup_types' => $topupTypes,
+        'withdrawal_src_types' => $withdrawalSrcTypes,
+        'cash_store' => $cashStore,
     ];
 }
 
@@ -113,19 +125,26 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
         ->get();
 
     // Topup / Bill transaction types
-    $topupTypes = TopupTransType::select(
-            'id',
-            'name',
-            'type'
-        )
-        ->orderBy('type')
-        ->orderBy('name')
+    $topupTypes = TopupTransType::select( 'id', 'name', 'type' )
+        ->orderBy('id', 'desc')
         ->get();
+        
+    $withdrawalSrcTypes = WithdrawalSourceType::select( 'id', 'name')
+        ->orderBy('id', 'desc')
+        ->get();
+
+        
+    $cashStore = CashStore::where('cash_store.store_id', $storeId)
+        ->select('cash_store.*')
+        ->get();
+
 
     return response()->json([
         'products' => $products,
         'store_wallets' => $storeWallets,
-        'topup_types' => $topupTypes
+        'topup_types' => $topupTypes,
+        'withdrawal_src_types' => $withdrawalSrcTypes,
+        'cash_store' => $cashStore,
     ]);
 });
 
