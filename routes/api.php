@@ -78,6 +78,22 @@ Route::middleware('auth:sanctum')->get('/products', function (Request $request) 
     return response()->json($products);
 });
 
+Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) {
+    $storeId = $request->user()->store_id;
+    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
+        ->where('store_products.store_id', $storeId)
+        ->select(
+            'products.*',
+            'store_products.stock as store_stock'
+        )
+        ->get();
+    $store_wallet = null;
+    return response()->json([
+        'products' => $products,
+        'store_wallet' => $store_wallet
+    ]);
+});
+
 Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
 
     $request->validate([
