@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 use App\Models\Product;
 use App\Models\PosUser;
 use App\Models\User;
+use App\Models\StoreDigitalWallet;
+use App\Models\DigitalWallet;
+use App\Models\TopupTransType;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -79,7 +82,10 @@ Route::middleware('auth:sanctum')->get('/products', function (Request $request) 
 });
 
 Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) {
+
     $storeId = $request->user()->store_id;
+
+    // Products
     $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
         ->where('store_products.store_id', $storeId)
         ->select(
@@ -87,10 +93,37 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
             'store_products.stock as store_stock'
         )
         ->get();
-    $store_wallet = null;
+
+    // Store wallets
+    $storeWallets = StoreDigitalWallet::join(
+            'digital_wallets',
+            'store_digital_wallets.digital_wallet_id',
+            '=',
+            'digital_wallets.id'
+        )
+        ->where('store_digital_wallets.store_id', $storeId)
+        ->select(
+            'store_digital_wallets.id',
+            'digital_wallets.id as wallet_id',
+            'digital_wallets.name',
+            'store_digital_wallets.balance'
+        )
+        ->get();
+
+    // Topup / Bill transaction types
+    $topupTypes = TopupTransType::select(
+            'id',
+            'name',
+            'type'
+        )
+        ->orderBy('type')
+        ->orderBy('name')
+        ->get();
+
     return response()->json([
         'products' => $products,
-        'store_wallet' => $store_wallet
+        'store_wallets' => $storeWallets,
+        'topup_types' => $topupTypes
     ]);
 });
 
