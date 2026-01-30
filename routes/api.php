@@ -43,7 +43,7 @@ function getPosData($storeId) {
 
     $cashStore = CashStore::where('cash_store.store_id', $storeId)
         ->select('cash_store.*')
-        ->get();
+        ->first();
 
     return [
         'products' => $products,
@@ -137,7 +137,7 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
         
     $cashStore = CashStore::where('cash_store.store_id', $storeId)
         ->select('cash_store.*')
-        ->get();
+        ->first();
 
 
     return response()->json([
