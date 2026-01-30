@@ -1,10 +1,12 @@
 <?php
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Models\Product;
 use App\Models\PosUser;
 use App\Models\User;
+use App\Models\DigitalWalletStore;
+use App\Models\DigitalWallet;
+use App\Models\TopupTransType;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -43,10 +45,10 @@ Route::post('/login', function (Request $request) {
         'device_name' => 'required', 
     ]);
 
-    // Find the POS User by name (or add an 'email' column to pos_users if preferred)
-    $user = PosUser::where('name', $request->name)
-                //    ->where('is_active', true)
-                   ->first();
+    $user = PosUser::with('store')  
+        ->where('name', $request->name)
+        //->where('is_active', true)
+        ->first();
 
     if (! $user || ! Hash::check($request->pin, $user->pin)) {
         return response()->json(['message' => 'Invalid POS credentials'], 401);
@@ -64,20 +66,64 @@ Route::post('/login', function (Request $request) {
 
 
 // Protected Routes (Requires Token)
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/products', function () {
-        return Product::all()->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'price' => (float) $product->price,
-                'stock' => (int) $product->stock,
-                // Automatically generates: https://kitxel.com/pos/storage/products/item.jpg
-                // 'image_url' => $product->image_path ? asset('storage/' . $product->image_path) : null,
-            ];
-        });
-    });
+Route::middleware('auth:sanctum')->get('/products', function (Request $request) {
 
+    $storeId = $request->user()->store_id;
+
+    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
+        ->where('store_products.store_id', $storeId)
+        ->select(
+            'products.*',
+            'store_products.stock as store_stock'
+        )
+        ->get();
+    return response()->json($products);
+});
+
+Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) {
+
+    $storeId = $request->user()->store_id;
+
+    // Products
+    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
+        ->where('store_products.store_id', $storeId)
+        ->select(
+            'products.*',
+            'store_products.stock as store_stock'
+        )
+        ->get();
+
+    // Store wallets
+    $storeWallets = DigitalWalletStore::join(
+            'digital_wallet',
+            'digital_wallet_store.digital_wallet_id',
+            '=',
+            'digital_wallet.id'
+        )
+        ->where('digital_wallet_store.store_id', $storeId)
+        ->select(
+            'digital_wallet_store.id',
+            'digital_wallet.id as wallet_id',
+            'digital_wallet.name',
+            'digital_wallet_store.balance'
+        )
+        ->get();
+
+    // Topup / Bill transaction types
+    $topupTypes = TopupTransType::select(
+            'id',
+            'name',
+            'type'
+        )
+        ->orderBy('type')
+        ->orderBy('name')
+        ->get();
+
+    return response()->json([
+        'products' => $products,
+        'store_wallets' => $storeWallets,
+        'topup_types' => $topupTypes
+    ]);
 });
 
 Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
@@ -111,9 +157,14 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
         // 2️⃣ Create Transaction Items
         foreach ($request->items as $item) {
-
             $lineSubtotal = $item['quantity'] * $item['price'];
 
+            // check if there's topup transaction here
+
+            if ($item['topup_transaction']){
+
+            }
+            
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
                 'product_id'     => $item['product_id'] ?? null,
