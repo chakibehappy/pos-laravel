@@ -17,8 +17,7 @@ class PosUser extends Authenticatable
     
     protected $table = 'pos_users';
 
-    // No timestamps in your table
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'store_id',
