@@ -2,8 +2,12 @@
 import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 
-// State untuk dropdown
-const isProductMenuOpen = ref(false);
+// State untuk menyimpan label menu dropdown yang sedang terbuka
+const openDropdown = ref(null);
+
+const toggleDropdown = (label) => {
+    openDropdown.value = openDropdown.value === label ? null : label;
+};
 
 const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
@@ -12,29 +16,39 @@ const menuItems = [
     { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
     { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
     
-    // Group Pengaturan Produk
+    { 
+        label: 'Master Saldo', 
+        icon: '💳', 
+        isDropdown: true,
+        activeOn: ['digital-wallets.*', 'wallet-stores.*'],
+        children: [
+            { label: '💳 Saldo Gudang', name: 'digital-wallets.index', route: route('digital-wallets.index') },
+            { label: '💳 Saldo Toko', name: 'wallet-stores.index', route: route('wallet-stores.index') },
+        ]
+    },
+    
     { 
         label: 'Master Produk', 
         icon: '📦', 
         isDropdown: true,
-        activeOn: ['products.*', 'product-categories.*', 'unit-types.*'],
+        activeOn: ['products.*', 'product-categories.*', 'unit-types.*', 'store-products.*'],
         children: [
-            { label: '🏷️ Produk Gudang', name: 'products.*', route: route('products.index') },
-            { label: '🏷️ Produk Kategori', name: 'product-categories.*', route: route('product-categories.index') },
-            { label: '🏷️ Satuan Produk', name: 'unit-types.*', route: route('unit-types.index') },
-             { label: '🏷️Produk Toko', name: 'store-products.*', route: route('store-products.index') },
+            { label: '🏷️ Produk Gudang', name: 'products.index', route: route('products.index') },
+            { label: '🏷️ Produk Kategori', name: 'product-categories.index', route: route('product-categories.index') },
+            { label: '🏷️ Satuan Produk', name: 'unit-types.index', route: route('unit-types.index') },
+            { label: '🏷️ Produk Toko', name: 'store-products.index', route: route('store-products.index') },
         ]
     },
     
     { label: 'Akun', icon: '⚙️', name: 'accounts.*', route: route('accounts.index') },
-    { label: 'Metode Pembayaran', icon: '💳', name: 'payment-methods.*', route: route('payment-methods.index') },
+    { label: 'Metode Pembayaran', icon: '💵', name: 'payment-methods.*', route: route('payment-methods.index') },
     { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') }
 ];
 
 // Otomatis buka jika anak aktif
 menuItems.forEach(item => {
     if (item.isDropdown && item.activeOn.some(r => route().current(r))) {
-        isProductMenuOpen.value = true;
+        openDropdown.value = item.label;
     }
 });
 </script>
@@ -56,18 +70,18 @@ menuItems.forEach(item => {
                 </Link>
 
                 <div v-else class="flex flex-col">
-                    <button @click="isProductMenuOpen = !isProductMenuOpen"
+                    <button @click="toggleDropdown(item.label)"
                         class="flex items-center gap-3 p-3 hover:bg-white hover:text-black transition-colors rounded w-full text-left"
-                        :class="{ 'text-white font-normal': !isProductMenuOpen, 'bg-gray-900 text-white': isProductMenuOpen && !item.activeOn.some(r => route().current(r)) }">
+                        :class="{ 'bg-gray-900 text-white': openDropdown === item.label && !item.activeOn.some(r => route().current(r)) }">
                         <span>{{ item.icon }}</span>
                         <div class="flex-1 flex justify-between items-center">
                             {{ item.label }}
-                            <span class="text-[10px] transform transition-transform" :class="{ 'rotate-180': isProductMenuOpen }">▼</span>
+                            <span class="text-[10px] transform transition-transform" :class="{ 'rotate-180': openDropdown === item.label }">▼</span>
                         </div>
                     </button>
 
-                    <div v-if="isProductMenuOpen" class="mt-1 space-y-1">
-                        <Link v-for="child in item.children" :key="child.route" :href="child.route"
+                    <div v-if="openDropdown === item.label" class="mt-1 space-y-1">
+                        <Link v-for="child in item.children" :key="child.name" :href="child.route"
                             class="flex items-center gap-3 p-3 pl-11 hover:bg-white hover:text-black transition-colors rounded text-sm"
                             :class="{ 'bg-white text-black font-bold': route().current(child.name) }">
                             {{ child.label }}
@@ -86,3 +100,14 @@ menuItems.forEach(item => {
         </div>
     </div>
 </template>
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #000;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #333;
+}
+</style>
