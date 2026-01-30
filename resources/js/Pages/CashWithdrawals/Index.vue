@@ -88,10 +88,10 @@ const getSourceName = (id) => {
                 <div v-if="form.processing" class="absolute inset-0 bg-white/50 z-10 flex items-center justify-center font-black italic uppercase">Memproses...</div>
 
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="font-black uppercase italic underline decoration-blue-500 decoration-4 text-sm">
+                    <h3 class="font-black uppercase italic decoration-blue-500 decoration-4 text-sm">
                         {{ editMode ? 'Mode Koreksi Transaksi' : 'Input Tarik Tunai' }}
                     </h3>
-                    <button v-if="editMode" @click="editMode = false; form.reset()" class="text-[10px] font-black uppercase text-red-600 underline">Batal</button>
+                    <button v-if="editMode" @click="editMode = false; form.reset()" class="text-[10px] font-black uppercase text-red-600 ">Batal</button>
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-4">

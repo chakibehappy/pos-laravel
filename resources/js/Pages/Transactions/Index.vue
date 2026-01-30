@@ -291,7 +291,7 @@ const deleteTransaction = (id) => {
                     <table class="w-full border-2 border-black mb-6">
                         <thead class="bg-black text-white text-[10px] uppercase italic">
                             <tr>
-                                <th class="p-2 text-left">Nama Produk</th>
+                                <th class="p-2 text-left">Items</th>
                                 <th class="p-2 text-right">Harga Jual (Rp)</th>
                                 <th class="p-2 text-center">Qty</th>
                                 <th class="p-2 text-right">Subtotal (Rp)</th>
