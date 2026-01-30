@@ -2,6 +2,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Models\Product;
+use App\Models\StoreProduct;
 use App\Models\PosUser;
 use App\Models\User;
 use App\Models\DigitalWalletStore;
@@ -237,7 +238,9 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
             // Reduce stock (if product exists)
             if (!empty($productId)) {
-                Product::where('id', $productId)->decrement('stock', $item['quantity']);
+                StoreProduct::where('store_id', $posUser->store_id)
+                    ->where('product_id', $productId)
+                    ->decrement('stock', $item['quantity']);
             }
         }
 
