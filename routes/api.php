@@ -135,7 +135,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         'tax' => 'required|numeric',
         'total' => 'required|numeric',
         'items' => 'required|array|min:1',
-        'items.*.product_id' => 'nullable|exists:products,id',
+        'items.*.product_id' => 'nullable|integer',
         'items.*.quantity' => 'required|integer|min:1',
         'items.*.price' => 'required|numeric',
     ]);
