@@ -42,15 +42,15 @@ const resetForm = () => {
 <template>
     <AuthenticatedLayout>
         <div class="p-6">
-            <h1 class="text-2xl font-black uppercase mb-6 italic tracking-tighter">Manage Accounts</h1>
+            <h1 class="text-2xl font-black uppercase mb-6 italic tracking-tighter">Daftar Akun</h1>
 
             <div class="mb-8 p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                <h2 class="font-bold uppercase mb-4 text-sm">{{ form.id ? 'Update Account' : 'Register New Company' }}</h2>
+                <h2 class="font-bold uppercase mb-4 text-sm">{{ form.id ? 'Perbarui Akun' : 'Registrasi Perusaan Baru' }}</h2>
                 
                 <form @submit.prevent="submit">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block font-black text-xs uppercase mb-1">Company Name</label>
+                            <label class="block font-black text-xs uppercase mb-1">Nama Perusahaan</label>
                             <input v-model="form.company_name" type="text" 
                                 class="w-full border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" 
                                 placeholder="e.g. MAARS CORP">
@@ -61,8 +61,8 @@ const resetForm = () => {
                             <label class="block font-black text-xs uppercase mb-1">Status</label>
                             <select v-model="form.status" 
                                 class="w-full border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none">
-                                <option :value="true">ACTIVE</option>
-                                <option :value="false">INACTIVE</option>
+                                <option :value="true">AKTIF</option>
+                                <option :value="false">NONAKTIF</option>
                             </select>
                         </div>
                     </div>
@@ -70,11 +70,11 @@ const resetForm = () => {
                     <div class="mt-6 flex gap-x-3">
                         <button type="submit" 
                             class="bg-black text-white px-8 py-2 font-bold uppercase border-2 border-black hover:bg-gray-800 transition-all">
-                            {{ form.id ? 'Update' : 'Save Account' }}
+                            {{ form.id ? 'Perbarui' : 'Simpan Akun' }}
                         </button>
                         <button v-if="form.id" @click="resetForm" type="button" 
                             class="border-2 border-black px-8 py-2 font-bold uppercase hover:bg-gray-100">
-                            Cancel
+                            Batalkan
                         </button>
                     </div>
                 </form>
@@ -84,7 +84,7 @@ const resetForm = () => {
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-black text-white">
                         <tr>
-                            <th class="p-3 uppercase font-black text-sm">Company Name</th>
+                            <th class="p-3 uppercase font-black text-sm">Nama Perusahaan</th>
                             <th class="p-3 uppercase font-black text-sm text-center">Status</th>
                             <th class="p-3 uppercase font-black text-sm text-right">Actions</th>
                         </tr>
@@ -95,12 +95,12 @@ const resetForm = () => {
                             <td class="p-3 text-center">
                                 <span :class="account.status ? 'bg-green-400' : 'bg-red-400'" 
                                     class="border-2 border-black px-2 py-1 text-[10px] font-black uppercase">
-                                    {{ account.status ? 'Active' : 'Inactive' }}
+                                    {{ account.status ? 'Aktif' : 'Nonaktif' }}
                                 </span>
                             </td>
                             <td class="p-3 text-right font-black uppercase text-xs">
-                                <button @click="edit(account)" class="underline mr-4 hover:text-blue-600">Edit</button>
-                                <button @click="destroy(account.id)" class="underline text-red-500 hover:text-red-700">Delete</button>
+                                <button @click="edit(account)" class=" mr-4 hover:text-blue-600">✏️</button>
+                                <button @click="destroy(account.id)" class=" text-red-500 hover:text-red-700">❌</button>
                             </td>
                         </tr>
                     </tbody>

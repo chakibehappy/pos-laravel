@@ -10,10 +10,10 @@ const props = defineProps({
 });
 
 const columns = [
-    { label: 'STAFF NAME', key: 'name' }, 
-    { label: 'STORE', key: 'store_name' }, // Using the alias from backend
+    { label: 'Nama Staff', key: 'name' }, 
+    { label: 'Toko', key: 'store_name' }, // Using the alias from backend
     { label: 'PIN', key: 'pin' },
-    { label: 'ROLE', key: 'role' }
+    { label: 'Jabatan', key: 'role' }
 ];
 
 const showForm = ref(false);
@@ -69,7 +69,7 @@ const destroy = (id) => {
 
                 <div class="flex flex-col">
                     <select v-model="form.store_id" class="border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none">
-                        <option value="" disabled>SELECT STORE</option>
+                        <option value="" disabled>Pilih Toko</option>
                         <option v-for="store in stores" :key="store.id" :value="store.id">
                             {{ store.name }}
                         </option>
@@ -84,7 +84,7 @@ const destroy = (id) => {
 
                 <div class="flex flex-col">
                     <select v-model="form.role" class="border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none">
-                        <option value="cashier">CASHIER</option>
+                        <option value="cashier">KASIR</option>
                         <option value="manager">MANAGER</option>
                         <option value="admin">ADMIN</option>
                     </select>
@@ -93,24 +93,24 @@ const destroy = (id) => {
 
             <div class="mt-4 flex gap-x-2">
                 <button @click="submit" :disabled="form.processing" class="bg-black text-white px-6 py-2 font-bold uppercase disabled:opacity-50">
-                    {{ form.id ? 'Save Changes' : 'Save New Staff' }}
+                    {{ form.id ? 'Simpan' : 'Simpan' }}
                 </button>
-                <button @click="showForm = false" class="border-2 border-black px-6 py-2 font-bold uppercase">Cancel</button>
+                <button @click="showForm = false" class="border-2 border-black px-6 py-2 font-bold uppercase">Batalkan</button>
             </div>
         </div>
 
         <div class="mb-4 flex justify-between items-end">
-            <h1 class="text-2xl font-black uppercase tracking-tighter italic">Staff Management</h1>
+            <h1 class="text-2xl font-black uppercase tracking-tighter italic">Daftar Staff</h1>
             <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)] active:shadow-none transition-all">
-                Add New Staff
+                Tambahkan
             </button>
         </div>
 
         <DataTable :resource="staff" :columns="columns">
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-[15px] justify-end uppercase text-xs">
-                    <button @click="openEdit(row)" class="font-black underline hover:text-blue-600">Edit</button>
-                    <button @click="destroy(row.id)" class="font-black underline text-red-500 hover:text-red-700">Delete</button>
+                    <button @click="openEdit(row)" class="font-black hover:text-blue-600">✏️</button>
+                    <button @click="destroy(row.id)" class="font-black text-red-500 hover:text-red-700">❌</button>
                 </div>
             </template>
         </DataTable>
