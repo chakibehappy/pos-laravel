@@ -64,20 +64,18 @@ Route::post('/login', function (Request $request) {
 
 
 // Protected Routes (Requires Token)
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/products', function () {
-        return Product::all()->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'price' => (float) $product->price,
-                'stock' => (int) $product->stock,
-                // Automatically generates: https://kitxel.com/pos/storage/products/item.jpg
-                // 'image_url' => $product->image_path ? asset('storage/' . $product->image_path) : null,
-            ];
-        });
-    });
+Route::middleware('auth:sanctum')->get('/products', function (Request $request) {
 
+    $storeId = $request->user()->store_id;
+
+    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
+        ->where('store_products.store_id', $storeId)
+        ->select(
+            'products.*',
+            'store_products.stock as store_stock'
+        )
+        ->get();
+    return response()->json($products);
 });
 
 Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
