@@ -27,11 +27,6 @@ class PosUser extends Authenticatable
         'is_active',
     ];
 
-    public function stores()
-    {
-        return $this->belongsTo(Store::class);
-    }
-
     // protected $hidden = [
     //     'pin',
     // ];

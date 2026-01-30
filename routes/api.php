@@ -43,7 +43,7 @@ Route::post('/login', function (Request $request) {
         'device_name' => 'required', 
     ]);
 
-    $user = PosUser::with('stores')  
+    $user = PosUser::with('store')  
         ->where('name', $request->name)
         ->where('is_active', true)
         ->first();
