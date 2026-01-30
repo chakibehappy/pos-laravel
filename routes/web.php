@@ -16,6 +16,7 @@ use App\Http\Controllers\StoreProductController;
 use App\Http\Controllers\DigitalWalletController;
 use App\Http\Controllers\DigitalWalletStoreController;
 use App\Http\Controllers\CashStoreController;
+use App\Http\Controllers\CashWithdrawalController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -116,4 +117,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/cash-stores', [CashStoreController::class, 'index'])->name('cash-stores.index');
     Route::post('/cash-stores', [CashStoreController::class, 'store'])->name('cash-stores.store');
     Route::delete('/cash-stores/{id}', [CashStoreController::class, 'destroy'])->name('cash-stores.destroy');
+
+
+
+    // Rute untuk Manajemen Tarik Tunai
+    Route::get('/cash-withdrawals', [CashWithdrawalController::class, 'index'])->name('cash-withdrawals.index');
+    Route::post('/cash-withdrawals', [CashWithdrawalController::class, 'store'])->name('cash-withdrawals.store');
+    Route::patch('/cash-withdrawals/{id}', [CashWithdrawalController::class, 'update'])->name('cash-withdrawals.update');
+    Route::delete('/cash-withdrawals/{id}', [CashWithdrawalController::class, 'destroy'])->name('cash-withdrawals.destroy');
 });

@@ -16,7 +16,7 @@ const menuItems = [
     { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
     { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
     { label: 'Kas Toko', icon: '🏪', name: 'stores.*', route: route('cash-stores.index') },
-    
+    { label: 'Tarik Tunai', icon: '🏪', name: 'stores.*', route: route('cash-withdrawals.index') },
     { 
         label: 'Master Saldo', 
         icon: '💳', 

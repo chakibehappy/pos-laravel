@@ -66,8 +66,8 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
                 <p class="text-[10px] font-black uppercase text-gray-400 italic">Pencatatan & Filter Saldo Tunai Real-time</p>
             </div>
 
-            <div class="border-4 border-black p-2 bg-yellow-300 flex items-center gap-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                <span class="text-[10px] font-black uppercase pl-2">Kategori Bisnis:</span>
+            <div class="border-4 border-black p-2 bg-yellow-300 flex items-center gap-3">
+                <span class="text-[10px] font-black uppercase pl-2 text-black">Kategori Bisnis:</span>
                 <select v-model="selectedTypeFilter" class="border-2 border-black p-1 text-xs font-black uppercase outline-none bg-white">
                     <option value="all">SEMUA JENIS USAHA</option>
                     <option v-for="type in storeTypes" :key="type.id" :value="type.id">
@@ -78,7 +78,7 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div class="border-4 border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <div class="border-4 border-black p-6 bg-white">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="font-black uppercase italic underline decoration-green-400 decoration-4">
                         {{ editMode ? 'Edit Saldo' : 'Input Baru' }}
@@ -99,7 +99,7 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
                     </div>
 
                     <div>
-                        <label class="block text-[10px] font-black uppercase mb-1 tracking-tighter">Nominal Kas (Tunai)</label>
+                        <label class="block text-[10px] font-black uppercase mb-1 tracking-tighter text-black font-bold">Nominal Kas (Tunai)</label>
                         <input v-model="form.cash" type="number" class="w-full border-4 border-black p-2 font-black text-xl outline-none focus:bg-green-50" />
                     </div>
 
@@ -109,7 +109,7 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
                 </form>
             </div>
 
-            <div class="lg:col-span-2 border-4 border-black bg-white overflow-x-auto shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <div class="lg:col-span-2 border-4 border-black bg-white overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-black text-white">
                         <tr>
@@ -121,7 +121,7 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
                     </thead>
                     <tbody class="divide-y-4 divide-black text-sm font-medium">
                         <tr v-for="(cb, index) in filteredTableData" :key="cb.id" class="hover:bg-yellow-50 transition-colors">
-                            <td class="p-3 border-r-4 border-black w-12">
+                            <td class="p-3 border-r-4 border-black w-12 text-center">
                                 <span class="bg-black text-white px-2 py-1 text-[12px] font-black italic">#{{ index + 1 }}</span>
                             </td>
                             <td class="p-3">
@@ -131,9 +131,9 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
                             <td class="p-3 font-black text-green-600 text-right italic text-base">
                                 {{ formatIDR(cb.cash) }}
                             </td>
-                            <td class="p-3 text-center space-x-4">
-                                <button @click="editData(cb)" class="font-black text-[20px] uppercase text-blue-600 hover:text-blue-800">✏️</button>
-                                <button @click="router.delete(route('cash-stores.destroy', cb.id))" class="font-black text-[20px] uppercase text-red-600 hover:text-red-800 font-bold">❌</button>
+                            <td class="p-3 text-center space-x-2">
+                                <button @click="editData(cb)" title="Edit" class="text-[20px] transition-transform active:scale-90">✏️</button>
+                                <button @click="router.delete(route('cash-stores.destroy', cb.id))" title="Hapus" class="text-[20px] transition-transform active:scale-90 font-bold">❌</button>
                             </td>
                         </tr>
                         <tr v-if="filteredTableData.length === 0">
