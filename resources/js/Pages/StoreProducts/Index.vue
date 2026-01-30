@@ -91,7 +91,6 @@ const deleteStock = (id) => {
                         { label: 'Produk', key: 'product_name' },
                         { label: 'SKU', key: 'product_sku' },
                         { label: 'Jumlah Stok', key: 'stock' },
-                        { label: 'Aksi', key: 'actions' }
                     ]"
                 >
                     <template #stock="{ row }">
@@ -106,7 +105,7 @@ const deleteStock = (id) => {
                     </template>
 
                     <template #actions="{ row }">
-                        <div class="flex gap-4">
+                        <div class="flex gap-4 justify-end">
                             <button @click="openEdit(row)" class="font-black text-xs uppercase underline decoration-2 hover:text-blue-600">
                                 Edit
                             </button>
