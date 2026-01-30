@@ -12,11 +12,26 @@ const toggleDropdown = (label) => {
 const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { label: 'Pengguna', icon: '👤', name: 'users.*', route: route('users.index') },
-    { label: 'Jenis Usaha', icon: '💼', name: 'store-types.*', route: route('store-types.index') },
+    { label: 'Topup', icon: '⚙️', name: 'topup_transactions.*', route: route('topup-transactions.index') },
+    // Dropdown Master Kategori (Gabungan Jenis Usaha, Topup, dan Tarik Tunai)
+    
+
     { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
     { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
-    { label: 'Kas Toko', icon: '🏪', name: 'stores.*', route: route('cash-stores.index') },
-    
+    { label: 'Kas Toko', icon: '🏪', name: 'cash-stores.*', route: route('cash-stores.index') },
+    { label: 'Tarik Tunai', icon: '🏧', name: 'cash-withdrawals.*', route: route('cash-withdrawals.index') },
+    { 
+        label: 'Master Kategori', 
+        icon: '🗂️', 
+        isDropdown: true,
+        activeOn: ['store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*'],
+        children: [
+            { label: '💼 Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
+            { label: '📱 Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
+            { label: '🏧 Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
+            { label: '💵 Metode Pembayaran', name: 'payment-methods.*', route: route('payment-methods.index') },
+        ]
+    },
     { 
         label: 'Master Saldo', 
         icon: '💳', 
@@ -42,7 +57,6 @@ const menuItems = [
     },
     
     { label: 'Akun', icon: '⚙️', name: 'accounts.*', route: route('accounts.index') },
-    { label: 'Metode Pembayaran', icon: '💵', name: 'payment-methods.*', route: route('payment-methods.index') },
     { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') }
 ];
 
@@ -55,36 +69,36 @@ menuItems.forEach(item => {
 </script>
 
 <template>
-    <div class="w-64 bg-black text-white flex flex-col h-screen">
-        <div class="p-6 text-l font-bold border-b border-gray-800">
-            MAAR COMPANY
+    <div class="w-64 bg-black text-white flex flex-col min-h-screen flex-shrink-0 border-r border-gray-900">
+        <div class="p-6 text-l font-black italic tracking-tighter border-b border-gray-900 shadow-sm">
+            MAAR <span class="text-yellow-400">COMPANY</span>
         </div>
         
-        <nav class="flex-1 p-4 space-y-1">
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
             <template v-for="item in menuItems" :key="item.label">
                 
                 <Link v-if="!item.isDropdown" :href="item.route"
-                    class="flex items-center gap-3 p-3 hover:bg-white hover:text-black transition-colors rounded"
-                    :class="{ 'bg-white text-black font-bold': route().current(item.name) }">
-                    <span>{{ item.icon }}</span>
+                    class="flex items-center gap-3 p-3 hover:bg-white hover:text-black transition-all rounded font-medium text-xs uppercase italic tracking-tight"
+                    :class="{ 'bg-white text-black font-black': route().current(item.name) }">
+                    <span class="text-lg grayscale group-hover:grayscale-0">{{ item.icon }}</span>
                     {{ item.label }}
                 </Link>
 
                 <div v-else class="flex flex-col">
                     <button @click="toggleDropdown(item.label)"
-                        class="flex items-center gap-3 p-3 hover:bg-white hover:text-black transition-colors rounded w-full text-left"
-                        :class="{ 'bg-gray-900 text-white': openDropdown === item.label && !item.activeOn.some(r => route().current(r)) }">
-                        <span>{{ item.icon }}</span>
+                        class="flex items-center gap-3 p-3 hover:bg-white hover:text-black transition-all rounded w-full text-left font-medium text-xs uppercase italic tracking-tight"
+                        :class="{ 'bg-gray-900 text-white': openDropdown === item.label }">
+                        <span class="text-lg">{{ item.icon }}</span>
                         <div class="flex-1 flex justify-between items-center">
                             {{ item.label }}
-                            <span class="text-[10px] transform transition-transform" :class="{ 'rotate-180': openDropdown === item.label }">▼</span>
+                            <span class="text-[8px] transition-transform duration-300" :class="{ 'rotate-180': openDropdown === item.label }">▼</span>
                         </div>
                     </button>
 
-                    <div v-if="openDropdown === item.label" class="mt-1 space-y-1">
+                    <div v-if="openDropdown === item.label" class="mt-1 space-y-1 bg-gray-950/50 rounded-b border-l-2 border-gray-800 ml-4">
                         <Link v-for="child in item.children" :key="child.name" :href="child.route"
-                            class="flex items-center gap-3 p-3 pl-11 hover:bg-white hover:text-black transition-colors rounded text-sm"
-                            :class="{ 'bg-white text-black font-bold': route().current(child.name) }">
+                            class="flex items-center gap-3 p-3 pl-6 hover:bg-white hover:text-black transition-all rounded text-[11px] font-bold uppercase italic"
+                            :class="{ 'bg-white text-black font-black': route().current(child.name) }">
                             {{ child.label }}
                         </Link>
                     </div>
@@ -93,14 +107,15 @@ menuItems.forEach(item => {
             </template>
         </nav>
 
-        <div class="p-4 border-t border-gray-800">
+        <div class="p-4 border-t border-gray-900 bg-black">
             <Link :href="route('logout')" method="post" as="button" 
-                class="w-full text-left p-3 text-gray-400 hover:text-red-500">
-                Keluar
+                class="w-full text-left p-3 text-xs font-black uppercase italic text-gray-500 hover:text-red-500 transition-colors">
+                🚪 Keluar
             </Link>
         </div>
     </div>
 </template>
+
 <style scoped>
 .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
@@ -109,6 +124,10 @@ menuItems.forEach(item => {
     background: #000;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #1a1a1a;
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #333;
 }
 </style>

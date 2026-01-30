@@ -16,6 +16,10 @@ use App\Http\Controllers\StoreProductController;
 use App\Http\Controllers\DigitalWalletController;
 use App\Http\Controllers\DigitalWalletStoreController;
 use App\Http\Controllers\CashStoreController;
+use App\Http\Controllers\CashWithdrawalController;
+use App\Http\Controllers\TopupTransTypeController;
+use App\Http\Controllers\WithdrawalSourceTypeController;
+use App\Http\Controllers\TopupTransactionController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -116,4 +120,31 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/cash-stores', [CashStoreController::class, 'index'])->name('cash-stores.index');
     Route::post('/cash-stores', [CashStoreController::class, 'store'])->name('cash-stores.store');
     Route::delete('/cash-stores/{id}', [CashStoreController::class, 'destroy'])->name('cash-stores.destroy');
+
+
+
+    // Rute untuk Manajemen Tarik Tunai
+    Route::get('/cash-withdrawals', [CashWithdrawalController::class, 'index'])->name('cash-withdrawals.index');
+    Route::post('/cash-withdrawals', [CashWithdrawalController::class, 'store'])->name('cash-withdrawals.store');
+    Route::patch('/cash-withdrawals/{id}', [CashWithdrawalController::class, 'update'])->name('cash-withdrawals.update');
+    Route::delete('/cash-withdrawals/{id}', [CashWithdrawalController::class, 'destroy'])->name('cash-withdrawals.destroy');
+
+    // Rute untuk CRUD Master Tipe Transaksi (topup_trans_type)
+    Route::get('/topup-trans-types', [TopupTransTypeController::class, 'index'])->name('topup-trans-types.index');
+    Route::post('/topup-trans-types', [TopupTransTypeController::class, 'store'])->name('topup-trans-types.store');
+    Route::patch('/topup-trans-types/{id}', [TopupTransTypeController::class, 'update'])->name('topup-trans-types.update');
+    Route::delete('/topup-trans-types/{id}', [TopupTransTypeController::class, 'destroy'])->name('topup-trans-types.destroy');
+
+    Route::get('/withdrawal-source-types', [WithdrawalSourceTypeController::class, 'index'])->name('withdrawal-source-types.index');
+    Route::post('/withdrawal-source-types', [WithdrawalSourceTypeController::class, 'store'])->name('withdrawal-source-types.store');
+    Route::patch('/withdrawal-source-types/{id}', [WithdrawalSourceTypeController::class, 'update'])->name('withdrawal-source-types.update');
+    Route::delete('/withdrawal-source-types/{id}', [WithdrawalSourceTypeController::class, 'destroy'])->name('withdrawal-source-types.destroy');
+
+
+
+    // Routes untuk Transaksi Topup
+    Route::get('/topup-transactions', [TopupTransactionController::class, 'index'])->name('topup-transactions.index');
+    Route::post('/topup-transactions', [TopupTransactionController::class, 'store'])->name('topup-transactions.store');
+    Route::patch('/topup-transactions/{id}', [TopupTransactionController::class, 'update'])->name('topup-transactions.update');
+    Route::delete('/topup-transactions/{id}', [TopupTransactionController::class, 'destroy'])->name('topup-transactions.destroy');
 });
