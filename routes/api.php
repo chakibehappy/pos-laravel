@@ -161,7 +161,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             $topupId = null;
             $productId = null;
             if($item['product_id'] > 0){
-                $item['product_id'];
+                $productId = $item['product_id'];
             }
 
             // 1️⃣ Handle Topup Transaction logic
