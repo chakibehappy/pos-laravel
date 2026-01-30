@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Models\Product;
 use App\Models\PosUser;
 use App\Models\User;
-use App\Models\StoreDigitalWallet;
+use App\Models\DigitalWalletStore;
 use App\Models\DigitalWallet;
 use App\Models\TopupTransType;
 use Illuminate\Support\Facades\Hash;
@@ -95,7 +95,7 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
         ->get();
 
     // Store wallets
-    $storeWallets = StoreDigitalWallet::join(
+    $storeWallets = DigitalWalletStore::join(
             'digital_wallets',
             'store_digital_wallets.digital_wallet_id',
             '=',
