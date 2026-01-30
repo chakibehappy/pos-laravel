@@ -10,6 +10,8 @@ class TransactionDetail extends Model
     protected $fillable = [
         'transaction_id',
         'product_id',
+        'topup_transaction_id',
+        'cash_withdrawal_id',
         'buying_prices',   // Tambahkan ini
         'selling_prices',
         'quantity',
@@ -30,5 +32,15 @@ class TransactionDetail extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function topupTransaction(): BelongsTo
+    {
+        return $this->belongsTo(TopupTransaction::class, 'topup_transaction_id');
+    }
+    
+    public function cashWithdrawal(): BelongsTo
+    {
+        return $this->belongsTo(CashWithdrawal::class, 'cash_withdrawal_id');
     }
 }

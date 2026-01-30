@@ -12,6 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
+use App\Models\TopupTransaction;
 use Illuminate\Support\Facades\DB;
 
 // Public Login
@@ -157,17 +158,36 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
         // 2️⃣ Create Transaction Items
         foreach ($request->items as $item) {
-            $lineSubtotal = $item['quantity'] * $item['price'];
+            $topupId = null;
 
-            // check if there's topup transaction here
+            // 1️⃣ Handle Topup Transaction logic
+            if (!empty($item['topup_transaction'])) {
+                $topupData = $item['topup_transaction'];
+                
+                $topup = TopupTransaction::create([
+                    'store_id'                => $posUser->store_id,
+                    'cust_account_number'     => $topupData['cust_account_number'],
+                    'nominal_request'         => $topupData['nominal_request'],
+                    'nominal_pay'             => $topupData['nominal_pay'],
+                    'digital_wallet_store_id' => $topupData['digital_wallet_store_id'],
+                    'topup_trans_type_id'     => $topupData['topup_trans_type_id'],
+                ]);
+                
+                $topupId = $topup->id;
 
-            if ($item['topup_transaction']){
-
+                // Reduce store wallet balance 
+                DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
+                    ->decrement('balance', $topupData['nominal_request']);
             }
             
+
+            $lineSubtotal = $item['quantity'] * $item['price'];
+
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
                 'product_id'     => $item['product_id'] ?? null,
+                'topup_transaction_id' => $topupId, // Link to topup
+                'cash_withdrawal_id'   => null,     // Placeholder for future
                 'quantity'       => $item['quantity'],
                 'price'          => $item['price'],
                 'subtotal'       => $lineSubtotal,
@@ -182,6 +202,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
         DB::commit();
 
+        // need to parse updated  pos_data later
         return response()->json([
             'message' => 'Transaction created successfully',
             'transaction_id' => $transaction->id,
