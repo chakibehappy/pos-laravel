@@ -115,5 +115,80 @@ class DatabaseSeeder extends Seeder
             'subtotal' => 300000.00,
             'created_at' => now(),
         ]);
+
+        // Topup transaction type
+        DB::table('topup_trans_type')->insert([
+            // =====================
+            // DIGITAL - PULSA
+            // =====================
+            ['name' => 'Pulsa Telkomsel',   'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Pulsa XL',          'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Pulsa Axis',        'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Pulsa IM3',         'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Pulsa Three',       'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Pulsa Bayu',        'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Pulsa Smartfren',   'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+
+            // =====================
+            // DIGITAL - E-WALLET
+            // =====================
+            ['name' => 'Transfer Dana',     'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Gopay',    'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer GrabPay',  'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+
+            // =====================
+            // DIGITAL - BANK
+            // =====================
+            ['name' => 'Transfer Bank BRI',      'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank BCA',      'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank BNI',      'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank SeaBank',  'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank Mandiri',  'type' => 'digital', 'created_at' => now(), 'updated_at' => now()],
+
+            // =====================
+            // BILL / POSTPAID
+            // =====================
+            ['name' => 'Token Listrik',     'type' => 'bill', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Tagihan BPJS',      'type' => 'bill', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        // wallets
+        DB::table('digital_wallet')->insert([
+            [
+                'name' => 'Bukalapak',
+                'balance' => 1000000,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Radar',
+                'balance' => 1000000,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Delta',
+                'balance' => 1000000,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        // Topup transaction type
+        DB::table('withdrawal_source_type')->insert([
+
+            // =====================
+            // DIGITAL - E-WALLET
+            // =====================
+            ['name' => 'Transfer Dana',     'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Gopay',    'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer GrabPay',  'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank BRI',  'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank BCA',  'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank BNI',   'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank SeaBank', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Transfer Bank Mandiri',  'created_at' => now(), 'updated_at' => now()],
+
+        ]);
     }
 }
