@@ -99,8 +99,8 @@ const submit = () => {
 
 <template>
     <AuthenticatedLayout>
-        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-            <h2 class="font-black uppercase mb-4 italic text-lg underline decoration-yellow-400">
+        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+            <h2 class="font-black uppercase mb-4 italic text-lg   decoration-yellow-400">
                 {{ form.id ? 'Edit Produk' : 'Tambah Produk' }}
             </h2>
             
@@ -164,7 +164,7 @@ const submit = () => {
             </div>
 
             <div class="mt-6 flex gap-x-2">
-                <button @click="submit" :disabled="form.processing" class="bg-black text-white px-8 py-2 font-bold uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none transition-all">
+                <button @click="submit" :disabled="form.processing" class="bg-black text-white px-8 py-2 font-bold uppercase  -[2px_2px_0px_0px_rgba(0,0,0,1)] active: -none transition-all">
                     {{ form.processing ? 'Menyimpan...' : 'Simpan Produk' }}
                 </button>
                 <button @click="showForm = false" class="border-2 border-black px-8 py-2 font-bold uppercase hover:bg-gray-100">Batalkan</button>
@@ -217,7 +217,7 @@ const submit = () => {
             </template>
 
             <template #unit_name="{ value }">
-                <span class="px-2 py-1 border border-black bg-green-50 text-[10px] font-black uppercase italic shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">{{ value }}</span>
+                <span class="px-2 py-1 border border-black bg-green-50 text-[10px] font-black uppercase italic  -[1px_1px_0px_0px_rgba(0,0,0,1)]">{{ value }}</span>
             </template>
 
             <template #buying_price="{ value }">{{ Number(value).toLocaleString('id-ID') }}</template>

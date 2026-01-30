@@ -44,8 +44,6 @@ const filteredWallets = computed(() => {
     return props.walletStores.filter(wallet => wallet.store_id === form.store_id);
 });
 
-
-
 watch(() => form.store_id, () => {
     if (!editMode.value) {
         form.digital_wallet_store_id = '';
@@ -61,7 +59,7 @@ const submit = () => {
         form.post(route('topup-transactions.store'), {
             onSuccess: () => resetForm(),
             onError: (errors) => {
-                if(errors.error) alert(errors.error); // Muncul jika saldo tidak cukup
+                if(errors.error) alert(errors.error); 
             }
         });
     }
@@ -107,12 +105,12 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
 
         <div class="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
             
-            <div class="xl:col-span-1 border-4 border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <div class="xl:col-span-1 border-4 border-black p-6 bg-white">
                 <div class="flex justify-between items-center mb-6 border-b-4 border-black pb-2">
                     <h3 class="font-black uppercase italic text-black text-xs">
                         {{ editMode ? 'Edit Transaksi' : 'Input Baru' }}
                     </h3>
-                    <button v-if="editMode" @click="resetForm" class="text-[10px] font-black uppercase text-red-600 underline">Batal</button>
+                    <button v-if="editMode" @click="resetForm" class="text-[10px] font-black uppercase text-red-600  ">Batal</button>
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-4">
@@ -153,7 +151,7 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
 
                     <div>
                         <label class="block text-[10px] font-black uppercase mb-1 text-black">Saldo Sumber (Filter per Toko)</label>
-                        <select v-model="form.digital_wallet_store_id" class="w-full border-4 border-black p-2 font-bold outline-none text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" required>
+                        <select v-model="form.digital_wallet_store_id" class="w-full border-4 border-black p-2 font-bold outline-none text-xs" required>
                             <option value="" disabled>
                                 {{ form.store_id ? 'Pilih Saldo' : 'Pilih Toko Dahulu' }}
                             </option>
@@ -168,12 +166,12 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
 
                     <button :disabled="form.processing" 
                         class="w-full bg-black text-white py-4 font-black uppercase border-2 border-black hover:bg-yellow-400 hover:text-black transition-all active:translate-y-1 disabled:opacity-50">
-                        {{ form.processing ? 'Memproses...' : (editMode ? 'Update & Sesuaikan Saldo' : 'Simpan & Potong Saldo') }}
+                        {{ form.processing ? 'Memproses...' : (editMode ? 'Update' : 'Simpan') }}
                     </button>
                 </form>
             </div>
 
-            <div class="xl:col-span-3 border-4 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+            <div class="xl:col-span-3 border-4 border-black bg-white overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-black text-white text-[10px] font-black uppercase italic">
@@ -203,8 +201,8 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
                                     {{ formatIDR(item.nominal_pay) }}
                                 </td>
                                 <td class="p-3 text-center space-x-3">
-                                    <button @click="editData(item)" class="text-blue-600 hover:underline uppercase font-black italic">Edit</button>
-                                    <button @click="deleteData(item.id)" class="text-red-600 hover:underline uppercase font-black italic">Hapus</button>
+                                    <button @click="editData(item)" class="text-blue-600 hover:  uppercase font-black italic">Edit</button>
+                                    <button @click="deleteData(item.id)" class="text-red-600 hover:  uppercase font-black italic">Hapus</button>
                                 </td>
                             </tr>
                         </tbody>

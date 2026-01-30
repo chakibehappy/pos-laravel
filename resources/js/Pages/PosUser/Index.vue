@@ -59,7 +59,7 @@ const destroy = (id) => {
 
 <template>
     <AuthenticatedLayout>
-        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
             <h2 class="font-black uppercase mb-4 italic">{{ form.id ? 'Edit Staff' : 'Add New Staff' }}</h2>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="flex flex-col">
@@ -101,7 +101,7 @@ const destroy = (id) => {
 
         <div class="mb-4 flex justify-between items-end">
             <h1 class="text-2xl font-black uppercase tracking-tighter italic">Daftar Staff</h1>
-            <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)] active:shadow-none transition-all">
+            <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black  -[4px_4px_0px_0px_rgba(0,0,0,0.25)] active: -none transition-all">
                 Tambahkan
             </button>
         </div>

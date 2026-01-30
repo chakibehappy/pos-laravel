@@ -57,10 +57,10 @@ const resetForm = () => {
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
             <div class="border-4 border-black p-6 bg-white">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="font-black uppercase italic underline decoration-yellow-400 decoration-4 text-black">
+                    <h3 class="font-black uppercase italic   decoration-yellow-400 decoration-4 text-black">
                         {{ editMode ? 'Edit Sumber' : 'Tambah Sumber Baru' }}
                     </h3>
-                    <button v-if="editMode" @click="resetForm" class="text-[10px] font-black uppercase text-red-600 underline decoration-2">Batal</button>
+                    <button v-if="editMode" @click="resetForm" class="text-[10px] font-black uppercase text-red-600   decoration-2">Batal</button>
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-4">

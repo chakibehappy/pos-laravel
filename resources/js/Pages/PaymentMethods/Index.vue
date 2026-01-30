@@ -49,7 +49,7 @@ const deleteMethod = (id) => {
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     
-                    <div class="bg-white border-4 border-black p-6 h-fit shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                    <div class="bg-white border-4 border-black p-6 h-fit  -[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         <h3 class="text-xl font-black mb-4 uppercase italic">
                             {{ isEditing ? 'Edit Metode' : 'Tambah Metode' }}
                         </h3>
@@ -69,7 +69,7 @@ const deleteMethod = (id) => {
                             <button 
                                 type="submit" 
                                 :disabled="form.processing"
-                                class="mt-6 w-full border-4 border-black p-3 font-black uppercase transition-all hover:-translate-x-1 hover:-translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-0 active:translate-y-0 disabled:bg-gray-400"
+                                class="mt-6 w-full border-4 border-black p-3 font-black uppercase transition-all hover:-translate-x-1 hover:-translate-y-1  -[4px_4px_0px_0px_rgba(0,0,0,1)] active: -none active:translate-x-0 active:translate-y-0 disabled:bg-gray-400"
                                 :class="isEditing ? 'bg-blue-400 hover:bg-blue-500' : 'bg-yellow-400 hover:bg-yellow-500'"
                             >
                                 {{ isEditing ? 'Update Data' : 'Simpan Data' }}
@@ -86,7 +86,7 @@ const deleteMethod = (id) => {
                         </form>
                     </div>
 
-                    <div class="md:col-span-2 bg-white border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                    <div class="md:col-span-2 bg-white border-4 border-black p-6  -[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         <h3 class="text-xl font-black mb-4 uppercase italic text-left">Daftar Metode Pembayaran</h3>
                         <div class="overflow-x-auto">
                             <table class="w-full border-collapse">
