@@ -9,7 +9,6 @@ class DigitalWalletStore extends Model
 {
     use HasFactory;
 
-    // Pastikan nama tabel sesuai dengan di database (singular/plural)
     protected $table = 'digital_wallet_store';
 
     protected $fillable = [
@@ -18,13 +17,11 @@ class DigitalWalletStore extends Model
         'balance'
     ];
 
-    public function store()
-    {
+    public function store() {
         return $this->belongsTo(Store::class);
     }
 
-    public function wallet()
-    {
+    public function wallet() {
         return $this->belongsTo(DigitalWallet::class, 'digital_wallet_id');
     }
 }

@@ -185,8 +185,8 @@ const deleteTransaction = (id) => {
 
 <template>
     <AuthenticatedLayout>
-        <div v-if="showForm" class="mb-8 p-6 border-4 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-            <h2 class="font-black uppercase mb-6 italic text-2xl underline decoration-yellow-400">
+        <div v-if="showForm" class="mb-8 p-6 border-4 border-black bg-white  -[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <h2 class="font-black uppercase mb-6 italic text-2xl   decoration-yellow-400">
                 {{ form.id ? 'Edit Transaksi' : 'Transaksi Baru' }}
             </h2>
             
@@ -232,7 +232,7 @@ const deleteTransaction = (id) => {
                     <label class="font-black text-[10px] uppercase text-gray-400 text-center">Jumlah</label>
                     <input v-model.number="qtyInput" type="number" min="1" class="w-full border-2 border-black p-2 font-bold text-center outline-none" />
                 </div>
-                <button @click="addItem" type="button" :disabled="!form.store_id" class="bg-blue-500 text-white px-8 py-2 font-black border-2 border-black uppercase hover:bg-blue-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all disabled:bg-gray-400">Tambah</button>
+                <button @click="addItem" type="button" :disabled="!form.store_id" class="bg-blue-500 text-white px-8 py-2 font-black border-2 border-black uppercase hover:bg-blue-600  -[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all disabled:bg-gray-400">Tambah</button>
             </div>
 
             <div class="overflow-x-auto mb-8">
@@ -268,13 +268,13 @@ const deleteTransaction = (id) => {
                     <div>Subtotal: Rp {{ Number(form.subtotal).toLocaleString('id-ID') }}</div>
                     <div class="text-red-500 font-black">Pajak (10%): Rp {{ Number(form.tax).toLocaleString('id-ID') }}</div>
                 </div>
-                <div class="text-3xl font-black bg-yellow-300 border-4 border-black p-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] italic">
+                <div class="text-3xl font-black bg-yellow-300 border-4 border-black p-4  -[6px_6px_0px_0px_rgba(0,0,0,1)] italic">
                     TOTAL: Rp {{ Number(form.total).toLocaleString('id-ID') }}
                 </div>
             </div>
 
             <div class="flex gap-x-4">
-                <button @click.prevent="submit" :disabled="form.processing" class="bg-black text-white px-10 py-4 font-black uppercase hover:bg-gray-800 disabled:bg-gray-400 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] transition-all">
+                <button @click.prevent="submit" :disabled="form.processing" class="bg-black text-white px-10 py-4 font-black uppercase hover:bg-gray-800 disabled:bg-gray-400 border-2 border-black  -[4px_4px_0px_0px_rgba(0,0,0,0.3)] transition-all">
                     {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
                 </button>
                 <button @click="showForm = false" type="button" class="border-2 border-black px-10 py-4 font-black uppercase hover:bg-gray-100 transition-colors">Batal</button>
@@ -282,7 +282,7 @@ const deleteTransaction = (id) => {
         </div>
 
         <div v-if="showDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div class="bg-white border-4 border-black w-full max-w-4xl shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+            <div class="bg-white border-4 border-black w-full max-w-4xl  -[12px_12px_0px_0px_rgba(0,0,0,1)]">
                 <div class="p-4 border-b-4 border-black flex justify-between items-center bg-yellow-400 font-black uppercase italic">
                     <span>Detail Transaksi</span>
                     <button @click="showDetail = false" class="text-2xl hover:scale-125 transition-transform">×</button>
@@ -319,7 +319,7 @@ const deleteTransaction = (id) => {
                 <h1 class="text-5xl font-black uppercase italic tracking-tighter leading-none">Transaksi</h1>
                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">Log penjualan dan arus kas</p>
             </div>
-            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-10 py-4 font-black uppercase shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-all">
+            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-10 py-4 font-black uppercase  -[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-all">
                 Tambahkan
             </button>
         </div>

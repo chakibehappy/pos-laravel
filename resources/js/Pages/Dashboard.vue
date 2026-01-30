@@ -38,31 +38,31 @@ onMounted(() => {
 <template>
     <AuthenticatedLayout>
         <div class="space-y-6">
-            <div class="p-8 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+            <div class="p-8 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
                 <h1 class="text-4xl font-black uppercase italic tracking-tighter">
                     Selamat Datang, {{ user?.name }}!
                 </h1>
                 <p class="font-bold text-gray-500 mt-2 uppercase text-xs">
-                    Status sistem: <span class="text-green-600 underline">Terkoneksi ke VPS</span>
+                    Status sistem: <span class="text-green-600  ">Terkoneksi ke VPS</span>
                 </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="p-6 border-2 border-black bg-yellow-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+                <div class="p-6 border-2 border-black bg-yellow-400  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
                     <p class="text-xs font-black uppercase">Pendapatan Hari Ini</p>
                     <p class="text-3xl font-black mt-2">Rp.1,200.00</p>
                 </div>
-                <div class="p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+                <div class="p-6 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
                     <p class="text-xs font-black uppercase">Total Produk</p>
                     <p class="text-3xl font-black mt-2">142</p>
                 </div>
-                <div class="p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+                <div class="p-6 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
                     <p class="text-xs font-black uppercase">Staff Aktif</p>
                     <p class="text-3xl font-black mt-2">8</p>
                 </div>
             </div>
 
-            <div class="p-8 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
+            <div class="p-8 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
                 <h2 class="text-xl font-black uppercase mb-6 tracking-tight">Penjualan Mingguan</h2>
                 <div class="h-[300px]">
                     <canvas ref="canvas"></canvas>

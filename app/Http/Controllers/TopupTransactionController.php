@@ -6,6 +6,7 @@ use App\Models\TopupTransaction;
 use App\Models\TopupTransType;   
 use App\Models\Store;
 use App\Models\DigitalWalletStore; 
+use App\Models\DigitalWallet; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -13,26 +14,21 @@ use Inertia\Inertia;
 class TopupTransactionController extends Controller
 {
     /**
-     * READ: Menampilkan daftar transaksi dengan relasi lengkap
+     * READ: Menampilkan daftar transaksi
      */
     public function index()
     {
         return Inertia::render('TopupTransaction/Index', [
-            // Mengambil data transaksi beserta relasi
-            'transactions' => TopupTransaction::with(['store', 'transType', 'digitalWalletStore'])
-                ->latest()
-                ->get(),
-            
-            // FILTER: Hanya memunculkan toko dengan store_type_id = 1 di Combo Box
+            'transactions' => TopupTransaction::with(['store', 'transType'])->latest()->get(),
             'stores' => Store::where('store_type_id', 1)->get(),
-            
             'transTypes' => TopupTransType::all(),
             'walletStores' => DigitalWalletStore::all(),
+            'wallets' => DigitalWallet::all(['id', 'name']), 
         ]);
     }
 
     /**
-     * CREATE: Menyimpan transaksi baru ke database
+     * CREATE: Simpan Transaksi + Potong Saldo Otomatis
      */
     public function store(Request $request)
     {
@@ -41,18 +37,36 @@ class TopupTransactionController extends Controller
             'cust_account_number' => 'required|string|max:50',
             'nominal_request' => 'required|numeric|min:0',
             'nominal_pay' => 'required|numeric|min:0',
-            'digital_wallet_store_id' => 'required|exists:digital_wallet_stores,id',
+            'digital_wallet_store_id' => 'required|exists:digital_wallet_store,id',
             'topup_trans_type_id' => 'required|exists:topup_trans_type,id',
         ]);
 
-        // Simpan data ke tabel topup_transactions
-        TopupTransaction::create($request->all());
+        try {
+            DB::transaction(function () use ($request) {
+                // 1. Ambil data saldo wallet di toko tersebut
+                $walletStore = DigitalWalletStore::findOrFail($request->digital_wallet_store_id);
 
-        return back()->with('message', 'Transaksi berhasil dicatat.');
+                // 2. Cek apakah saldo mencukupi
+                if ($walletStore->balance < $request->nominal_request) {
+                    throw new \Exception('Saldo tidak mencukupi.');
+                }
+
+                // 3. Potong saldo
+                $walletStore->decrement('balance', $request->nominal_request);
+
+                // 4. Catat transaksi
+                TopupTransaction::create($request->all());
+            });
+
+            return back()->with('message', 'Transaksi berhasil dan saldo telah dipotong.');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
     }
 
     /**
-     * UPDATE: Memperbarui data transaksi yang sudah ada
+     * UPDATE: Edit Transaksi + Penyesuaian Saldo Otomatis
      */
     public function update(Request $request, $id)
     {
@@ -61,24 +75,59 @@ class TopupTransactionController extends Controller
             'cust_account_number' => 'required|string|max:50',
             'nominal_request' => 'required|numeric|min:0',
             'nominal_pay' => 'required|numeric|min:0',
-            'digital_wallet_store_id' => 'required|exists:digital_wallet_stores,id',
+            'digital_wallet_store_id' => 'required|exists:digital_wallet_store,id',
             'topup_trans_type_id' => 'required|exists:topup_trans_type,id',
         ]);
 
-        $transaction = TopupTransaction::findOrFail($id);
-        $transaction->update($request->all());
+        try {
+            DB::transaction(function () use ($request, $id) {
+                $transaction = TopupTransaction::findOrFail($id);
+                $walletStore = DigitalWalletStore::findOrFail($request->digital_wallet_store_id);
 
-        return back()->with('message', 'Transaksi berhasil diperbarui.');
+                // Hitung selisih nominal (nominal lama vs nominal baru)
+                // Jika nominal_request naik, saldo berkurang lagi. Jika turun, saldo bertambah (refund selisih).
+                $diff = $request->nominal_request - $transaction->nominal_request;
+
+                if ($walletStore->balance < $diff) {
+                    throw new \Exception('Saldo tidak cukup untuk penyesuaian nominal ini.');
+                }
+
+                // Update saldo berdasarkan selisih
+                $walletStore->decrement('balance', $diff);
+
+                // Update data transaksi
+                $transaction->update($request->all());
+            });
+
+            return back()->with('message', 'Transaksi berhasil diperbarui dan saldo disesuaikan.');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
     }
 
     /**
-     * DELETE: Menghapus data transaksi
+     * DELETE: Hapus Transaksi + Refund Saldo Otomatis
      */
     public function destroy($id)
     {
-        $transaction = TopupTransaction::findOrFail($id);
-        $transaction->delete();
+        try {
+            DB::transaction(function () use ($id) {
+                $transaction = TopupTransaction::findOrFail($id);
+                
+                // Kembalikan saldo ke toko (Refund)
+                $walletStore = DigitalWalletStore::find($transaction->digital_wallet_store_id);
+                if ($walletStore) {
+                    $walletStore->increment('balance', $transaction->nominal_request);
+                }
 
-        return back()->with('message', 'Riwayat transaksi berhasil dihapus.');
+                $transaction->delete();
+            });
+
+            return back()->with('message', 'Riwayat transaksi dihapus dan saldo dikembalikan.');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal menghapus data.']);
+        }
     }
 }

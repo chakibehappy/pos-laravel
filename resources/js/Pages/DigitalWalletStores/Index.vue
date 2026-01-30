@@ -56,10 +56,10 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
             <div class="border-4 border-black p-6 bg-white">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="font-black uppercase italic underline decoration-yellow-400 decoration-4">
+                    <h3 class="font-black uppercase italic   decoration-yellow-400 decoration-4">
                         {{ editMode ? 'Edit Distribusi' : 'Alokasi Baru' }}
                     </h3>
-                    <button v-if="editMode" @click="editMode = false; form.reset()" class="text-[10px] font-black uppercase text-red-600 underline">Batal</button>
+                    <button v-if="editMode" @click="editMode = false; form.reset()" class="text-[10px] font-black uppercase text-red-600  ">Batal</button>
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-5">
@@ -120,8 +120,8 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', c
                             </td>
                             <td class="p-3 font-black text-blue-600 text-right italic text-base">{{ formatIDR(sb.balance) }}</td>
                             <td class="p-3 text-center space-x-4">
-                                <button @click="editData(sb)" class="font-black text-[10px] uppercase text-blue-600 underline hover:text-blue-800">✏️</button>
-                                <button @click="deleteData(sb.id)" class="font-black text-[10px] uppercase text-red-600 underline hover:text-red-800">❌</button>
+                                <button @click="editData(sb)" class="font-black text-[10px] uppercase text-blue-600   hover:text-blue-800">✏️</button>
+                                <button @click="deleteData(sb.id)" class="font-black text-[10px] uppercase text-red-600   hover:text-red-800">❌</button>
                             </td>
                         </tr>
                         <tr v-if="storeBalances.length === 0">

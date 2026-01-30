@@ -61,14 +61,14 @@ const deleteunit = (id) => {
                 <button 
                     v-if="!showForm"
                     @click="openCreate" 
-                    class="bg-yellow-400 text-black px-8 py-3 font-black uppercase border-4 border-black  hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+                    class="bg-yellow-400 text-black px-8 py-3 font-black uppercase border-4 border-black  hover:translate-x-1 hover:translate-y-1 hover: -none transition-all"
                 >
                     + Satuan Baru
                 </button>
             </div>
 
             <div v-if="showForm" class="mb-10 p-6 border-4 border-black bg-white ">
-                <h2 class="font-black uppercase mb-6 italic text-xl underline decoration-yellow-400">
+                <h2 class="font-black uppercase mb-6 italic text-xl   decoration-yellow-400">
                     {{ form.id ? 'Edit' : 'Tambahkan' }}
                 </h2>
                 
@@ -86,7 +86,7 @@ const deleteunit = (id) => {
                             <button 
                                 @click="submit" 
                                 :disabled="form.processing"
-                                class="bg-black text-white px-8 py-4 font-black uppercase border-2 border-black hover:bg-gray-800 active:shadow-none transition-all disabled:bg-gray-400"
+                                class="bg-black text-white px-8 py-4 font-black uppercase border-2 border-black hover:bg-gray-800 active: -none transition-all disabled:bg-gray-400"
                             >
                                 {{ form.processing ? '...' : 'Simpan' }}
                             </button>
@@ -119,13 +119,13 @@ const deleteunit = (id) => {
                                 <div class="flex justify-end gap-2">
                                     <button 
                                         @click="openEdit(cat)"
-                                        class="bg-blue-400 p-2 border-2 border-black hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                                        class="bg-blue-400 p-2 border-2 border-black hover: -none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
                                     >
                                         ✏️
                                     </button>
                                     <button 
                                         @click="deleteunit(cat.id)"
-                                        class="bg-red-500 p-2 border-2 border-black hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                                        class="bg-red-500 p-2 border-2 border-black hover: -none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
                                     >
                                         ❌
                                     </button>

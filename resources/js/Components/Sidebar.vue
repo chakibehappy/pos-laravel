@@ -12,19 +12,26 @@ const toggleDropdown = (label) => {
 const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { label: 'Pengguna', icon: '👤', name: 'users.*', route: route('users.index') },
-    { label: 'Topup', icon: '⚙️', name: 'topup_transactions.*', route: route('topup-transactions.index') },
-    // Dropdown Master Kategori (Gabungan Jenis Usaha, Topup, dan Tarik Tunai)
-    
-
     { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
     { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
     { label: 'Kas Toko', icon: '🏪', name: 'cash-stores.*', route: route('cash-stores.index') },
-    { label: 'Tarik Tunai', icon: '🏧', name: 'cash-withdrawals.*', route: route('cash-withdrawals.index') },
+    { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') },
+    // DROPDOWN TRANSAKSI DIGITAL
+    { 
+        label: 'Transaksi Digital', 
+        icon: '📱', 
+        isDropdown: true,
+        activeOn: ['topup-transactions.*', 'cash-withdrawals.*'],
+        children: [
+            { label: '📲 Topup / Saldo', name: 'topup-transactions.index', route: route('topup-transactions.index') },
+            { label: '🏧 Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
+        ]
+    },
     { 
         label: 'Master Kategori', 
         icon: '🗂️', 
         isDropdown: true,
-        activeOn: ['store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*'],
+        activeOn: ['store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
         children: [
             { label: '💼 Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
             { label: '📱 Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
@@ -56,8 +63,8 @@ const menuItems = [
         ]
     },
     
-    { label: 'Akun', icon: '⚙️', name: 'accounts.*', route: route('accounts.index') },
-    { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') }
+    { label: 'Akun', icon: '⚙️', name: 'accounts.*', route: route('accounts.index') }
+    
 ];
 
 // Otomatis buka jika anak aktif
@@ -69,7 +76,7 @@ menuItems.forEach(item => {
 </script>
 
 <template>
-    <div class="w-64 bg-black text-white flex flex-col min-h-screen flex-shrink-0 border-r border-gray-900">
+    <div class="w-64 bg-black text-white flex flex-col min-h-screen flex-shrink-0 border-r border-gray-900 shadow-2xl">
         <div class="p-6 text-l font-black italic tracking-tighter border-b border-gray-900 shadow-sm">
             MAAR <span class="text-yellow-400">COMPANY</span>
         </div>
@@ -78,27 +85,31 @@ menuItems.forEach(item => {
             <template v-for="item in menuItems" :key="item.label">
                 
                 <Link v-if="!item.isDropdown" :href="item.route"
-                    class="flex items-center gap-3 p-3 hover:bg-white hover:text-black transition-all rounded font-medium text-xs uppercase italic tracking-tight"
-                    :class="{ 'bg-white text-black font-black': route().current(item.name) }">
-                    <span class="text-lg grayscale group-hover:grayscale-0">{{ item.icon }}</span>
+                    class="flex items-center gap-3 p-3 transition-all rounded font-medium text-xs uppercase italic tracking-tight group"
+                    :class="route().current(item.name) 
+                        ? 'bg-yellow-400 text-black font-black' 
+                        : 'text-gray-400 hover:bg-gray-900 hover:text-yellow-400'">
+                    <span class="text-lg transition-all" :class="route().current(item.name) ? 'grayscale-0' : 'grayscale group-hover:grayscale-0'">{{ item.icon }}</span>
                     {{ item.label }}
                 </Link>
 
                 <div v-else class="flex flex-col">
                     <button @click="toggleDropdown(item.label)"
-                        class="flex items-center gap-3 p-3 hover:bg-white hover:text-black transition-all rounded w-full text-left font-medium text-xs uppercase italic tracking-tight"
-                        :class="{ 'bg-gray-900 text-white': openDropdown === item.label }">
-                        <span class="text-lg">{{ item.icon }}</span>
+                        class="flex items-center gap-3 p-3 transition-all rounded w-full text-left font-medium text-xs uppercase italic tracking-tight group"
+                        :class="openDropdown === item.label ? 'text-yellow-400 bg-gray-900/50' : 'text-gray-400 hover:bg-gray-900 hover:text-yellow-400'">
+                        <span class="text-lg transition-all" :class="openDropdown === item.label ? 'grayscale-0' : 'grayscale group-hover:grayscale-0'">{{ item.icon }}</span>
                         <div class="flex-1 flex justify-between items-center">
                             {{ item.label }}
-                            <span class="text-[8px] transition-transform duration-300" :class="{ 'rotate-180': openDropdown === item.label }">▼</span>
+                            <span class="text-[8px] transition-transform duration-300" :class="{ 'rotate-180 text-yellow-400': openDropdown === item.label }">▼</span>
                         </div>
                     </button>
 
-                    <div v-if="openDropdown === item.label" class="mt-1 space-y-1 bg-gray-950/50 rounded-b border-l-2 border-gray-800 ml-4">
+                    <div v-if="openDropdown === item.label" class="mt-1 space-y-1 bg-gray-900/20 border-l-2 border-yellow-400 ml-4 rounded-r">
                         <Link v-for="child in item.children" :key="child.name" :href="child.route"
-                            class="flex items-center gap-3 p-3 pl-6 hover:bg-white hover:text-black transition-all rounded text-[11px] font-bold uppercase italic"
-                            :class="{ 'bg-white text-black font-black': route().current(child.name) }">
+                            class="flex items-center gap-3 p-3 pl-6 transition-all rounded text-[11px] font-bold uppercase italic"
+                            :class="route().current(child.name) 
+                                ? 'bg-yellow-400/10 text-yellow-400 font-black' 
+                                : 'text-gray-500 hover:text-yellow-200 hover:bg-gray-900'">
                             {{ child.label }}
                         </Link>
                     </div>
@@ -109,7 +120,7 @@ menuItems.forEach(item => {
 
         <div class="p-4 border-t border-gray-900 bg-black">
             <Link :href="route('logout')" method="post" as="button" 
-                class="w-full text-left p-3 text-xs font-black uppercase italic text-gray-500 hover:text-red-500 transition-colors">
+                class="w-full text-left p-3 text-xs font-black uppercase italic text-gray-600 hover:text-red-500 transition-colors">
                 🚪 Keluar
             </Link>
         </div>
@@ -124,10 +135,10 @@ menuItems.forEach(item => {
     background: #000;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #1a1a1a;
+    background: #facc15; /* Yellow-400 */
     border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #333;
+    background: #eab308; /* Yellow-500 */
 }
 </style>
