@@ -13,31 +13,33 @@ use Illuminate\Validation\ValidationException;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use App\Models\TopupTransaction;
+
 use Illuminate\Support\Facades\DB;
 
-// Public Login
-// Route::post('/login', function (Request $request) {
-//     $request->validate([
-//         'email' => 'required|email',
-//         'password' => 'required',
-//         'device_name' => 'required', 
-//     ]);
 
-//     $user = User::where('email', $request->email)->first();
+function getPosData($storeId) {
+    // Products
+    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
+        ->where('store_products.store_id', $storeId)
+        ->select('products.*', 'store_products.stock as store_stock')
+        ->get();
 
-//     if (! $user || ! Hash::check($request->password, $user->password)) {
-//         return response()->json(['message' => 'Invalid credentials'], 401);
-//     }
+    // Store wallets
+    $storeWallets = DigitalWalletStore::join('digital_wallet', 'digital_wallet_store.digital_wallet_id', '=', 'digital_wallet.id')
+        ->where('digital_wallet_store.store_id', $storeId)
+        ->select('digital_wallet_store.id', 'digital_wallet.id as wallet_id', 'digital_wallet.name', 'digital_wallet_store.balance')
+        ->get();
 
-//     // Generate the Sanctum Token
-//     $token = $user->createToken($request->device_name)->plainTextToken;
+    // Topup Types
+    $topupTypes = TopupTransType::select('id', 'name', 'type')
+        ->orderBy('type')->orderBy('name')->get();
 
-//     return response()->json([
-//         'user' => $user,
-//         'token' => $token,
-//         'token_type' => 'Bearer'
-//     ]);
-// });
+    return [
+        'products' => $products,
+        'store_wallets' => $storeWallets,
+        'topup_types' => $topupTypes
+    ];
+}
 
 Route::post('/login', function (Request $request) {
     $request->validate([
@@ -140,13 +142,12 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         'items.*.price' => 'required|numeric',
     ]);
 
-    /** @var \App\Models\PosUser $posUser */
     $posUser = $request->user();
 
     DB::beginTransaction();
 
     try {
-        // 1️⃣ Create Transaction Header
+        // Create Transaction Header
         $transaction = Transaction::create([
             'store_id'       => $posUser->store_id,
             'pos_user_id'    => $posUser->id,
@@ -156,7 +157,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             'total'          => $request->total,
         ]);
 
-        // 2️⃣ Create Transaction Items
+        // Create Transaction Items
         foreach ($request->items as $item) {
             $topupId = null;
             $productId = null;
@@ -164,7 +165,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 $productId = $item['product_id'];
             }
 
-            // 1️⃣ Handle Topup Transaction logic
+            // Handle Topup Transaction logic
             if (!empty($item['topup_transaction'])) {
                 $topupData = $item['topup_transaction'];
                 
@@ -197,18 +198,20 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 'subtotal'       => $lineSubtotal,
             ]);
 
-            // 3️⃣ Reduce stock (if product exists)
+            // Reduce stock (if product exists)
             if (!empty($productId)) {
                 Product::where('id', $productId)->decrement('stock', $item['quantity']);
             }
         }
 
         DB::commit();
-
-        // need to parse updated  pos_data later
+        // Fetch FRESH data to sync Unity UI immediately
+        $updatedData = $this->getPosData($posUser->store_id);
+        
         return response()->json([
             'message' => 'Transaction created successfully',
             'transaction_id' => $transaction->id,
+            'updatedData' => $updatedData,
         ], 201);
 
     } catch (\Throwable $e) {
