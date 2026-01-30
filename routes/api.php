@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Models\Product;
@@ -48,7 +47,7 @@ Route::post('/login', function (Request $request) {
 
     $user = PosUser::with('store')  
         ->where('name', $request->name)
-        ->where('is_active', true)
+        //->where('is_active', true)
         ->first();
 
     if (! $user || ! Hash::check($request->pin, $user->pin)) {
