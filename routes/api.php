@@ -96,17 +96,17 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
 
     // Store wallets
     $storeWallets = DigitalWalletStore::join(
-            'digital_wallets',
-            'store_digital_wallets.digital_wallet_id',
+            'digital_wallet',
+            'digital_wallet_store.digital_wallet_id',
             '=',
-            'digital_wallets.id'
+            'digital_wallet.id'
         )
-        ->where('store_digital_wallets.store_id', $storeId)
+        ->where('digital_wallet_store.store_id', $storeId)
         ->select(
-            'store_digital_wallets.id',
-            'digital_wallets.id as wallet_id',
-            'digital_wallets.name',
-            'store_digital_wallets.balance'
+            'digital_wallet_store.id',
+            'digital_wallet.id as wallet_id',
+            'digital_wallet.name',
+            'digital_wallet_store.balance'
         )
         ->get();
 
