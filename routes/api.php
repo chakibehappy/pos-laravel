@@ -15,6 +15,7 @@ use App\Models\TransactionDetail;
 use App\Models\TopupTransaction;
 use App\Models\WithdrawalSourceType;
 use App\Models\CashStore;
+use App\Models\CashWithdrawal;
 
 use Illuminate\Support\Facades\DB;
 
@@ -179,6 +180,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         // Create Transaction Items
         foreach ($request->items as $item) {
             $topupId = null;
+            $withdrawalId = null;
             $productId = null;
             if($item['product_id'] > 0){
                 $productId = $item['product_id'];
@@ -204,14 +206,30 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->decrement('balance', $topupData['nominal_request']);
             }
             
+            // --- Handle Withdrawal Logic ---
+            if (!empty($item['cash_withdrawal'])) {
+                $wdData = $item['cash_withdrawal'];
+                $withdrawal = CashWithdrawal::create([
+                    'store_id'             => $posUser->store_id,
+                    'customer_name'        => $wdData['customer_name'],
+                    'withdrawal_source_id' => $wdData['withdrawal_source_id'],
+                    'withdrawal_count'     => $wdData['withdrawal_count'],
+                    'admin_fee'            => $wdData['admin_fee'] ?? 0,
+                ]);
+                $withdrawalId = $withdrawal->id;
+
+                // Decrement the physical store cash balance
+                CashStore::where('store_id', $posUser->store_id)
+                    ->decrement('cash', $wdData['withdrawal_count']);
+            }
 
             $lineSubtotal = $item['quantity'] * $item['price'];
 
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
                 'product_id'     => $productId,
-                'topup_transaction_id' => $topupId, // Link to topup
-                'cash_withdrawal_id'   => null,     // Placeholder for future
+                'topup_transaction_id' => $topupId, 
+                'cash_withdrawal_id'   => $withdrawalId,
                 'quantity'       => $item['quantity'],
                 'price'          => $item['price'],
                 'subtotal'       => $lineSubtotal,
