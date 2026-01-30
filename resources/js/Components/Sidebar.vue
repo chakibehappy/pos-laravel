@@ -14,14 +14,15 @@ const menuItems = [
     
     // Group Pengaturan Produk
     { 
-        label: 'Pengaturan Produk', 
+        label: 'Master Produk', 
         icon: '📦', 
         isDropdown: true,
         activeOn: ['products.*', 'product-categories.*', 'unit-types.*'],
         children: [
-            { label: '🏷️ Data Produk', name: 'products.*', route: route('products.index') },
+            { label: '🏷️ Produk Gudang', name: 'products.*', route: route('products.index') },
             { label: '🏷️ Produk Kategori', name: 'product-categories.*', route: route('product-categories.index') },
             { label: '🏷️ Satuan Produk', name: 'unit-types.*', route: route('unit-types.index') },
+             { label: '🏷️Produk Toko', name: 'store-products.*', route: route('store-products.index') },
         ]
     },
     

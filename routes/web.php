@@ -11,7 +11,8 @@ use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\StoreTypeController;
 use App\Http\Controllers\ProductCategoryController; // TAMBAHKAN INI
-use App\Http\Controllers\UnitTypeController;        // TAMBAHKAN INI
+use App\Http\Controllers\UnitTypeController;     
+use App\Http\Controllers\StoreProductController;   // TAMBAHKAN INI
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -87,4 +88,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/store-types', [StoreTypeController::class, 'index'])->name('store-types.index');
     Route::post('/store-types', [StoreTypeController::class, 'store'])->name('store-types.store');
     Route::delete('/store-types/{id}', [StoreTypeController::class, 'destroy'])->name('store-types.destroy');
+
+    // --- TAMBAHKAN MULAI DARI SINI ---
+    // Manajemen Stok Cabang (Store Products)
+    Route::get('/store-products', [StoreProductController::class, 'index'])->name('store-products.index');
+    Route::post('/store-products', [StoreProductController::class, 'store'])->name('store-products.store');
+    Route::delete('/store-products/{id}', [StoreProductController::class, 'destroy'])->name('store-products.destroy');
+    // --- SAMPAI DI SINI ---
 });
