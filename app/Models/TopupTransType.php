@@ -15,4 +15,15 @@ class TopupTransType extends Model
         'name',
         'type',
     ];
+    
+    // Optional helpers (nice for filtering)
+    public function scopeDigital($query)
+    {
+        return $query->where('type', 'digital');
+    }
+
+    public function scopeBill($query)
+    {
+        return $query->where('type', 'bill');
+    }
 }
