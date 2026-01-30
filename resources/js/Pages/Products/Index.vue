@@ -17,7 +17,6 @@ const columns = [
     { label: 'SKU', key: 'sku' },
     { label: 'Nama', key: 'name' }, 
     { label: 'Kategori', key: 'category_name' },
-    { label: 'Toko', key: 'store_name' },
     { label: 'Modal (Rp)', key: 'buying_price' }, 
     { label: 'Jual (Rp)', key: 'selling_price' }, 
     { label: 'Stok', key: 'stock' },
@@ -43,7 +42,6 @@ watch([search, selectedCategory], debounce(([newSearch, newCat]) => {
 // --- LOGIC FORM ---
 const form = useForm({
     id: null,
-    store_id: '',
     product_category_id: '',
     unit_type_id: 1,
     name: '',
@@ -65,7 +63,6 @@ const openCreate = () => {
 const openEdit = (row) => {
     form.clearErrors();
     form.id = row.id;
-    form.store_id = row.store_id;
     form.product_category_id = row.product_category_id;
     form.unit_type_id = row.unit_type_id;
     form.name = row.name;
@@ -124,13 +121,13 @@ const submit = () => {
                     <input v-model="form.sku" type="text" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none uppercase" />
                 </div>
 
-                <div class="flex flex-col gap-1">
+                <!-- <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-gray-400">Toko</label>
                     <select v-model="form.store_id" class="border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none uppercase">
                         <option value="" disabled>PILIH TOKO</option>
                         <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
-                </div>
+                </div> -->
 
                 <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-black uppercase text-gray-400 text-yellow-600">Kategori</label>

@@ -36,7 +36,6 @@ class ProductController extends Controller
         $products->getCollection()->transform(function ($product) {
             return [
                 'id' => $product->id,
-                'store_id' => $product->store_id,
                 'store_name' => $product->store->name ?? 'N/A',
                 'product_category_id' => $product->product_category_id,
                 'category_name' => $product->category->name ?? 'Umum',
@@ -64,7 +63,6 @@ class ProductController extends Controller
     public function store(Request $request) {
         $request->validate([
             'id'                  => 'nullable|numeric',
-            'store_id'            => 'required|exists:stores,id',
             'product_category_id' => 'required|exists:product_categories,id',
             'unit_type_id'        => 'required|exists:unit_types,id',
             'name'                => 'required|string|max:150',
@@ -76,7 +74,6 @@ class ProductController extends Controller
         ]);
 
         $data = $request->only([
-            'store_id', 
             'product_category_id', 
             'unit_type_id',
             'name', 
