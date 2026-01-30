@@ -17,8 +17,7 @@ class PosUser extends Authenticatable
     
     protected $table = 'pos_users';
 
-    // No timestamps in your table
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'store_id',
@@ -27,6 +26,11 @@ class PosUser extends Authenticatable
         'role',
         'is_active',
     ];
+
+    public function stores()
+    {
+        return $this->belongsTo(Store::class);
+    }
 
     // protected $hidden = [
     //     'pin',

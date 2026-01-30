@@ -43,10 +43,10 @@ Route::post('/login', function (Request $request) {
         'device_name' => 'required', 
     ]);
 
-    // Find the POS User by name (or add an 'email' column to pos_users if preferred)
-    $user = PosUser::where('name', $request->name)
-                //    ->where('is_active', true)
-                   ->first();
+    $user = PosUser::with('stores')  
+        ->where('name', $request->name)
+        ->where('is_active', true)
+        ->first();
 
     if (! $user || ! Hash::check($request->pin, $user->pin)) {
         return response()->json(['message' => 'Invalid POS credentials'], 401);
