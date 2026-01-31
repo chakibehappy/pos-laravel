@@ -44,12 +44,18 @@ defineProps({
                         class="px-3 py-1 text-xs border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50" 
                     />
                     
-                    <Link v-else 
+                    <!-- <Link v-else 
                         :href="link.url" 
                         v-html="link.label"
                         class="px-3 py-1 text-xs border border-black transition-colors hover:bg-black hover:text-white"
                         :class="{ 'bg-black text-white': link.active }" 
-                    />
+                    /> -->
+                    <a v-else 
+                        :href="link.url" 
+                        v-html="link.label"
+                        class="px-3 py-1 text-xs border border-black transition-colors hover:bg-black hover:text-white"
+                        :class="{ 'bg-black text-white': link.active }" 
+                    >{{ link.label }}</a>
                 </template>
             </div>
         </div>
