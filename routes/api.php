@@ -148,7 +148,7 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
         ->first();
 
 
-    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee')
+    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
         ->orderBy('topup_trans_type_id')
         ->get();
 
