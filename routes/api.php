@@ -47,7 +47,7 @@ function getPosData($storeId) {
         ->select('cash_store.*')
         ->first();
 
-    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee')
+    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
         ->orderBy('topup_trans_type_id')
         ->get();
 
@@ -217,6 +217,8 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 // Reduce store wallet balance 
                 DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
                     ->decrement('balance', $topupData['nominal_request']);
+                DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
+                    ->decrement('balance', $topupData['adm_fee']);
                     
                 CashStore::where('store_id', $posUser->store_id)
                     ->increment('cash', $topupData['nominal_pay']);
