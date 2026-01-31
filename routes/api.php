@@ -217,6 +217,9 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 // Reduce store wallet balance 
                 DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
                     ->decrement('balance', $topupData['nominal_request']);
+                    
+                CashStore::where('store_id', $posUser->store_id)
+                    ->increment('cash', $topupData['nominal_pay']);
             }
             
             // --- Handle Withdrawal Logic ---
@@ -253,6 +256,9 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 StoreProduct::where('store_id', $posUser->store_id)
                     ->where('product_id', $productId)
                     ->decrement('stock', $item['quantity']);
+
+                CashStore::where('store_id', $posUser->store_id)
+                    ->increment('cash', $lineSubtotal);
             }
         }
 
