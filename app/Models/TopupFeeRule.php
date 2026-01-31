@@ -13,10 +13,11 @@ class TopupFeeRule extends Model
 
     // If you want to allow mass assignment
     protected $fillable = [
-        'topup_trans_type_id',
-        'min_limit',
-        'max_limit',
-        'fee',
+    'topup_trans_type_id',
+    'min_limit',
+    'max_limit',
+    'fee',
+    'admin_fee' // Tambahkan ini
     ];
 
     // Relationship to topup type (optional)

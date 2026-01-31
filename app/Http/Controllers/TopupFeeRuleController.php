@@ -20,17 +20,26 @@ class TopupFeeRuleController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            // Combo Box: Wajib diisi dan harus ada di tabel topup_trans_type
             'topup_trans_type_id' => 'required|exists:topup_trans_type,id',
             
-            // Validasi hanya angka (boleh negatif), tanpa filter perbandingan
-            'min_limit'           => 'required|numeric',
-            'max_limit'           => 'required|numeric',
-            'fee'                 => 'required|numeric',
+            // Field Angka: Boleh kosong (nullable) dan harus angka (numeric)
+            // Dengan nullable, user bisa mengosongkan input atau mengisi 0
+            'min_limit'           => 'nullable|numeric',
+            'max_limit'           => 'nullable|numeric',
+            'fee'                 => 'nullable|numeric',
+            'admin_fee'           => 'nullable|numeric', 
         ]);
+
+        // Mengonversi nilai null (kosong) menjadi 0 agar data di DB tetap konsisten angka
+        $validated['min_limit'] = $validated['min_limit'] ?? 0;
+        $validated['max_limit'] = $validated['max_limit'] ?? 0;
+        $validated['fee']       = $validated['fee'] ?? 0;
+        $validated['admin_fee'] = $validated['admin_fee'] ?? 0;
 
         TopupFeeRule::create($validated);
 
-        return redirect()->back()->with('message', 'Aturan biaya berhasil ditambahkan!');
+        return redirect()->back()->with('success', 'Aturan biaya berhasil ditambahkan!');
     }
 
     public function update(Request $request, $id)
@@ -39,19 +48,28 @@ class TopupFeeRuleController extends Controller
         
         $validated = $request->validate([
             'topup_trans_type_id' => 'required|exists:topup_trans_type,id',
-            'min_limit'           => 'required|numeric',
-            'max_limit'           => 'required|numeric',
-            'fee'                 => 'required|numeric',
+            'min_limit'           => 'nullable|numeric',
+            'max_limit'           => 'nullable|numeric',
+            'fee'                 => 'nullable|numeric',
+            'admin_fee'           => 'nullable|numeric',
         ]);
+
+        // Tetap pastikan nilai null menjadi 0 saat update
+        $validated['min_limit'] = $validated['min_limit'] ?? 0;
+        $validated['max_limit'] = $validated['max_limit'] ?? 0;
+        $validated['fee']       = $validated['fee'] ?? 0;
+        $validated['admin_fee'] = $validated['admin_fee'] ?? 0;
 
         $rule->update($validated);
 
-        return redirect()->back()->with('message', 'Aturan biaya berhasil diperbarui!');
+        return redirect()->back()->with('success', 'Aturan biaya berhasil diperbarui!');
     }
 
     public function destroy($id)
     {
-        TopupFeeRule::findOrFail($id)->delete();
-        return redirect()->back()->with('message', 'Aturan biaya berhasil dihapus!');
+        $rule = TopupFeeRule::findOrFail($id);
+        $rule->delete();
+
+        return redirect()->back()->with('success', 'Aturan biaya berhasil dihapus!');
     }
 }
