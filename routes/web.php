@@ -20,6 +20,8 @@ use App\Http\Controllers\CashWithdrawalController;
 use App\Http\Controllers\TopupTransTypeController;
 use App\Http\Controllers\WithdrawalSourceTypeController;
 use App\Http\Controllers\TopupTransactionController;
+use App\Http\Controllers\TopupFeeRuleController;
+
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -147,4 +149,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/topup-transactions', [TopupTransactionController::class, 'store'])->name('topup-transactions.store');
     Route::patch('/topup-transactions/{id}', [TopupTransactionController::class, 'update'])->name('topup-transactions.update');
     Route::delete('/topup-transactions/{id}', [TopupTransactionController::class, 'destroy'])->name('topup-transactions.destroy');
+
+
+
+// Routes untuk Aturan Biaya Topup (Fee Rules)
+    Route::get('/topup-fee-rules', [TopupFeeRuleController::class, 'index'])->name('topup-fee-rules.index');
+    Route::post('/topup-fee-rules', [TopupFeeRuleController::class, 'store'])->name('topup-fee-rules.store');
+    Route::put('/topup-fee-rules/{id}', [TopupFeeRuleController::class, 'update'])->name('topup-fee-rules.update');
+    Route::delete('/topup-fee-rules/{id}', [TopupFeeRuleController::class, 'destroy'])->name('topup-fee-rules.destroy');
 });

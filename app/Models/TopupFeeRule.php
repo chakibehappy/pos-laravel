@@ -20,7 +20,7 @@ class TopupFeeRule extends Model
     ];
 
     // Relationship to topup type (optional)
-    public function topupType()
+    public function transType()
     {
         return $this->belongsTo(TopupTransType::class, 'topup_trans_type_id');
     }

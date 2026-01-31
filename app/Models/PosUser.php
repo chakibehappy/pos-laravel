@@ -8,13 +8,8 @@ use Illuminate\Notifications\Notifiable;
 
 class PosUser extends Authenticatable
 {
-    use HasApiTokens;
+    use HasApiTokens, Notifiable;
 
-    public function store()
-    {
-        return $this->belongsTo(Store::class);
-    }
-    
     protected $table = 'pos_users';
 
     public $timestamps = true;
@@ -24,8 +19,22 @@ class PosUser extends Authenticatable
         'name',
         'pin',
         'role',
+        'shift', // Kolom baru ditambahkan di sini
         'is_active',
     ];
+
+    /**
+     * Cast attributes to native types.
+     */
+    protected $casts = [
+        'is_active' => 'boolean',
+        'shift' => 'string', // Memastikan enum dibaca sebagai string
+    ];
+
+    public function store()
+    {
+        return $this->belongsTo(Store::class);
+    }
 
     // protected $hidden = [
     //     'pin',
