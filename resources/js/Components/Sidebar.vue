@@ -16,6 +16,7 @@ const menuItems = [
     { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
     { label: 'Kas Toko', icon: '🏪', name: 'cash-stores.*', route: route('cash-stores.index') },
     { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') },
+    { label: 'Aturan Biaya', icon: '🛒', name: 'topup_fee_rules.*', route: route('topup-fee-rules.index') },
     // DROPDOWN TRANSAKSI DIGITAL
     { 
         label: 'Transaksi Digital', 

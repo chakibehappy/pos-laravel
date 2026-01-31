@@ -44,37 +44,18 @@ class TransactionController extends Controller
             'transactions' => $transactions,
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
+            // Ambil data produk dasar
             'products' => Product::all(['id', 'name', 'selling_price as price', 'buying_price']), 
             'paymentMethods' => PaymentMethod::all(['id', 'name']),
+            // WAJIB: Data stok spesifik per toko
             'store_products' => StoreProduct::all(['store_id', 'product_id', 'stock']),
         ]);
     }
 
-    /**
-     * Menangani proses Simpan (Baru)
-     */
     public function store(Request $request)
     {
-        return $this->processTransaction($request);
-    }
-
-    /**
-     * Menangani proses Update (Edit)
-     * Ini akan dipanggil saat form.id ada
-     */
-    public function update(Request $request, $id)
-    {
-        // Pastikan ID masuk ke request agar logika processTransaction jalan
-        $request->merge(['id' => $id]);
-        return $this->processTransaction($request);
-    }
-
-    /**
-     * Logika Inti Transaksi (Reusable untuk Store & Update)
-     */
-    protected function processTransaction(Request $request)
-    {
         $request->validate([
+            'id'                   => 'nullable',
             'store_id'             => 'required|exists:stores,id',
             'pos_user_id'          => 'required|exists:pos_users,id',
             'payment_id'           => 'required|exists:payment_methods,id',
@@ -93,7 +74,7 @@ class TransactionController extends Controller
             DB::transaction(function () use ($request) {
                 $storeId = $request->store_id;
 
-                // 1. JIKA EDIT: Kembalikan stok lama sebelum diupdate
+                // 1. JIKA EDIT: Kembalikan stok lama ke toko yang bersangkutan
                 if ($request->id) {
                     $oldTransaction = Transaction::findOrFail($request->id);
                     $oldDetails = TransactionDetail::where('transaction_id', $request->id)->get();
@@ -104,16 +85,16 @@ class TransactionController extends Controller
                     }
                 }
 
-                // 2. Simpan Header (Update atau Create)
+                // 2. Simpan Header
                 $transaction = Transaction::updateOrCreate(
                     ['id' => $request->id],
                     $request->only(['store_id', 'pos_user_id', 'payment_id', 'transaction_at', 'subtotal', 'tax', 'total'])
                 );
 
-                // 3. Bersihkan detail lama
+                // 3. Hapus detail lama
                 $transaction->details()->delete();
 
-                // 4. Simpan detail baru & Kurangi stok
+                // 4. Simpan detail baru & Potong stok di Toko
                 foreach ($request->details as $item) {
                     $storeProduct = StoreProduct::where('store_id', $storeId)
                         ->where('product_id', $item['product_id'])
@@ -139,8 +120,9 @@ class TransactionController extends Controller
                 }
             });
 
-            return back()->with('message', 'Transaksi berhasil disimpan!');
+            return back()->with('message', 'Transaksi berhasil diproses!');
         } catch (\Exception $e) {
+            // Mengembalikan error agar bisa muncul di alert Vue
             return back()->withErrors(['message' => $e->getMessage()]);
         }
     }

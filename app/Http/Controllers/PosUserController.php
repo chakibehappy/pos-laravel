@@ -7,6 +7,7 @@ use App\Models\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
+use Illuminate\Validation\Rule;
 
 class PosUserController extends Controller
 {
@@ -26,11 +27,19 @@ class PosUserController extends Controller
         $data = $request->validate([
             'store_id' => 'required|exists:stores,id',
             'name'     => 'required|string|max:150',
-            'pin'      => 'required|numeric|digits_between:4,6',
+            'pin'      => $request->id ? 'nullable|numeric|digits_between:4,6' : 'required|numeric|digits_between:4,6',
             'role'     => 'required|string',
+            // Validasi shift: hanya boleh pagi atau malam
+            'shift'    => ['required', Rule::in(['pagi', 'malam'])],
         ]);
-        // Hash the PIN before saving
-        $data['pin'] = Hash::make($data['pin']);
+
+        // Logika untuk PIN: hanya hash jika PIN diisi (saat create atau update pin baru)
+        if ($request->filled('pin')) {
+            $data['pin'] = Hash::make($request->pin);
+        } else {
+            // Jika update dan PIN kosong, hapus dari array agar tidak menimpa PIN lama dengan null
+            unset($data['pin']);
+        }
 
         PosUser::updateOrCreate(['id' => $request->id], $data);
 
