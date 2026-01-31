@@ -52,7 +52,6 @@ defineProps({
                     /> -->
                     <a v-else 
                         :href="link.url" 
-                        v-html="link.label"
                         class="px-3 py-1 text-xs border border-black transition-colors hover:bg-black hover:text-white"
                         :class="{ 'bg-black text-white': link.active }" 
                     >{{ link.label }}</a>
