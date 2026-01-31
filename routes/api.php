@@ -17,6 +17,7 @@ use App\Models\TopupTransaction;
 use App\Models\WithdrawalSourceType;
 use App\Models\CashStore;
 use App\Models\CashWithdrawal;
+use App\Models\TopupFeeRule;
 
 use Illuminate\Support\Facades\DB;
 
@@ -46,12 +47,18 @@ function getPosData($storeId) {
         ->select('cash_store.*')
         ->first();
 
+    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee')
+        ->orderBy('topup_trans_type_id')
+        ->get();
+
+
     return [
         'products' => $products,
         'store_wallets' => $storeWallets,
         'topup_types' => $topupTypes,
         'withdrawal_src_types' => $withdrawalSrcTypes,
         'cash_store' => $cashStore,
+        'topup_fee_rules' => $topupFeeRules,
     ];
 }
 
@@ -141,12 +148,17 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
         ->first();
 
 
+    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee')
+        ->orderBy('topup_trans_type_id')
+        ->get();
+
     return response()->json([
         'products' => $products,
         'store_wallets' => $storeWallets,
         'topup_types' => $topupTypes,
         'withdrawal_src_types' => $withdrawalSrcTypes,
         'cash_store' => $cashStore,
+        'topup_fee_rules' => $topupFeeRules,
     ]);
 });
 
