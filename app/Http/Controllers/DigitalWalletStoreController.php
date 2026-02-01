@@ -12,22 +12,35 @@ use Inertia\Inertia;
 class DigitalWalletStoreController extends Controller
 {
     /**
-     * Menampilkan halaman index dengan filter Toko berdasarkan store_type_id = 1.
+     * READ: Menampilkan distribusi saldo dengan Paginasi & Search.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $storeBalances = DigitalWalletStore::with(['store', 'wallet'])
+            ->when($request->search, function ($query, $search) {
+                $query->whereHas('store', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })->orWhereHas('wallet', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return Inertia::render('DigitalWalletStores/Index', [
-            'storeBalances' => DigitalWalletStore::with(['store', 'wallet'])->latest()->get(),
+            'storeBalances' => $storeBalances,
             
             // Filter hanya toko yang memiliki store_type_id = 1 (Konter)
             'stores' => Store::where('store_type_id', 1)->get(['id', 'name']),
             
             'wallets' => DigitalWallet::all(['id', 'name', 'balance']),
+            'filters' => $request->only(['search']),
         ]);
     }
 
     /**
-     * Menyimpan atau mengupdate distribusi saldo dari Gudang ke Cabang.
+     * CREATE/UPDATE: Alokasi saldo gudang ke cabang.
      */
     public function store(Request $request)
     {
@@ -43,12 +56,12 @@ class DigitalWalletStoreController extends Controller
                 $walletGudang = DigitalWallet::findOrFail($request->digital_wallet_id);
                 
                 if ($request->id) {
-                    // EDIT MODE: Kembalikan saldo lama ke gudang dulu
+                    // EDIT MODE: Kembalikan saldo lama ke gudang dulu (Reset)
                     $currentStoreWallet = DigitalWalletStore::findOrFail($request->id);
                     $walletGudang->increment('balance', $currentStoreWallet->balance);
                 }
 
-                // Cek ketersediaan saldo di gudang
+                // Cek ketersediaan saldo di gudang (setelah di-reset jika edit mode)
                 if ($walletGudang->balance < $request->balance) {
                     throw new \Exception("Saldo " . $walletGudang->name . " tidak mencukupi di gudang!");
                 }
@@ -74,7 +87,7 @@ class DigitalWalletStoreController extends Controller
     }
 
     /**
-     * Menghapus alokasi dan mengembalikan saldo cabang ke gudang.
+     * DELETE: Menghapus alokasi dan mengembalikan saldo ke gudang.
      */
     public function destroy($id)
     {
