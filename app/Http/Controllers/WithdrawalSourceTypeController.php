@@ -9,34 +9,35 @@ use Inertia\Inertia;
 class WithdrawalSourceTypeController extends Controller
 {
     /**
-     * Menampilkan daftar semua kategori sumber penarikan.
+     * Menampilkan daftar semua kategori dengan Paginasi & Search.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $data = WithdrawalSourceType::query()
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return Inertia::render('WithdrawalSourceType/Index', [
-            'data' => WithdrawalSourceType::latest()->get()
+            'data' => $data,
+            'filters' => $request->only(['search']),
         ]);
     }
 
-    /**
-     * Menyimpan kategori sumber penarikan baru ke tabel withdrawal_source_type.
-     */
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
-        WithdrawalSourceType::create([
-            'name' => $request->name,
-        ]);
+        WithdrawalSourceType::create(['name' => $request->name]);
 
         return back()->with('message', 'Sumber penarikan berhasil ditambahkan.');
     }
 
-    /**
-     * Memperbarui data nama pada tabel withdrawal_source_type.
-     */
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -44,16 +45,11 @@ class WithdrawalSourceTypeController extends Controller
         ]);
 
         $item = WithdrawalSourceType::findOrFail($id);
-        $item->update([
-            'name' => $request->name,
-        ]);
+        $item->update(['name' => $request->name]);
 
         return back()->with('message', 'Sumber penarikan berhasil diperbarui.');
     }
 
-    /**
-     * Menghapus data dari tabel withdrawal_source_type.
-     */
     public function destroy($id)
     {
         try {

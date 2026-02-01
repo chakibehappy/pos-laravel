@@ -4,31 +4,43 @@ namespace App\Http\Controllers;
 
 use App\Models\CashStore;
 use App\Models\Store;
-use App\Models\StoreType; // Pastikan model StoreType di-import
+use App\Models\StoreType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class CashStoreController extends Controller
 {
     /**
-     * Menampilkan dashboard kas dengan data pendukung filter.
+     * READ: Menampilkan dashboard kas dengan Paginasi & Search.
      */
-    public function index()
+    public function index(Request $request)
     {
+        // 1. Query dengan filter search dan relasi store
+        $cashBalances = CashStore::with('store')
+            ->when($request->search, function ($query, $search) {
+                $query->whereHas('store', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate(10) // Paginasi 10 data per halaman
+            ->withQueryString();
+
         return Inertia::render('CashStores/Index', [
-            // Mengambil saldo kas beserta relasi toko
-            'cashBalances' => CashStore::with('store')->latest()->get(),
+            // Data utama dengan paginasi
+            'cashBalances' => $cashBalances,
             
-            // Mengambil semua toko; store_type_id wajib ada untuk filter di Vue
+            // Data pendukung untuk modal/dropdown
             'stores' => Store::all(['id', 'name', 'store_type_id']),
-            
-            // Mengambil semua jenis usaha untuk dropdown filter global
             'storeTypes' => StoreType::all(['id', 'name']),
+            
+            // Mengirim balik parameter filter untuk input search di Vue
+            'filters' => $request->only(['search']),
         ]);
     }
 
     /**
-     * Menyimpan data baru atau memperbarui data kas yang sudah ada.
+     * CREATE/UPDATE: Menyimpan data baru atau memperbarui data kas.
      */
     public function store(Request $request)
     {
@@ -46,11 +58,12 @@ class CashStoreController extends Controller
             ]
         );
 
-        return back()->with('message', 'Data kas berhasil diperbarui!');
+        $message = $request->id ? 'Data kas berhasil diperbarui!' : 'Data kas berhasil dicatat!';
+        return back()->with('message', $message);
     }
 
     /**
-     * Menghapus pencatatan kas berdasarkan ID.
+     * DELETE: Menghapus pencatatan kas berdasarkan ID.
      */
     public function destroy($id)
     {

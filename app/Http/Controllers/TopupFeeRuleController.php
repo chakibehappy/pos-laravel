@@ -9,44 +9,44 @@ use Inertia\Inertia;
 
 class TopupFeeRuleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        // 1. Query dengan Filter & Search (Berdasarkan Nama Tipe Transaksi)
+        $rules = TopupFeeRule::with('transType')
+            ->when($request->search, function ($query, $search) {
+                $query->whereHas('transType', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        // 2. Transformasi Data agar konsisten dengan tampilan Vue
+        $rules->getCollection()->transform(function ($rule) {
+            return [
+                'id' => $rule->id,
+                'topup_trans_type_id' => $rule->topup_trans_type_id,
+                'trans_type_name' => $rule->transType->name ?? '-',
+                'min_limit' => $rule->min_limit,
+                'max_limit' => $rule->max_limit,
+                'fee' => $rule->fee,
+                'admin_fee' => $rule->admin_fee,
+            ];
+        });
+
         return Inertia::render('TopupFeeRules/Index', [
-            'rules' => TopupFeeRule::with('transType')->latest()->get(),
-            'transTypes' => TopupTransType::all()
+            'rules' => $rules,
+            'transTypes' => TopupTransType::all(['id', 'name']),
+            'filters' => $request->only(['search'])
         ]);
     }
 
     public function store(Request $request)
     {
+        // Mendukung UpdateOrCreate jika id dikirim (seperti sistem Product Anda)
         $validated = $request->validate([
-            // Combo Box: Wajib diisi dan harus ada di tabel topup_trans_type
-            'topup_trans_type_id' => 'required|exists:topup_trans_type,id',
-            
-            // Field Angka: Boleh kosong (nullable) dan harus angka (numeric)
-            // Dengan nullable, user bisa mengosongkan input atau mengisi 0
-            'min_limit'           => 'nullable|numeric',
-            'max_limit'           => 'nullable|numeric',
-            'fee'                 => 'nullable|numeric',
-            'admin_fee'           => 'nullable|numeric', 
-        ]);
-
-        // Mengonversi nilai null (kosong) menjadi 0 agar data di DB tetap konsisten angka
-        $validated['min_limit'] = $validated['min_limit'] ?? 0;
-        $validated['max_limit'] = $validated['max_limit'] ?? 0;
-        $validated['fee']       = $validated['fee'] ?? 0;
-        $validated['admin_fee'] = $validated['admin_fee'] ?? 0;
-
-        TopupFeeRule::create($validated);
-
-        return redirect()->back()->with('success', 'Aturan biaya berhasil ditambahkan!');
-    }
-
-    public function update(Request $request, $id)
-    {
-        $rule = TopupFeeRule::findOrFail($id);
-        
-        $validated = $request->validate([
+            'id'                  => 'nullable|numeric',
             'topup_trans_type_id' => 'required|exists:topup_trans_type,id',
             'min_limit'           => 'nullable|numeric',
             'max_limit'           => 'nullable|numeric',
@@ -54,15 +54,25 @@ class TopupFeeRuleController extends Controller
             'admin_fee'           => 'nullable|numeric',
         ]);
 
-        // Tetap pastikan nilai null menjadi 0 saat update
-        $validated['min_limit'] = $validated['min_limit'] ?? 0;
-        $validated['max_limit'] = $validated['max_limit'] ?? 0;
-        $validated['fee']       = $validated['fee'] ?? 0;
-        $validated['admin_fee'] = $validated['admin_fee'] ?? 0;
+        // Proteksi nilai null menjadi 0
+        $data = [
+            'topup_trans_type_id' => $validated['topup_trans_type_id'],
+            'min_limit'           => $validated['min_limit'] ?? 0,
+            'max_limit'           => $validated['max_limit'] ?? 0,
+            'fee'                 => $validated['fee'] ?? 0,
+            'admin_fee'           => $validated['admin_fee'] ?? 0,
+        ];
 
-        $rule->update($validated);
+        TopupFeeRule::updateOrCreate(['id' => $request->id], $data);
 
-        return redirect()->back()->with('success', 'Aturan biaya berhasil diperbarui!');
+        return redirect()->back()->with('success', 'Aturan biaya berhasil disimpan!');
+    }
+
+    // Fungsi update tetap ada untuk kompatibilitas route, 
+    // tapi isinya memanggil logika yang sama dengan store
+    public function update(Request $request, $id)
+    {
+        return $this->store($request->merge(['id' => $id]));
     }
 
     public function destroy($id)

@@ -8,10 +8,23 @@ use Inertia\Inertia;
 
 class TopupTransTypeController extends Controller
 {
-    public function index()
+    /**
+     * Menampilkan data dengan Paginasi dan Search.
+     */
+    public function index(Request $request)
     {
+        $data = TopupTransType::query()
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('type', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return Inertia::render('TopupTransType/Index', [
-            'data' => TopupTransType::latest()->get()
+            'data' => $data,
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -42,7 +55,11 @@ class TopupTransTypeController extends Controller
 
     public function destroy($id)
     {
-        TopupTransType::findOrFail($id)->delete();
-        return back()->with('message', 'Data berhasil dihapus.');
+        try {
+            TopupTransType::findOrFail($id)->delete();
+            return back()->with('message', 'Data berhasil dihapus.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal menghapus! Data mungkin terikat dengan transaksi lain.']);
+        }
     }
 }

@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, Link } from '@inertiajs/vue3'; // Tambahkan Link untuk paginasi
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 
 const props = defineProps({
-    rules: Array,
-    transTypes: Array
+    rules: Object, // Ubah dari Array ke Object karena Laravel paginate mengembalikan object
+    transTypes: Array,
+    filters: Object // Tambahkan filters jika ingin sinkron dengan fitur search
 });
 
 const showForm = ref(false);
@@ -65,9 +66,7 @@ const deleteRule = (id) => {
     }
 };
 
-// Fungsi format yang mengganti 0 atau angka < 0 menjadi "-"
 const formatDisplay = (num) => {
-    // Jika null, undefined, atau angka <= 0 maka return "-"
     if (num === null || num === undefined || parseFloat(num) <= 0) {
         return '-';
     }
@@ -132,37 +131,45 @@ const formatDisplay = (num) => {
                         </tr>
                     </thead>
                     <tbody class="font-bold">
-                        <tr v-for="rule in rules" :key="rule.id" class="border-b-2 border-black hover:bg-yellow-50 transition-colors">
+                        <tr v-for="rule in rules.data" :key="rule.id" class="border-b-2 border-black hover:bg-yellow-50 transition-colors">
                             <td class="p-4 uppercase border-r-2 border-black">
-                                {{ rule.trans_type ? rule.trans_type.name : '-' }}
+                                {{ rule.trans_type_name }}
                             </td>
-                            
                             <td class="p-4 text-right border-r-2 border-black italic text-gray-400">
                                 {{ formatDisplay(rule.min_limit) }}
                             </td>
-                            
                             <td class="p-4 text-right border-r-2 border-black italic text-gray-400">
                                 {{ formatDisplay(rule.max_limit) }}
                             </td>
-
                             <td class="p-4 text-right text-red-600 border-r-2 border-black font-black">
                                 {{ formatDisplay(rule.fee) }}
                             </td>
-
                             <td class="p-4 text-right text-blue-600 font-black border-r-2 border-black">
                                 {{ formatDisplay(rule.admin_fee) }}
                             </td>
-                            
                             <td class="p-4 text-center flex justify-center gap-4">
                                 <button @click="openEdit(rule)" class="hover:scale-125 transition-transform">✏️</button>
                                 <button @click="deleteRule(rule.id)" class="hover:scale-125 transition-transform">❌</button>
                             </td>
                         </tr>
-                        <tr v-if="rules.length === 0">
+                        <tr v-if="rules.data.length === 0">
                             <td colspan="6" class="p-8 text-center uppercase italic opacity-50">Belum ada data aturan biaya</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="mt-8 flex justify-center gap-2">
+                <template v-for="(link, k) in rules.links" :key="k">
+                    <Link 
+                        v-if="link.url" 
+                        :href="link.url" 
+                        v-html="link.label"
+                        class="px-4 py-2 border-2 border-black font-black uppercase transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
+                        :class="{'bg-yellow-400': link.active, 'bg-white': !link.active}"
+                    />
+                    <span v-else v-html="link.label" class="px-4 py-2 border-2 border-gray-300 text-gray-400 font-black uppercase italic"></span>
+                </template>
             </div>
         </div>
     </AuthenticatedLayout>

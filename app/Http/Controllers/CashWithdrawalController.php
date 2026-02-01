@@ -13,16 +13,26 @@ use Inertia\Inertia;
 class CashWithdrawalController extends Controller
 {
     /**
-     * Menampilkan daftar transaksi tarik tunai.
+     * Menampilkan daftar transaksi tarik tunai dengan Paginasi & Search.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $withdrawals = CashWithdrawal::with(['store'])
+            ->when($request->search, function ($query, $search) {
+                $query->where('customer_name', 'like', "%{$search}%")
+                      ->orWhereHas('store', function ($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return Inertia::render('CashWithdrawals/Index', [
-            // Menghapus relasi 'source' karena DigitalWallet tidak bersangkutan
-            'withdrawals' => CashWithdrawal::with(['store'])->latest()->get(),
-            
-            'stores' => Store::all(['id', 'name', 'store_type_id']),
-            'storeTypes' => StoreType::all(['id', 'name']),
+            'withdrawals' => $withdrawals,
+            'stores'      => Store::all(['id', 'name', 'store_type_id']),
+            'storeTypes'  => StoreType::all(['id', 'name']),
+            'filters'     => $request->only(['search']),
         ]);
     }
 
@@ -32,18 +42,18 @@ class CashWithdrawalController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'store_id' => 'required|exists:stores,id',
-            'customer_name' => 'required|string|max:255',
-            'withdrawal_source_id' => 'required|integer', // Validasi integer biasa tanpa 'exists' ke tabel lain
-            'withdrawal_count' => 'required|numeric|min:1',
-            'admin_fee' => 'required|numeric|min:0',
+            'store_id'             => 'required|exists:stores,id',
+            'customer_name'        => 'required|string|max:255',
+            'withdrawal_source_id' => 'required|integer', 
+            'withdrawal_count'     => 'required|numeric|min:1',
+            'admin_fee'            => 'required|numeric|min:0',
         ]);
 
         try {
             DB::beginTransaction();
 
             // 1. Cek ketersediaan kas di toko tersebut
-            $cashStore = CashStore::where('store_id', $request->store_id)->first();
+            $cashStore = CashStore::where('store_id', $request->store_id)->lockForUpdate()->first();
 
             if (!$cashStore || $cashStore->cash < $request->withdrawal_count) {
                 return back()->withErrors(['error' => 'Gagal! Saldo kas tunai di toko ini tidak mencukupi.']);
@@ -51,11 +61,11 @@ class CashWithdrawalController extends Controller
 
             // 2. Buat record transaksi
             CashWithdrawal::create([
-                'store_id' => $request->store_id,
-                'customer_name' => $request->customer_name,
+                'store_id'             => $request->store_id,
+                'customer_name'        => $request->customer_name,
                 'withdrawal_source_id' => $request->withdrawal_source_id,
-                'withdrawal_count' => $request->withdrawal_count,
-                'admin_fee' => $request->admin_fee,
+                'withdrawal_count'     => $request->withdrawal_count,
+                'admin_fee'            => $request->admin_fee,
             ]);
 
             // 3. Potong saldo kas fisik di toko
@@ -97,7 +107,7 @@ class CashWithdrawalController extends Controller
 
             $withdrawal = CashWithdrawal::findOrFail($id);
             
-            $cashStore = CashStore::where('store_id', $withdrawal->store_id)->first();
+            $cashStore = CashStore::where('store_id', $withdrawal->store_id)->lockForUpdate()->first();
             
             if ($cashStore) {
                 $cashStore->increment('cash', $withdrawal->withdrawal_count);

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\TopupTransaction; 
-use App\Models\TopupTransType;   
+use App\Models\TopupTransType;    
 use App\Models\Store;
 use App\Models\DigitalWalletStore; 
 use App\Models\DigitalWallet; 
@@ -14,16 +14,32 @@ use Inertia\Inertia;
 class TopupTransactionController extends Controller
 {
     /**
-     * READ: Menampilkan daftar transaksi
+     * READ: Menampilkan daftar transaksi dengan Paginasi & Search
      */
-    public function index()
+    public function index(Request $request)
     {
+        // 1. Query dengan Filter Search & Paginasi
+        $transactions = TopupTransaction::with(['store', 'transType'])
+            ->when($request->search, function ($query, $search) {
+                $query->where('cust_account_number', 'like', "%{$search}%")
+                      ->orWhereHas('store', function ($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('transType', function ($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return Inertia::render('TopupTransaction/Index', [
-            'transactions' => TopupTransaction::with(['store', 'transType'])->latest()->get(),
-            'stores' => Store::where('store_type_id', 1)->get(),
-            'transTypes' => TopupTransType::all(),
+            'transactions' => $transactions,
+            'stores' => Store::where('store_type_id', 1)->get(['id', 'name']),
+            'transTypes' => TopupTransType::all(['id', 'name']),
             'walletStores' => DigitalWalletStore::all(),
             'wallets' => DigitalWallet::all(['id', 'name']), 
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -33,6 +49,7 @@ class TopupTransactionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'id' => 'nullable|numeric', // Tambahkan ID untuk mendukung updateOrCreate jika perlu
             'store_id' => 'required|exists:stores,id',
             'cust_account_number' => 'required|string|max:50',
             'nominal_request' => 'required|numeric|min:0',
@@ -48,7 +65,7 @@ class TopupTransactionController extends Controller
 
                 // 2. Cek apakah saldo mencukupi
                 if ($walletStore->balance < $request->nominal_request) {
-                    throw new \Exception('Saldo tidak mencukupi.');
+                    throw new \Exception('Saldo tidak mencukupi pada wallet toko ini.');
                 }
 
                 // 3. Potong saldo
@@ -85,14 +102,14 @@ class TopupTransactionController extends Controller
                 $walletStore = DigitalWalletStore::findOrFail($request->digital_wallet_store_id);
 
                 // Hitung selisih nominal (nominal lama vs nominal baru)
-                // Jika nominal_request naik, saldo berkurang lagi. Jika turun, saldo bertambah (refund selisih).
                 $diff = $request->nominal_request - $transaction->nominal_request;
 
-                if ($walletStore->balance < $diff) {
-                    throw new \Exception('Saldo tidak cukup untuk penyesuaian nominal ini.');
+                // Jika nominal baru lebih besar, cek apakah saldo cukup untuk tambahannya
+                if ($diff > 0 && $walletStore->balance < $diff) {
+                    throw new \Exception('Saldo tidak cukup untuk penyesuaian kenaikan nominal ini.');
                 }
 
-                // Update saldo berdasarkan selisih
+                // Update saldo berdasarkan selisih (jika negatif otomatis jadi increment)
                 $walletStore->decrement('balance', $diff);
 
                 // Update data transaksi
@@ -115,7 +132,7 @@ class TopupTransactionController extends Controller
             DB::transaction(function () use ($id) {
                 $transaction = TopupTransaction::findOrFail($id);
                 
-                // Kembalikan saldo ke toko (Refund)
+                // Kembalikan saldo ke toko (Refund) sesuai nominal_request
                 $walletStore = DigitalWalletStore::find($transaction->digital_wallet_store_id);
                 if ($walletStore) {
                     $walletStore->increment('balance', $transaction->nominal_request);
