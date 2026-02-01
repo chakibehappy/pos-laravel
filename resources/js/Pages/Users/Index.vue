@@ -84,7 +84,10 @@ const destroy = (id) => {
             </button>
         </div>
 
-        <DataTable :resource="users" :columns="columns">
+        <DataTable 
+            :resource="users" 
+            :columns="columns"
+        >
             <template #actions="{ row }">
                 <div class="flex flex-row gap-x-[15px] justify-end uppercase text-xs">
                     <button @click="openEdit(row)" class="font-black hover:text-blue-600">✏️</button>
