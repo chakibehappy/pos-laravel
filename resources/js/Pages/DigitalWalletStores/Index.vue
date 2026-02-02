@@ -17,7 +17,7 @@ const editMode = ref(false);
 // Logic Pencarian ke Server
 watch(search, debounce((value) => {
     router.get(
-        route('digital-wallet-stores.index'), 
+        route('wallet-stores.index'), 
         { search: value }, 
         { preserveState: true, replace: true }
     );
@@ -31,7 +31,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post(route('digital-wallets.store'), {
+    form.post(route('wallet-stores.store'), {
         onSuccess: () => {
             form.reset();
             editMode.value = false;
