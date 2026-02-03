@@ -29,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
         
+       URL::forceScheme('https');
+       
         Inertia::share([
             'auth' => [
                 'user' => fn () => Auth::user(),
