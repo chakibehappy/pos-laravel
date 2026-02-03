@@ -41,6 +41,7 @@ Route::prefix('test-api')->group(function () {
 
         // Return store info + available operators
         $operators = $store->operators()->where('is_active', 1)
+            ->whereNotIn('pos_users.role', ['admin', 'developer'])
             ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift')
             ->get();
 
@@ -58,7 +59,7 @@ Route::prefix('test-api')->group(function () {
             'device_name' => 'required|string',
         ]);
 
-        $user = \App\Models\PosUser::find($request->pos_user_id);
+        $user = PosUser::find($request->pos_user_id);
 
         if (!$user || !Hash::check($request->pin, $user->pin)) {
             return response()->json(['message' => 'Invalid POS user credentials'], 401);
