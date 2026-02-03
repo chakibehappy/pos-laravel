@@ -1,6 +1,7 @@
 <?php
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use \App\Models\Store;
 use App\Models\Product;
 use App\Models\StoreProduct;
 use App\Models\PosUser;
@@ -32,7 +33,7 @@ Route::prefix('test-api')->group(function () {
             'password' => 'required|string',
         ]);
 
-        $store = \App\Models\Store::where('keyname', $request->keyname)->first();
+        $store = Store::where('keyname', $request->keyname)->first();
 
         if (!$store || !Hash::check($request->password, $store->password)) {
             return response()->json(['message' => 'Invalid store credentials'], 401);
