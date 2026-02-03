@@ -36,6 +36,11 @@ class PosUser extends Authenticatable
         return $this->belongsTo(Store::class);
     }
 
+    public function stores()
+    {
+        return $this->belongsToMany(Store::class, 'pos_user_store', 'pos_user_id', 'store_id');
+    }
+
     // protected $hidden = [
     //     'pin',
     // ];
