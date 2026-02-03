@@ -41,7 +41,7 @@ Route::prefix('test-api')->group(function () {
 
         // Return store info + available operators
         $operators = $store->operators()->where('is_active', 1)
-            ->select('id', 'name', 'username', 'role', 'shift')
+            ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift')
             ->get();
 
         return response()->json([
