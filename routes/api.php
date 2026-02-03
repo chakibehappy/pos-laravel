@@ -75,7 +75,12 @@ Route::prefix('test-api')->group(function () {
 
     // pos-data
     Route::post('/pos-data', function (Request $request) {
-        $storeId = $request->user()->store_id;
+        
+        $storeId = $request->input('store_id'); // send store_id directly
+        if (!$storeId) {
+            return response()->json(['message' => 'store_id is required'], 400);
+        }
+
         return response()->json(PosHelper::getPosData($storeId));
     });
 });
