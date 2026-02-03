@@ -21,7 +21,7 @@ use App\Http\Controllers\TopupTransTypeController;
 use App\Http\Controllers\WithdrawalSourceTypeController;
 use App\Http\Controllers\TopupTransactionController;
 use App\Http\Controllers\TopupFeeRuleController;
-
+use App\Http\Controllers\PosUserStoreController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -157,4 +157,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/topup-fee-rules', [TopupFeeRuleController::class, 'store'])->name('topup-fee-rules.store');
     Route::put('/topup-fee-rules/{id}', [TopupFeeRuleController::class, 'update'])->name('topup-fee-rules.update');
     Route::delete('/topup-fee-rules/{id}', [TopupFeeRuleController::class, 'destroy'])->name('topup-fee-rules.destroy');
-});
+
+// Routes untuk Penugasan User ke Toko (Pos User Stores)
+Route::get('/pos-user-stores', [PosUserStoreController::class, 'index'])->name('pos-user-stores.index');
+Route::post('/pos-user-stores', [PosUserStoreController::class, 'store'])->name('pos-user-stores.store');
+Route::put('/pos-user-stores/{id}', [PosUserStoreController::class, 'update'])->name('pos-user-stores.update');
+Route::delete('/pos-user-stores/{id}', [PosUserStoreController::class, 'destroy'])->name('pos-user-stores.destroy');
+    });
