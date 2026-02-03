@@ -15,7 +15,7 @@ const toggleAccordion = (id) => {
     expandedStore.value = expandedStore.value === id ? null : id;
 };
 
-// Search System (Identik DataTable.vue)
+// Search System
 const search = ref(props.filters?.search || '');
 watch(search, debounce((value) => {
     router.get(
@@ -161,7 +161,7 @@ const submit = () => {
                                                                     v-model="form.balance" 
                                                                     type="number" 
                                                                     :disabled="form.action_type === 'reset'"
-                                                                    class="w-full border border-gray-200 rounded-lg p-2 font-black text-sm focus:ring-1 focus:ring-blue-500 outline-none italic disabled:bg-gray-100 disabled:text-gray-400"
+                                                                    class="no-spinner w-full border border-gray-200 rounded-lg p-2 font-black text-sm focus:ring-1 focus:ring-blue-500 outline-none italic disabled:bg-gray-100 disabled:text-gray-400"
                                                                     placeholder="0"
                                                                     autofocus
                                                                 />
@@ -175,41 +175,28 @@ const submit = () => {
                                                         </button>
                                                     </form>
                                                 </div>
-
                                             </div>
                                         </div>
                                     </td>
                                 </tr>
                             </template>
-
-                            <tr v-if="resource.data.length === 0">
-                                <td colspan="2" class="p-12 text-center text-gray-300 font-medium italic text-sm tracking-widest">
-                                    --- DATA TIDAK DITEMUKAN ---
-                                </td>
-                            </tr>
                         </tbody>
                     </table>
-
-                    <div class="p-4 flex justify-between items-center border-t border-gray-100 bg-gray-50/50">
-                        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                            Total: {{ resource.total || 0 }} Unit Toko
-                        </span>
-                        
-                        <div class="flex items-center gap-1">
-                            <template v-for="link in resource.links" :key="link.label">
-                                <div v-if="!link.url" v-html="link.label" class="px-3 py-1 text-[10px] border border-gray-100 text-gray-300 rounded bg-white" />
-                                <Link v-else 
-                                    :href="link.url" 
-                                    class="px-3 py-1 text-[10px] border rounded transition-all font-bold uppercase"
-                                    :class="link.active ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'"
-                                >
-                                    <span v-html="link.label"></span>
-                                </Link>
-                            </template>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+/* Menghilangkan panah naik-turun pada input number */
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.no-spinner {
+    -moz-appearance: textfield; /* Untuk Firefox */
+}
+</style>
