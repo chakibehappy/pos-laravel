@@ -161,14 +161,14 @@ const formatDisplay = (num) => {
 
             <div class="mt-8 flex justify-center gap-2">
                 <template v-for="(link, k) in rules.links" :key="k">
-                    <Link 
+                    <a 
                         v-if="link.url" 
                         :href="link.url" 
-                        v-html="link.label"
-                        class="px-4 py-2 border-2 border-black font-black uppercase transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
+                        class="px-4 py-2 border-2 border-black font-black uppercase text-[10px] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
                         :class="{'bg-yellow-400': link.active, 'bg-white': !link.active}"
-                    />
-                    <span v-else v-html="link.label" class="px-4 py-2 border-2 border-gray-300 text-gray-400 font-black uppercase italic"></span>
+                    >
+                    {{ link.label }}
+                    </a>
                 </template>
             </div>
         </div>

@@ -153,18 +153,14 @@ const resetForm = () => {
 
                 <div class="mt-8 flex flex-wrap justify-center gap-2">
                     <template v-for="(link, k) in data.links" :key="k">
-                        <Link 
+                        <a 
                             v-if="link.url" 
                             :href="link.url" 
-                            v-html="link.label"
-                            class="px-4 py-2 border-2 border-black font-black uppercase text-[10px] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5"
-                            :class="{'bg-blue-500 text-white': link.active, 'bg-white text-black': !link.active}"
-                        />
-                        <span 
-                            v-else 
-                            v-html="link.label" 
-                            class="px-4 py-2 border-2 border-gray-200 text-gray-400 font-black uppercase text-[10px] italic bg-gray-50"
-                        ></span>
+                            class="px-4 py-2 border-2 border-black font-black uppercase text-[10px] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
+                            :class="{'bg-yellow-400': link.active, 'bg-white': !link.active}"
+                        >
+                        {{ link.label }}
+                        </a>
                     </template>
                 </div>
             </div>
