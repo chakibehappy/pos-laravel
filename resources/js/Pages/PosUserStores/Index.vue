@@ -74,19 +74,20 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 
                 <form @submit.prevent="submit" class="grid grid-cols-1 md:grid-cols-2 gap-6 italic">
                     <div class="flex flex-col">
-                        <label class="font-black uppercase text-xs mb-1">Pilih Kasir / Pegawai</label>
-                        <select v-model="form.pos_user_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
-                            <option value="">-- PILIH USER --</option>
-                            <option v-for="u in posUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
-                        </select>
-                        <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.pos_user_id }}</span>
-                    </div>
-
-                    <div class="flex flex-col">
                         <label class="font-black uppercase text-xs mb-1">Unit Toko Tujuan</label>
                         <select v-model="form.store_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
                             <option value="">-- PILIH TOKO --</option>
                             <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                        
+                        <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.pos_user_id }}</span>
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label class="font-black uppercase text-xs mb-1">Pilih Kasir / Pegawai</label>
+                        <select v-model="form.pos_user_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
+                            <option value="">-- PILIH USER --</option>
+                            <option v-for="u in posUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
                         </select>
                         <span v-if="form.errors.store_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.store_id }}</span>
                     </div>
@@ -124,7 +125,10 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
                 <template #store_name="{ row }">
                     <span class="bg-blue-600 text-white px-3 py-1 font-black text-[10px] uppercase italic">
-                        {{ row.pos_user.role == "admin" ? row.pos_user?.role : row.store?.name }}
+                        {{ row.pos_user.role == "admin" ? 
+                            row.pos_user?.role :
+                            row.store?.name 
+                        }}
                     </span>
                 </template>
 

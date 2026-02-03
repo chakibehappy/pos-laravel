@@ -10,6 +10,7 @@ const toggleDropdown = (label) => {
 };
 
 const menuItems = [
+    { label: 'Aturan Tarik Tunai', icon: '🛒', name: 'withdrawal_fee_rules.*', route: route('withdrawal-fee-rules.index') },
     { label: 'Pengguna Toko', icon: '🛒', name: 'pos_user_store.*', route: route('pos-user-stores.index') },
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { label: 'Pengguna', icon: '👤', name: 'users.*', route: route('users.index') },
