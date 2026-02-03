@@ -128,9 +128,10 @@ Route::middleware('auth:sanctum')->get('/products', function (Request $request) 
 });
 
 Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) {
-
-    $storeId = $request->user()->store_id;
-    $storeId = "1";
+    $storeId = $request->query('store_id'); // get store ID from query param
+    if (!$storeId) {
+        return response()->json(['error' => 'Store ID is required'], 400);
+    }
     return response()->json(PosHelper::getPosData($storeId));
 });
 
