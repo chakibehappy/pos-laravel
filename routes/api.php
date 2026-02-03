@@ -19,48 +19,9 @@ use App\Models\CashStore;
 use App\Models\CashWithdrawal;
 use App\Models\TopupFeeRule;
 
+use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
 
-
-function getPosData($storeId) {
-    // Products
-    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
-        ->where('store_products.store_id', $storeId)
-        ->select('products.*', 'store_products.stock as store_stock')
-        ->get();
-
-    // Store wallets
-    $storeWallets = DigitalWalletStore::join('digital_wallet', 'digital_wallet_store.digital_wallet_id', '=', 'digital_wallet.id')
-        ->where('digital_wallet_store.store_id', $storeId)
-        ->select('digital_wallet_store.id', 'digital_wallet.id as wallet_id', 'digital_wallet.name', 'digital_wallet_store.balance')
-        ->get();
-
-    // Topup Types
-    $topupTypes = TopupTransType::select('id', 'name', 'type')
-        ->orderBy('id', 'desc')->get();
-
-    $withdrawalSrcTypes = WithdrawalSourceType::select( 'id', 'name')
-        ->orderBy('id', 'desc')
-        ->get();
-
-    $cashStore = CashStore::where('cash_store.store_id', $storeId)
-        ->select('cash_store.*')
-        ->first();
-
-    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
-        ->orderBy('topup_trans_type_id')
-        ->get();
-
-
-    return [
-        'products' => $products,
-        'store_wallets' => $storeWallets,
-        'topup_types' => $topupTypes,
-        'withdrawal_src_types' => $withdrawalSrcTypes,
-        'cash_store' => $cashStore,
-        'topup_fee_rules' => $topupFeeRules,
-    ];
-}
 
 Route::post('/login', function (Request $request) {
     $request->validate([
@@ -107,59 +68,7 @@ Route::middleware('auth:sanctum')->get('/products', function (Request $request) 
 Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) {
 
     $storeId = $request->user()->store_id;
-
-    // Products
-    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
-        ->where('store_products.store_id', $storeId)
-        ->select(
-            'products.*',
-            'store_products.stock as store_stock'
-        )
-        ->get();
-
-    // Store wallets
-    $storeWallets = DigitalWalletStore::join(
-            'digital_wallet',
-            'digital_wallet_store.digital_wallet_id',
-            '=',
-            'digital_wallet.id'
-        )
-        ->where('digital_wallet_store.store_id', $storeId)
-        ->select(
-            'digital_wallet_store.id',
-            'digital_wallet.id as wallet_id',
-            'digital_wallet.name',
-            'digital_wallet_store.balance'
-        )
-        ->get();
-
-    // Topup / Bill transaction types
-    $topupTypes = TopupTransType::select( 'id', 'name', 'type' )
-        ->orderBy('id', 'desc')
-        ->get();
-        
-    $withdrawalSrcTypes = WithdrawalSourceType::select( 'id', 'name')
-        ->orderBy('id', 'desc')
-        ->get();
-
-        
-    $cashStore = CashStore::where('cash_store.store_id', $storeId)
-        ->select('cash_store.*')
-        ->first();
-
-
-    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
-        ->orderBy('topup_trans_type_id')
-        ->get();
-
-    return response()->json([
-        'products' => $products,
-        'store_wallets' => $storeWallets,
-        'topup_types' => $topupTypes,
-        'withdrawal_src_types' => $withdrawalSrcTypes,
-        'cash_store' => $cashStore,
-        'topup_fee_rules' => $topupFeeRules,
-    ]);
+    return response()->json(PosHelper::getPosData($storeId));
 });
 
 Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
@@ -266,7 +175,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
         DB::commit();
         // Fetch FRESH data to sync Unity UI immediately
-        $updatedData = getPosData($posUser->store_id);
+        $updatedData = PosHelper::getPosData($posUser->store_id);
         
         return response()->json([
             'message' => 'Transaction created successfully',
