@@ -34,4 +34,9 @@ class Store extends Model
     {
         return $this->hasMany(Product::class, 'store_id');
     }
+
+    public function operators()
+    {
+        return $this->belongsToMany(PosUser::class, 'pos_user_store', 'store_id', 'pos_user_id');
+    }
 }

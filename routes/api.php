@@ -22,6 +22,56 @@ use App\Models\TopupFeeRule;
 use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
 
+Route::prefix('test-api')->group(function () {
+    
+    Route::get('/ping', fn() => response()->json(['message' => 'pong']));
+    // store-login
+    Route::post('/store-login', function (Request $request) {
+        $request->validate([
+            'keyname' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $store = \App\Models\Store::where('keyname', $request->keyname)->first();
+
+        if (!$store || !Hash::check($request->password, $store->password)) {
+            return response()->json(['message' => 'Invalid store credentials'], 401);
+        }
+
+        // Return store info + available operators
+        $operators = $store->operators()->where('is_active', 1)
+            ->select('id', 'name', 'username', 'role', 'shift')
+            ->get();
+
+        return response()->json([
+            'store' => $store,
+            'operators' => $operators
+        ]);
+    });
+    
+    // pos-user-login
+    Route::post('/pos-user-login', function (Request $request) {
+        $request->validate([
+            'pos_user_id' => 'required|integer',
+            'pin' => 'required|string',
+            'device_name' => 'required|string',
+        ]);
+
+        $user = \App\Models\PosUser::find($request->pos_user_id);
+
+        if (!$user || !Hash::check($request->pin, $user->pin)) {
+            return response()->json(['message' => 'Invalid POS user credentials'], 401);
+        }
+
+        $token = $user->createToken($request->device_name)->plainTextToken;
+
+        return response()->json([
+            'user' => $user,
+            'token' => $token,
+            'token_type' => 'Bearer'
+        ]);
+    });
+});
 
 Route::post('/login', function (Request $request) {
     $request->validate([
