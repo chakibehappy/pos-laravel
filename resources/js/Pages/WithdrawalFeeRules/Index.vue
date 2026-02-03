@@ -106,20 +106,14 @@ const destroy = (id) => {
             </div>
         </div>
 
-        <div class="mb-4 max-w-sm">
-            <input 
-                v-model="search" 
-                type="text" 
-                placeholder="CARI ATURAN..." 
-                class="w-full border-2 border-black p-2 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:bg-yellow-50"
-            />
-        </div>
 
         <DataTable 
             title="Daftar Aturan Biaya Penarikan"
             :resource="resource" 
             :columns="columns"
             :showAddButton="!showForm"
+            routeName="withdrawal-fee-rules.index" 
+            :initialSearch="filters.search"
             @on-add="openCreate" 
         >
             <template #creator="{ row }">

@@ -8,59 +8,62 @@ use Inertia\Inertia;
 
 class DigitalWalletController extends Controller
 {
-    public function index()
+    /**
+     * Menampilkan daftar platform wallet.
+     * Menggunakan variabel 'resource' agar kompatibel dengan DataTable.vue.
+     */
+    public function index(Request $request)
     {
+        $resource = DigitalWallet::query()
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
         return Inertia::render('DigitalWallets/Index', [
-            'wallets' => DigitalWallet::latest()->get(),
-            'total_balance' => (float) DigitalWallet::sum('balance')
+            'resource' => $resource, // Nama variabel harus 'resource' sesuai sistem DataTable
+            'filters'  => $request->only(['search']),
         ]);
     }
 
     /**
-     * Store atau Update Data Nama Wallet
+     * Simpan atau Update Master Platform Wallet.
+     * Tidak lagi menyertakan kolom balance sesuai database terbaru.
      */
     public function store(Request $request)
     {
         $request->validate([
-            'id'    => 'nullable|exists:digital_wallet,id',
-            'name'  => 'required|string|max:100',
-            'balance' => 'required|numeric|min:0' // Saldo awal saat buat baru
+            'id'   => 'nullable|exists:digital_wallet,id',
+            'name' => 'required|string|max:255|unique:digital_wallet,name,' . $request->id,
         ]);
 
-        DigitalWallet::updateOrCreate(
-            ['id' => $request->id],
-            ['name' => $request->name, 'balance' => $request->balance]
-        );
+        try {
+            DigitalWallet::updateOrCreate(
+                ['id' => $request->id],
+                [
+                    'name' => $request->name,
+                    // created_by bisa ditambahkan jika Anda menggunakan Auth::id()
+                ]
+            );
 
-        return back()->with('message', 'Wallet berhasil disimpan!');
+            return back()->with('message', 'Platform Wallet berhasil disimpan!');
+        } catch (\Exception $e) {
+            return back()->withErrors(['name' => 'Gagal menyimpan data platform.']);
+        }
     }
 
     /**
-     * Update Saldo (Top Up / Penyesuaian)
+     * Hapus Master Platform Wallet.
      */
-    public function updateBalance(Request $request, $id)
-    {
-        $request->validate([
-            'amount' => 'required|numeric',
-            'type' => 'required|in:add,set'
-        ]);
-
-        $wallet = DigitalWallet::findOrFail($id);
-
-        if ($request->type === 'add') {
-            $wallet->balance += $request->amount;
-        } else {
-            $wallet->balance = $request->amount;
-        }
-
-        $wallet->save();
-
-        return back()->with('message', 'Saldo berhasil diperbarui!');
-    }
-
     public function destroy($id)
     {
-        DigitalWallet::findOrFail($id)->delete();
-        return back()->with('message', 'Wallet berhasil dihapus!');
+        try {
+            DigitalWallet::findOrFail($id)->delete();
+            return back()->with('message', 'Platform Wallet berhasil dihapus!');
+        } catch (\Exception $e) {
+            return back()->withErrors(['id' => 'Gagal menghapus platform.']);
+        }
     }
 }

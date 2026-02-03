@@ -1,15 +1,32 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import debounce from 'lodash/debounce';
 
-const emit = defineEmits([
-    'on-add'
-])
-defineProps({
+const emit = defineEmits(['on-add'])
+
+const props = defineProps({
     resource: Object, 
     columns: Array,
     title: String,
-    showAddButton: Boolean,    
+    showAddButton: Boolean,
+    routeName: String, // Untuk trigger pencarian otomatis
+    placeholder: { type: String, default: 'Cari data...' },
+    initialSearch: { type: String, default: '' }
 });
+
+const search = ref(props.initialSearch);
+
+// OTOMATIS: Sistem pencarian server-side identik
+watch(search, debounce((value) => {
+    if (props.routeName) {
+        router.get(
+            route(props.routeName), 
+            { search: value }, 
+            { preserveState: true, replace: true }
+        );
+    }
+}, 500));
 </script>
 
 <template>
@@ -20,15 +37,22 @@ defineProps({
             <button 
                 v-if="showAddButton"    
                 @click="emit('on-add')"
-                class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black hover:bg-white hover:text-black transition-all  -[4px_4px_0px_0px_rgba(0,0,0,0.25)] active: -none"
+                class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black hover:bg-white hover:text-black transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
             >
                 Tambahkan
             </button>
         </div>
 
-        
-        <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div v-if="routeName" class="mb-6">
+            <input 
+                v-model="search"
+                type="text" 
+                :placeholder="placeholder.toUpperCase()"
+                class="w-full md:w-1/3 border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm transition-all placeholder:text-gray-400"
+            />
+        </div>
 
+        <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <table class="w-full border-collapse">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-200">
@@ -44,7 +68,7 @@ defineProps({
                 <tbody class="divide-y divide-gray-100">
                     <tr v-for="row in resource.data" :key="row.id" 
                         class="hover:bg-gray-50 transition-colors duration-150">
-                        <td v-for="col in columns" :key="col.key" class="p-4 text-sm text-gray-700">
+                        <td v-for="col in columns" :key="col.key" class="p-4 text-sm text-gray-700 font-medium">
                             <slot :name="col.key" :value="row[col.key]" :row="row">
                                 <template v-if="col.key === 'shift'">
                                     <span :class="row.shift === 'pagi' ? 'text-orange-600 bg-orange-50' : 'text-indigo-600 bg-indigo-50'" 
@@ -62,15 +86,15 @@ defineProps({
                         </td>
                     </tr>
                     <tr v-if="resource.data.length === 0">
-                        <td :colspan="columns.length + 1" class="p-8 text-center text-gray-400 italic text-sm">
-                            Tidak ada data yang tersedia
+                        <td :colspan="columns.length + 1" class="p-12 text-center text-gray-400 font-medium italic text-sm">
+                            --- Data tidak ditemukan ---
                         </td>
                     </tr>
                 </tbody>
             </table>
 
-            <div class="p-4 flex justify-between items-center border-t border-gray-200 bg-gray-50/50">
-                <span class="text-xs text-gray-500 font-medium">
+            <div class="p-4 flex flex-col md:flex-row justify-between items-center border-t border-gray-200 bg-gray-50/50">
+                <span class="text-xs text-gray-500 font-medium mb-4 md:mb-0">
                     Menampilkan <span class="font-semibold text-gray-800">{{ resource.from }}</span> - <span class="font-semibold text-gray-800">{{ resource.to }}</span> dari <span class="font-semibold text-gray-800">{{ resource.total }}</span> data
                 </span>
                 

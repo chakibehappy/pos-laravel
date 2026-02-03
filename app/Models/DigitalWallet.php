@@ -4,29 +4,26 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DigitalWallet extends Model
 {
     use HasFactory;
 
-    // Paksa Eloquent menggunakan nama tabel sesuai screenshot kamu
+    // Nama tabel sesuai gambar: digital_wallet
     protected $table = 'digital_wallet';
 
+    // Kolom yang dapat diisi (Fillable)
     protected $fillable = [
         'name',
-        'balance',
-    ];
-
-    // Pastikan balance selalu terbaca sebagai angka (float/decimal)
-    protected $casts = [
-        'balance' => 'float',
+        'created_by'
     ];
 
     /**
-     * Scope untuk mempermudah pencarian berdasarkan nama jika dibutuhkan
+     * Relasi ke distribusi wallet di toko-toko.
      */
-    public function scopeSearch($query, $search)
+    public function storeAssignments(): HasMany
     {
-        return $query->where('name', 'like', "%{$search}%");
+        return $this->hasMany(DigitalWalletStore::class, 'digital_wallet_id');
     }
 }
