@@ -130,6 +130,7 @@ Route::middleware('auth:sanctum')->get('/products', function (Request $request) 
 Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) {
 
     $storeId = $request->user()->store_id;
+    $storeId = "1";
     return response()->json(PosHelper::getPosData($storeId));
 });
 
