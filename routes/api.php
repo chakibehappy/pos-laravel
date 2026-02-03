@@ -72,6 +72,12 @@ Route::prefix('test-api')->group(function () {
             'token_type' => 'Bearer'
         ]);
     });
+
+    // pos-data
+    Route::post('/pos-data', function (Request $request) {
+        $storeId = $request->user()->store_id;
+        return response()->json(PosHelper::getPosData($storeId));
+    });
 });
 
 Route::post('/login', function (Request $request) {

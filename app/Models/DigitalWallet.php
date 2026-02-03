@@ -14,12 +14,6 @@ class DigitalWallet extends Model
 
     protected $fillable = [
         'name',
-        'balance',
-    ];
-
-    // Pastikan balance selalu terbaca sebagai angka (float/decimal)
-    protected $casts = [
-        'balance' => 'float',
     ];
 
     /**
