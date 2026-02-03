@@ -1,20 +1,14 @@
 <script setup>
 import { ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
-
 const props = defineProps({ 
     stores: Object,
-    store_types: Array 
+    store_types: Array,
+    filters: Object 
 });
-
-const columns = [
-    { label: 'Nama', key: 'name' }, 
-    { label: 'Jenis', key: 'type_name' }, 
-    { label: 'Alamat', key: 'address' }
-];
 
 const showForm = ref(false);
 const form = useForm({
@@ -49,59 +43,78 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('Are you sure?')) {
+    if (confirm('Hapus toko ini?')) {
         form.delete(route('stores.destroy', id));
     }
 };
+
+const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
+    day: '2-digit', month: 'short', year: 'numeric'
+});
 </script>
 
 <template>
+    <Head title="Daftar Toko" />
+
     <AuthenticatedLayout>
-        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-            <h2 class="font-black uppercase mb-4 italic">{{ form.id ? 'Perbarui Data Toko' : 'Tambahkan Toko' }}</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="flex flex-col">
-                    <input v-model="form.name" type="text" placeholder="NAME" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
-                    <span v-if="form.errors.name" class="text-red-500 text-xs font-bold uppercase mt-1">{{ form.errors.name }}</span>
-                </div>
-
-                <div class="flex flex-col">
-                    <select v-model="form.store_type_id" class="border-2 border-black p-2 font-bold bg-white focus:bg-yellow-50 outline-none">
-                        <option value="" disabled>SELECT TYPE</option>
-                        <option v-for="type in store_types" :key="type.id" :value="type.id">
-                            {{ type.name }}
-                        </option>
-                    </select>
-                    <span v-if="form.errors.store_type_id" class="text-red-500 text-xs font-bold uppercase mt-1">{{ form.errors.store_type_id }}</span>
-                </div>
-
-                <div class="flex flex-col">
-                    <input v-model="form.address" type="text" placeholder="ADDRESS" class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none" />
-                    <span v-if="form.errors.address" class="text-red-500 text-xs font-bold uppercase mt-1">{{ form.errors.address }}</span>
-                </div>
+        <div class="p-8">
+            <div v-if="showForm" class="mb-8 p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">{{ form.id ? 'Edit Toko' : 'Tambah Toko' }}</h2>
+                <form @submit.prevent="submit" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-gray-500 uppercase">Nama Toko</label>
+                        <input v-model="form.name" type="text" class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nama Toko..." />
+                        <span v-if="form.errors.name" class="text-red-500 text-xs mt-1">{{ form.errors.name }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-gray-500 uppercase">Tipe</label>
+                        <select v-model="form.store_type_id" class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Pilih Tipe</option>
+                            <option v-for="t in store_types" :key="t.id" :value="t.id">{{ t.name }}</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-gray-500 uppercase">Alamat</label>
+                        <input v-model="form.address" type="text" class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Alamat..." />
+                    </div>
+                    <div class="md:col-span-3 flex gap-3 mt-2">
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all">Simpan</button>
+                        <button type="button" @click="showForm = false" class="bg-gray-100 text-gray-600 px-6 py-2 rounded-lg font-bold hover:bg-gray-200 transition-all">Batal</button>
+                    </div>
+                </form>
             </div>
-            <div class="mt-4 flex gap-x-2">
-                <button @click="submit" :disabled="form.processing" class="bg-black text-white px-6 py-2 font-bold uppercase disabled:opacity-50">
-                    {{ form.id ? 'Simpan Perubahan' : 'Buat Toko' }}
-                </button>
-                <button @click="showForm = false" class="border-2 border-black px-6 py-2 font-bold uppercase">Batalkan</button>
-            </div>
-        </div>
 
-        <div class="mb-4 flex justify-between items-end">
-            <h1 class="text-2xl font-black uppercase tracking-tighter italic">Daftar Toko</h1>
-            <button v-if="!showForm" @click="openCreate" class="bg-black text-white px-6 py-2 font-bold uppercase border-2 border-black hover:bg-white hover:text-black transition-all  -[4px_4px_0px_0px_rgba(0,0,0,0.25)] active: -none">
-                Tambahkan
-            </button>
-        </div>
+            <DataTable 
+                title="Manajemen Toko"
+                :resource="stores" 
+                :columns="[
+                    { label: 'Nama Toko', key: 'name' }, 
+                    { label: 'Tipe', key: 'type_name' }, 
+                    { label: 'Alamat', key: 'address' },
+                    { label: 'Tanggal', key: 'created_at' }
+                ]"
+                routeName="stores.index" 
+                :initialSearch="filters?.search || ''"
+                :showAddButton="!showForm"
+                @on-add="openCreate"
+            >
+                <template #type_name="{ row }">
+                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-blue-100">
+                        {{ row.type_name }}
+                    </span>
+                </template>
 
-        <DataTable :resource="stores" :columns="columns">
-            <template #actions="{ row }">
-                <div class="flex flex-row gap-x-[15px] justify-end uppercase text-xs">
-                    <button @click="openEdit(row)" class="font-black hover:text-blue-600">✏️</button>
-                    <button @click="destroy(row.id)" class="font-black text-red-500 hover:text-red-700">❌</button>
-                </div>
-            </template>
-        </DataTable>
+                <template #created_at="{ row }">
+                    <span class="text-gray-500 text-xs font-medium">{{ formatDate(row.created_at) }}</span>
+                </template>
+
+                <template #actions="{ row }">
+                    <div class="flex gap-4 justify-end">
+                        <button @click="openEdit(row)" class="text-gray-400 hover:text-blue-600 transition-colors">✏️</button>
+                        <button @click="destroy(row.id)" class="text-gray-400 hover:text-red-600 transition-colors">❌</button>
+                    </div>
+                </template>
+            </DataTable>
+        </div>
     </AuthenticatedLayout>
 </template>

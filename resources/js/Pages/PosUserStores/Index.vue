@@ -1,9 +1,8 @@
 <script setup>
-import { ref, watch } from 'vue';
-import { useForm, router, Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { useForm, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
-import debounce from 'lodash/debounce';
 
 const props = defineProps({
     resource: Object, 
@@ -13,12 +12,6 @@ const props = defineProps({
 });
 
 const showForm = ref(false);
-const search = ref(props.filters.search || '');
-
-// Search dengan Debounce (Konsisten Server-side)
-watch(search, debounce((v) => {
-    router.get(route('pos-user-stores.index'), { search: v }, { preserveState: true });
-}, 500));
 
 const form = useForm({
     id: null,
@@ -26,7 +19,6 @@ const form = useForm({
     store_id: '',
 });
 
-// 1. Wired Actions sesuai standar baru
 const openCreate = () => {
     form.reset();
     form.id = null;
@@ -42,7 +34,6 @@ const openEdit = (row) => {
 };
 
 const submit = () => {
-    // Menggunakan POST karena logic updateOrCreate di Controller
     form.post(route('pos-user-stores.store'), {
         onSuccess: () => {
             showForm.value = false;
@@ -53,7 +44,7 @@ const submit = () => {
 
 const destroy = (id) => {
     if (confirm('Cabut akses user ini dari toko?')) {
-        router.delete(route('pos-user-stores.destroy', id));
+        form.delete(route('pos-user-stores.destroy', id));
     }
 };
 
@@ -74,21 +65,21 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 
                 <form @submit.prevent="submit" class="grid grid-cols-1 md:grid-cols-2 gap-6 italic">
                     <div class="flex flex-col">
-                        <label class="font-black uppercase text-xs mb-1">Pilih Kasir / Pegawai</label>
-                        <select v-model="form.pos_user_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
-                            <option value="">-- PILIH USER --</option>
-                            <option v-for="u in posUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
-                        </select>
-                        <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.pos_user_id }}</span>
-                    </div>
-
-                    <div class="flex flex-col">
                         <label class="font-black uppercase text-xs mb-1">Unit Toko Tujuan</label>
                         <select v-model="form.store_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
                             <option value="">-- PILIH TOKO --</option>
                             <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
                         </select>
                         <span v-if="form.errors.store_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.store_id }}</span>
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label class="font-black uppercase text-xs mb-1">Pilih Kasir / Pegawai</label>
+                        <select v-model="form.pos_user_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
+                            <option value="">-- PILIH USER --</option>
+                            <option v-for="u in posUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
+                        </select>
+                        <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.pos_user_id }}</span>
                     </div>
 
                     <div class="md:col-span-2 flex gap-4 pt-2">
@@ -102,19 +93,17 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 </form>
             </div>
 
-            <div class="mb-6" v-if="!showForm">
-                <input v-model="search" type="text" placeholder="CARI USER ATAU TOKO..." 
-                    class="w-full md:w-1/3 border-4 border-black p-3 font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/20 shadow-[4px_4px_0_#000]">
-            </div>
-
             <DataTable 
                 title="Akses User Toko"
                 :resource="resource" 
                 :columns="[
                     { label: 'Nama User', key: 'pos_user_name' }, 
                     { label: 'Unit Toko', key: 'store_name' }, 
+                    { label: 'Diberikan Oleh', key: 'creator_name' }, 
                     { label: 'Tanggal', key: 'created_at' }
                 ]"
+                routeName="pos-user-stores.index" 
+                :initialSearch="filters?.search || ''"
                 :showAddButton="!showForm"
                 @on-add="openCreate"
             >
@@ -124,7 +113,13 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
                 <template #store_name="{ row }">
                     <span class="bg-blue-600 text-white px-3 py-1 font-black text-[10px] uppercase italic">
-                        {{ row.pos_user.role == "admin" ? row.pos_user?.role : row.store?.name }}
+                        {{ row.pos_user?.role == 'admin' ? 'ALL STORES' : row.store?.name }}
+                    </span>
+                </template>
+
+                <template #creator_name="{ row }">
+                    <span class="text-xs font-bold uppercase text-gray-600 italic">
+                        👤 {{ row.creator?.name || 'System' }}
                     </span>
                 </template>
 

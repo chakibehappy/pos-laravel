@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DigitalWalletStore extends Model
 {
@@ -14,14 +15,18 @@ class DigitalWalletStore extends Model
     protected $fillable = [
         'store_id',
         'digital_wallet_id',
-        'balance'
+        'balance',
+        'created_by'
     ];
 
-    public function store() {
-        return $this->belongsTo(Store::class);
+    // Relasi hanya untuk mengambil properti 'name' dari wallet
+    public function wallet(): BelongsTo
+    {
+        return $this->belongsTo(DigitalWallet::class, 'digital_wallet_id');
     }
 
-    public function wallet() {
-        return $this->belongsTo(DigitalWallet::class, 'digital_wallet_id');
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'store_id');
     }
 }
