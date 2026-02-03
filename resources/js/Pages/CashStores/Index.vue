@@ -1,25 +1,22 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { useForm, router, Head, Link } from '@inertiajs/vue3';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Link, router, useForm, Head } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
 import debounce from 'lodash/debounce';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 
-const props = defineProps({ 
-    cashBalances: Object, // Diubah menjadi Object karena paginate()
-    stores: Array,
-    storeTypes: Array,
-    filters: Object
+const props = defineProps({
+    cashBalances: Object, // Data utama (ter-paginate)
+    filters: Object,
 });
 
-// State Global
-const selectedTypeFilter = ref('all');
-const search = ref(props.filters.search || '');
-const editMode = ref(false);
+// State Accordion
+const expandedStore = ref(null);
+const toggleAccordion = (id) => {
+    expandedStore.value = expandedStore.value === id ? null : id;
+};
 
-/**
- * SEARCH LOGIC (Server-side)
- * Pencarian dikirim ke backend agar paginasi tetap akurat
- */
+// Search System
+const search = ref(props.filters?.search || '');
 watch(search, debounce((value) => {
     router.get(
         route('cash-stores.index'), 
@@ -28,177 +25,206 @@ watch(search, debounce((value) => {
     );
 }, 500));
 
-/**
- * 1. Logic Filter untuk COMBO BOX (Pilihan Toko di Form)
- * Tetap menggunakan client-side filter agar user nyaman saat input
- */
-const filteredStoresForSelect = computed(() => {
-    if (selectedTypeFilter.value === 'all') {
-        return props.stores;
-    }
-    return props.stores.filter(s => s.store_type_id == selectedTypeFilter.value);
-});
-
-/**
- * 2. Logic Filter untuk TABEL (Data dari Paginasi)
- * Filter lokal tambahan jika user ingin menyaring data yang sudah tampil di halaman tersebut
- */
-const filteredTableData = computed(() => {
-    let data = props.cashBalances.data;
-    if (selectedTypeFilter.value === 'all') {
-        return data;
-    }
-    return data.filter(cb => cb.store?.store_type_id == selectedTypeFilter.value);
-});
-
-// Logic Form
+// Form Edit Inline
+const activeEditId = ref(null);
 const form = useForm({
     id: null,
     store_id: '',
-    cash: 0
+    cash: 0,
+    action_type: 'add', // Default aksi: Tambah
 });
+
+const openEdit = (row) => {
+    form.clearErrors();
+    form.id = row.id;
+    form.store_id = row.store_id;
+    form.cash = 0; // Reset input nominal ke 0
+    form.action_type = 'add';
+    activeEditId.value = row.id;
+};
+
+const cancelEdit = () => {
+    activeEditId.value = null;
+    form.reset();
+};
+
+const formatIDR = (num) => new Intl.NumberFormat('id-ID', { 
+    style: 'currency', currency: 'IDR', minimumFractionDigits: 0 
+}).format(num);
 
 const submit = () => {
     form.post(route('cash-stores.store'), {
-        onSuccess: () => {
+        preserveScroll: true,
+        onSuccess: () => { 
+            activeEditId.value = null;
             form.reset();
-            editMode.value = false;
-        }
+        },
     });
 };
-
-const editData = (data) => {
-    editMode.value = true;
-    form.id = data.id;
-    form.store_id = data.store_id;
-    form.cash = data.cash;
-    // Otomatis arahkan filter ke jenis usaha toko yang diedit
-    selectedTypeFilter.value = data.store?.store_type_id || 'all';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
 </script>
 
 <template>
     <Head title="Monitoring Kas Unit" />
 
     <AuthenticatedLayout>
-        <div class="mb-8 flex flex-col xl:flex-row xl:items-end justify-between gap-6">
-            <div>
-                <h1 class="text-3xl font-black uppercase italic tracking-tighter text-black">Monitoring Kas Unit</h1>
-                <p class="text-[10px] font-black uppercase text-gray-400 italic">Pencatatan & Filter Saldo Tunai Real-time</p>
-            </div>
+        <div class="p-8 text-left text-black">
+            <div class="w-full flex flex-col">
+                
+                <div class="mb-4">
+                    <h1 class="text-2xl font-black uppercase tracking-tighter text-black">Monitoring Kas Unit</h1>
+                    <p class="text-[10px] font-black uppercase text-gray-400 italic">Pengelolaan Saldo Tunai Per Unit Toko</p>
+                </div>
 
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="border-4 border-black p-1 bg-white flex items-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <span class="px-2">🔍</span>
+                <div class="mb-6">
                     <input 
-                        v-model="search" 
+                        v-model="search"
                         type="text" 
-                        placeholder="CARI TOKO..." 
-                        class="border-none text-xs font-black uppercase outline-none focus:ring-0 w-full md:w-40"
+                        placeholder="CARI UNIT TOKO..." 
+                        class="w-full md:w-1/3 border border-gray-300 rounded-lg p-2.5 text-sm font-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm transition-all uppercase placeholder:text-gray-300 placeholder:italic"
                     />
                 </div>
 
-                <div class="border-4 border-black p-2 bg-yellow-300 flex items-center gap-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <span class="text-[10px] font-black uppercase pl-2 text-black text-nowrap">Kategori:</span>
-                    <select v-model="selectedTypeFilter" class="border-2 border-black p-1 text-xs font-black uppercase outline-none bg-white min-w-[150px]">
-                        <option value="all">SEMUA JENIS USAHA</option>
-                        <option v-for="type in storeTypes" :key="type.id" :value="type.id">
-                            {{ type.name }}
-                        </option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div class="border-4 border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                <div class="flex justify-between items-center mb-6 border-b-4 border-black pb-2">
-                    <h3 class="font-black uppercase italic text-xs">
-                        {{ editMode ? 'Edit Saldo Kas' : 'Input Kas Baru' }}
-                    </h3>
-                    <button v-if="editMode" @click="editMode = false; form.reset()" class="text-[10px] font-black uppercase text-red-600 underline">Batal</button>
-                </div>
-
-                <form @submit.prevent="submit" class="space-y-5">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase mb-1 tracking-tighter text-gray-400 font-bold">Pilih Toko (Tersaring)</label>
-                        <select v-model="form.store_id" class="w-full border-4 border-black p-2 font-bold outline-none focus:bg-green-50 text-sm">
-                            <option value="" disabled>-- Pilih Unit --</option>
-                            <option v-for="s in filteredStoresForSelect" :key="s.id" :value="s.id">
-                                {{ s.name }}
-                            </option>
-                        </select>
-                        <p v-if="filteredStoresForSelect.length === 0" class="text-[9px] text-red-500 font-bold mt-1 uppercase italic">! Tidak ada toko di kategori ini</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-black uppercase mb-1 tracking-tighter text-black font-bold">Nominal Kas (Tunai)</label>
-                        <input v-model="form.cash" type="number" class="w-full border-4 border-black p-2 font-black text-xl outline-none focus:bg-yellow-50" />
-                    </div>
-
-                    <button :disabled="form.processing" class="w-full bg-black text-white py-4 font-black uppercase border-2 border-black hover:bg-yellow-400 hover:text-black transition-all active:translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none disabled:opacity-50">
-                        {{ form.processing ? 'MEMPROSES...' : (editMode ? 'UPDATE DATA' : 'SIMPAN DATA') }}
-                    </button>
-                </form>
-            </div>
-
-            <div class="lg:col-span-2">
-                <div class="border-4 border-black bg-white overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-black text-white">
-                                <tr>
-                                    <th class="p-3 uppercase text-[10px] font-black italic border-r border-gray-800 w-12 text-center">No</th>
-                                    <th class="p-3 uppercase text-[10px] font-black italic">Nama Unit / Toko</th>
-                                    <th class="p-3 uppercase text-[10px] font-black italic text-right">Saldo Kas</th>
-                                    <th class="p-3 uppercase text-[10px] font-black italic text-center">Aksi</th>
+                <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-black font-black uppercase text-[10px] tracking-widest">
+                                <th class="p-4 text-left text-gray-400">Unit Toko</th>
+                                <th class="p-4 text-right text-gray-400">Total Kas Tunai</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 italic">
+                            <template v-for="row in cashBalances.data" :key="row.id">
+                                <tr @click="toggleAccordion(row.id)" class="hover:bg-gray-50/80 transition-colors cursor-pointer group">
+                                    <td class="p-4">
+                                        <div class="flex items-center gap-3 font-black uppercase italic text-gray-800">
+                                            <div class="w-5 h-5 flex items-center justify-center rounded border border-blue-600 bg-blue-50 text-[10px] text-blue-600 transition-transform" 
+                                                :class="expandedStore === row.id ? 'rotate-180 bg-blue-600 text-white' : ''">
+                                                ▼
+                                            </div>
+                                            <span>{{ row.store?.name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-4 text-right font-black text-sm text-gray-700">
+                                        <span class="bg-gray-100 px-2 py-1 rounded border border-gray-200 shadow-sm group-hover:bg-white transition-colors">
+                                            {{ formatIDR(row.cash) }}
+                                        </span>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody class="divide-y-4 divide-black text-sm font-medium">
-                                <tr v-for="(cb, index) in filteredTableData" :key="cb.id" class="hover:bg-yellow-50 transition-colors">
-                                    <td class="p-3 border-r-4 border-black text-center font-black italic">
-                                        {{ (cashBalances.current_page - 1) * cashBalances.per_page + index + 1 }}
-                                    </td>
-                                    <td class="p-3">
-                                        <div class="font-black uppercase tracking-tight italic text-sm text-black">{{ cb.store?.name }}</div>
-                                        <div class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Kategori ID: {{ cb.store?.store_type_id }}</div>
-                                    </td>
-                                    <td class="p-3 font-black text-green-600 text-right italic text-base bg-green-50/20">
-                                        {{ formatIDR(cb.cash) }}
-                                    </td>
-                                    <td class="p-3 text-center">
-                                        <div class="flex justify-center gap-3">
-                                            <button @click="editData(cb)" class="text-blue-600 font-black uppercase italic text-[10px] border-2 border-black px-2 py-1 hover:bg-black hover:text-white transition-colors">Edit</button>
-                                            <button @click="router.delete(route('cash-stores.destroy', cb.id))" class="text-red-600 font-black uppercase italic text-[10px] border-2 border-black px-2 py-1 hover:bg-black hover:text-white transition-colors">Hapus</button>
+
+                                <tr v-if="expandedStore === row.id" class="bg-gray-50/50">
+                                    <td colspan="2" class="p-6">
+                                        <div class="flex flex-col gap-4">
+                                            <div class="flex gap-4 items-stretch max-w-6xl">
+                                                
+                                                <div class="flex-1 bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center justify-between"
+                                                     :class="activeEditId === row.id ? 'border-blue-500 ring-2 ring-blue-50' : ''">
+                                                    <div class="flex flex-col">
+                                                        <span class="text-[8px] font-black text-gray-300 uppercase mb-1 tracking-widest not-italic">Status</span>
+                                                        <span class="text-sm font-black text-gray-800 uppercase italic">Kas Tunai Aktif</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-8">
+                                                        <div class="text-right flex flex-col">
+                                                            <span class="text-[8px] font-black text-gray-300 uppercase mb-1 tracking-widest not-italic">Saldo Sekarang</span>
+                                                            <span class="text-sm font-black text-blue-600 italic">{{ formatIDR(row.cash) }}</span>
+                                                        </div>
+                                                        <button 
+                                                            v-if="activeEditId !== row.id"
+                                                            @click.stop="openEdit(row)" 
+                                                            class="transition-transform active:scale-90 text-lg opacity-60 hover:opacity-100"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                        <div v-else class="w-[28px]"></div>
+                                                    </div>
+                                                </div>
+
+                                                <div v-if="activeEditId === row.id" 
+                                                     class="w-1/2 bg-white border border-blue-500 rounded-xl p-5 shadow-lg animate-in slide-in-from-left-2 duration-200 relative">
+                                                    
+                                                    <button @click="cancelEdit" class="absolute top-2 right-3 text-gray-300 hover:text-red-500 font-black">✕</button>
+
+                                                    <form @submit.prevent="submit" class="flex flex-col h-full gap-4 pt-1">
+                                                        <div class="grid grid-cols-2 gap-3">
+                                                            <div class="flex flex-col">
+                                                                <label class="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 not-italic">Aksi</label>
+                                                                <select v-model="form.action_type" class="w-full border border-gray-200 rounded-lg p-2 text-xs font-black uppercase italic bg-gray-50 outline-none focus:border-blue-500">
+                                                                    <option value="add">Tambahkan (+)</option>
+                                                                    <option value="subtract">Kurangi (-)</option>
+                                                                    <option value="reset">Reset Ke 0</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="flex flex-col">
+                                                                <label class="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 not-italic">Nominal (Rp)</label>
+                                                                <input 
+                                                                    v-model="form.cash" 
+                                                                    type="number" 
+                                                                    :disabled="form.action_type === 'reset'"
+                                                                    class="w-full border border-gray-200 rounded-lg p-2 font-black text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none italic disabled:bg-gray-100 transition-all"
+                                                                    placeholder="0"
+                                                                    autofocus
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            type="submit" 
+                                                            class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-black uppercase text-[10px] hover:bg-blue-700 shadow-md transition-all active:scale-[0.98]"
+                                                        >
+                                                            Update Kas Tunai
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="filteredTableData.length === 0">
-                                    <td colspan="4" class="p-10 text-center font-black uppercase text-red-400 italic bg-gray-50">
-                                        ⚠️ Data tidak ditemukan
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            </template>
+                            
+                            <tr v-if="cashBalances.data.length === 0">
+                                <td colspan="2" class="p-12 text-center text-gray-400 font-black uppercase italic text-xs tracking-widest">
+                                    --- Data Unit Tidak Ditemukan ---
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-                <div class="mt-8 flex flex-wrap justify-center gap-2">
-                    <template v-for="(link, k) in cashBalances.links" :key="k">
-                        <a 
-                            v-if="link.url" 
-                            :href="link.url" 
-                            class="px-4 py-2 border-2 border-black font-black uppercase text-[10px] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
-                            :class="{'bg-yellow-400': link.active, 'bg-white': !link.active}"
-                        >
-                        {{ link.label }}
-                        </a>
-                    </template>
+                    <div class="p-4 flex flex-col md:flex-row justify-between items-center border-t border-gray-200 bg-gray-50/50">
+                        <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-4 md:mb-0">
+                            Menampilkan {{ cashBalances.from || 0 }} - {{ cashBalances.to || 0 }} dari {{ cashBalances.total || 0 }} Unit
+                        </span>
+                        
+                        <div class="flex items-center gap-1">
+                            <template v-for="(link, k) in cashBalances.links" :key="k">
+                                <div v-if="!link.url" 
+                                    v-html="link.label" 
+                                    class="px-3 py-1 text-[10px] font-black border border-gray-100 text-gray-300 rounded bg-white cursor-not-allowed uppercase shadow-none" 
+                                />
+                                
+                                <a v-else 
+                                    :href="link.url" 
+                                    class="px-3 py-1 text-[10px] border rounded transition-all duration-200 font-black uppercase shadow-sm"
+                                    :class="link.active 
+                                        ? 'bg-blue-600 border-blue-600 text-white shadow-blue-100' 
+                                        : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'"
+                                >
+                                    <span v-html="link.label"></span>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+/* Menghilangkan panah spinner pada input number */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
+}
+</style>

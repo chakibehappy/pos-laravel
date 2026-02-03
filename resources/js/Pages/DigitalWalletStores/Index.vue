@@ -36,14 +36,13 @@ const form = useForm({
 });
 
 const openEdit = (walletItem) => {
-    const row = walletItem.raw;
     form.clearErrors();
-    form.id = row.id;
-    form.store_id = row.store_id;
-    form.digital_wallet_id = row.digital_wallet_id;
+    form.id = walletItem.id;
+    form.store_id = walletItem.store_id;
+    form.digital_wallet_id = walletItem.digital_wallet_id;
     form.balance = 0;
     form.action_type = 'add';
-    activeEditId.value = row.id;
+    activeEditId.value = walletItem.id;
 };
 
 const cancelEdit = () => {
@@ -74,7 +73,10 @@ const submit = () => {
             <div class="w-full flex flex-col">
                 
                 <div class="mb-4 flex justify-between items-end">
-                    <h1 class="text-2xl font-black uppercase tracking-tighter text-black">Ringkasan Saldo Toko</h1>
+                    <div>
+                        <h1 class="text-2xl font-black uppercase tracking-tighter text-black">Ringkasan Saldo Toko</h1>
+                        <p class="text-[10px] font-black uppercase text-gray-400 italic">Akumulasi Saldo E-Wallet Per Unit</p>
+                    </div>
                 </div>
 
                 <div class="mb-6">
@@ -82,7 +84,7 @@ const submit = () => {
                         v-model="search"
                         type="text" 
                         placeholder="CARI UNIT TOKO..." 
-                        class="w-full md:w-1/3 border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm transition-all placeholder:text-gray-400 uppercase"
+                        class="w-full md:w-1/3 border border-gray-300 rounded-lg p-2.5 text-sm font-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm transition-all placeholder:text-gray-300 placeholder:italic uppercase"
                     />
                 </div>
 
@@ -94,20 +96,23 @@ const submit = () => {
                                 <th class="p-4 text-right text-gray-400">Akumulasi Saldo</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100 italic">
+                        <tbody class="divide-y divide-gray-100 italic font-medium">
                             <template v-for="row in resource.data" :key="row.id">
-                                <tr @click="toggleAccordion(row.id)" class="hover:bg-gray-50 transition-colors duration-150 cursor-pointer">
+                                <tr @click="toggleAccordion(row.id)" class="hover:bg-gray-50/80 transition-colors duration-150 cursor-pointer group">
                                     <td class="p-4">
                                         <div class="flex items-center gap-3 font-black uppercase italic text-gray-800">
-                                            <div class="w-5 h-5 flex items-center justify-center rounded border border-blue-600 bg-blue-50 text-[10px] text-blue-600 transition-transform" :class="expandedStore === row.id ? 'rotate-180' : ''">
+                                            <div class="w-5 h-5 flex items-center justify-center rounded border border-blue-600 bg-blue-50 text-[10px] text-blue-600 transition-transform" 
+                                                :class="expandedStore === row.id ? 'rotate-180 bg-blue-600 text-white' : ''">
                                                 ▼
                                             </div>
                                             <span>{{ row.store_name }}</span>
-                                            <span class="text-[9px] bg-gray-100 px-2 py-0.5 rounded text-gray-400 font-bold not-italic tracking-normal">{{ row.wallets.length }} WALLET</span>
+                                            <span class="text-[9px] bg-gray-100 px-2 py-0.5 rounded text-gray-400 font-bold not-italic tracking-normal uppercase">{{ row.wallets.length }} WALLET</span>
                                         </div>
                                     </td>
-                                    <td class="p-4 text-right font-black text-sm text-gray-300">
-                                        {{ formatIDR(row.total_balance) }}
+                                    <td class="p-4 text-right font-black text-sm text-gray-700">
+                                        <span class="bg-gray-100 px-2 py-1 rounded border border-gray-200 group-hover:bg-white transition-colors">
+                                            {{ formatIDR(row.total_balance) }}
+                                        </span>
                                     </td>
                                 </tr>
 
@@ -141,17 +146,15 @@ const submit = () => {
                                                 <div v-if="activeEditId === w.id" 
                                                      class="w-1/2 bg-white border border-blue-500 rounded-xl p-5 shadow-lg animate-in slide-in-from-left-2 duration-200 relative">
                                                     
-                                                    <button @click="cancelEdit" class="absolute top-2 right-3 text-gray-300 hover:text-red-500 transition-colors text-lg font-black not-italic">
-                                                        ✕
-                                                    </button>
+                                                    <button @click="cancelEdit" class="absolute top-2 right-3 text-gray-300 hover:text-red-500 transition-colors text-lg font-black not-italic">✕</button>
 
                                                     <form @submit.prevent="submit" class="flex flex-col h-full gap-4 pt-1">
                                                         <div class="grid grid-cols-2 gap-3">
                                                             <div class="flex flex-col">
                                                                 <label class="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 not-italic">Aksi</label>
                                                                 <select v-model="form.action_type" class="w-full border border-gray-200 rounded-lg p-2 text-xs font-black uppercase italic bg-gray-50 outline-none focus:ring-1 focus:ring-blue-500">
-                                                                    <option value="add">Tambahkan</option>
-                                                                    <option value="subtract">Kurangi</option>
+                                                                    <option value="add">Tambahkan (+)</option>
+                                                                    <option value="subtract">Kurangi (-)</option>
                                                                     <option value="reset">Reset Saldo</option>
                                                                 </select>
                                                             </div>
@@ -161,7 +164,7 @@ const submit = () => {
                                                                     v-model="form.balance" 
                                                                     type="number" 
                                                                     :disabled="form.action_type === 'reset'"
-                                                                    class="no-spinner w-full border border-gray-200 rounded-lg p-2 font-black text-sm focus:ring-1 focus:ring-blue-500 outline-none italic disabled:bg-gray-100 disabled:text-gray-400"
+                                                                    class="no-spinner w-full border border-gray-200 rounded-lg p-2 font-black text-sm focus:ring-1 focus:ring-blue-500 outline-none italic disabled:bg-gray-100 disabled:text-gray-400 transition-all"
                                                                     placeholder="0"
                                                                     autofocus
                                                                 />
@@ -169,7 +172,7 @@ const submit = () => {
                                                         </div>
                                                         <button 
                                                             type="submit" 
-                                                            class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-black uppercase text-[10px] hover:bg-blue-700 transition-all shadow-md shadow-blue-100 mt-auto"
+                                                            class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-black uppercase text-[10px] hover:bg-blue-700 transition-all shadow-md shadow-blue-100 mt-auto active:scale-[0.98]"
                                                         >
                                                             Simpan Perubahan
                                                         </button>
@@ -180,8 +183,39 @@ const submit = () => {
                                     </td>
                                 </tr>
                             </template>
+
+                            <tr v-if="resource.data.length === 0">
+                                <td colspan="2" class="p-12 text-center text-gray-400 font-black uppercase italic text-xs tracking-widest">
+                                    --- Data Tidak Ditemukan ---
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
+
+                    <div class="p-4 flex flex-col md:flex-row justify-between items-center border-t border-gray-200 bg-gray-50/50">
+                        <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-4 md:mb-0">
+                            Menampilkan {{ resource.from || 0 }} - {{ resource.to || 0 }} dari {{ resource.total || 0 }} Unit
+                        </span>
+                        
+                        <div class="flex items-center gap-1">
+                            <template v-for="(link, k) in resource.links" :key="k">
+                                <div v-if="!link.url" 
+                                    v-html="link.label" 
+                                    class="px-3 py-1 text-[10px] font-black border border-gray-100 text-gray-300 rounded bg-white cursor-not-allowed uppercase shadow-none" 
+                                />
+                                
+                                <a v-else 
+                                    :href="link.url" 
+                                    class="px-3 py-1 text-[10px] border rounded transition-all duration-200 font-black uppercase shadow-sm"
+                                    :class="link.active 
+                                        ? 'bg-blue-600 border-blue-600 text-white shadow-blue-100' 
+                                        : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'"
+                                >
+                                    <span v-html="link.label"></span>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -189,14 +223,12 @@ const submit = () => {
 </template>
 
 <style scoped>
-/* Menghilangkan panah naik-turun pada input number */
 .no-spinner::-webkit-inner-spin-button,
 .no-spinner::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
-
 .no-spinner {
-    -moz-appearance: textfield; /* Untuk Firefox */
+    -moz-appearance: textfield;
 }
 </style>

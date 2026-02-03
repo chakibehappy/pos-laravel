@@ -13,15 +13,18 @@ class PosUserStoreController extends Controller
 {
     public function index(Request $request)
     {
-        // Load relasi 'creator' agar namanya muncul di tabel
+        // 1. Inisialisasi Query dengan Eager Loading relasi yang dibutuhkan
         $query = PosUserStore::with(['posUser', 'store', 'creator'])
             ->whereHas('posUser', function($q) {
+                // Filter agar developer tidak muncul di daftar penugasan
                 $q->where('role', '!=', 'developer'); 
             });
         
-        if ($request->search) {
+        // 2. Sistem Search yang konsisten dengan DataTable.vue
+        if ($request->filled('search')) {
             $query->where(function($q) use ($request) {
                 $term = "%{$request->search}%";
+                // Cari berdasarkan Nama User atau Nama Toko
                 $q->whereHas('posUser', function($sq) use ($term) {
                     $sq->where('name', 'like', $term);
                 })->orWhereHas('store', function($sq) use ($term) {
@@ -31,9 +34,14 @@ class PosUserStoreController extends Controller
         }
 
         return Inertia::render('PosUserStores/Index', [
+            // Resource dipaginasi 10 data per halaman
             'resource' => $query->latest()->paginate(10)->withQueryString(),
+            
+            // Data untuk Dropdown Form
             'posUsers' => PosUser::where('role', '!=', 'developer')->get(['id', 'name']),
             'stores'   => Store::all(['id', 'name']),
+            
+            // Melempar kembali nilai search ke frontend
             'filters'  => $request->only(['search']),
         ]);
     }
@@ -45,12 +53,17 @@ class PosUserStoreController extends Controller
             'store_id'    => 'required|exists:stores,id',
         ]);
 
-        // JEMBATAN LOGIC: Cari ID di pos_users yang username-nya sama dengan email login
+        /** * LOGIKA CREATOR:
+         * Mencari user di pos_users yang memiliki username sama dengan email login.
+         * Ini karena Auth::user() merujuk ke tabel 'users' (web), 
+         * sedangkan created_by merujuk ke tabel 'pos_users'.
+         */
         $creator = PosUser::where('username', Auth::user()->email)->first();
         
-        // Jika tidak ketemu (misal akun admin berbeda), gunakan ID target sebagai fallback
+        // Fallback: jika tidak ditemukan, gunakan pos_user_id yang sedang diedit
         $creatorId = $creator ? $creator->id : $request->pos_user_id;
 
+        // Gunakan updateOrCreate untuk mencegah duplikasi user di toko yang sama
         PosUserStore::updateOrCreate(
             [
                 'pos_user_id' => $request->pos_user_id,
