@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'; // Tambahkan computed
+import { ref, computed } from 'vue'; 
 import { useForm, Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -32,10 +32,14 @@ const singleEntry = ref({
 
 // Logic untuk mengecek apakah form edit valid
 const isEditInvalid = computed(() => {
-    return isEditMode.value && (!singleEntry.value.topup_trans_type_id || !singleEntry.value.wallet_target_id);
+    return isEditMode.value && !singleEntry.value.topup_trans_type_id;
 });
 
-const getName = (list, id) => list.find(i => i.id === id)?.name || '';
+// Helper untuk mendapatkan nama dari ID
+const getName = (list, id) => {
+    if (!id) return 'Semua Wallet';
+    return list.find(i => i.id === id)?.name || 'Semua Wallet';
+};
 
 const openCreate = () => {
     isEditMode.value = false;
@@ -54,7 +58,7 @@ const openEdit = (row) => {
     
     singleEntry.value = {
         topup_trans_type_id: row.topup_trans_type_id,
-        wallet_target_id: row.wallet_target_id,
+        wallet_target_id: row.wallet_target_id || '',
         min_limit: row.min_limit,
         max_limit: row.max_limit,
         fee: row.fee,
@@ -78,8 +82,8 @@ const resetSingleEntry = () => {
 const addToBatch = () => {
     errorMessage.value = ''; 
 
-    if (!singleEntry.value.topup_trans_type_id || !singleEntry.value.wallet_target_id) {
-        errorMessage.value = "Silakan pilih Tipe Transaksi dan Wallet Target!";
+    if (!singleEntry.value.topup_trans_type_id) {
+        errorMessage.value = "Silakan pilih Tipe Transaksi!";
         return;
     }
 
@@ -95,7 +99,7 @@ const addToBatch = () => {
 
     const isInDatabase = props.data.data.some(item => 
         item.topup_trans_type_id === singleEntry.value.topup_trans_type_id && 
-        item.wallet_target_id === singleEntry.value.wallet_target_id
+        (item.wallet_target_id || '') === (singleEntry.value.wallet_target_id || '')
     );
 
     if (isInDatabase) {
@@ -116,10 +120,27 @@ const removeFromBatch = (index) => {
 };
 
 const submit = () => {
-    // Validasi tambahan sebelum submit mode edit
+    errorMessage.value = '';
+
     if (isEditMode.value && isEditInvalid.value) {
-        alert("Tipe Transaksi dan Wallet Target tidak boleh kosong!");
+        alert("Tipe Transaksi tidak boleh kosong!");
         return;
+    }
+
+    // Pengecekan duplikasi database saat mode edit
+    if (isEditMode.value) {
+        const isDuplicate = props.data.data.some(item => 
+            item.topup_trans_type_id === singleEntry.value.topup_trans_type_id && 
+            (item.wallet_target_id || '') === (singleEntry.value.wallet_target_id || '') &&
+            item.id !== form.id
+        );
+
+        if (isDuplicate) {
+            const type = getName(props.transTypes, singleEntry.value.topup_trans_type_id);
+            const target = getName(props.walletTargets, singleEntry.value.wallet_target_id);
+            errorMessage.value = `Data untuk "${type}" dengan target "${target}" sudah ada di database.`;
+            return;
+        }
     }
 
     let confirmMessage = isEditMode.value 
@@ -186,7 +207,7 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                             label="Wallet Target"
                             v-model="singleEntry.wallet_target_id"
                             :options="walletTargets"
-                            placeholder="Cari Target..."
+                            placeholder="Semua Wallet"
                         />
 
                         <div class="flex flex-col gap-1" :class="isEditMode ? '' : 'text-xs'">
@@ -218,7 +239,7 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                         <div class="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
                             <span class="text-amber-600">💡</span>
                             <p class="text-[10px] font-bold text-amber-700 uppercase tracking-wide">
-                                Data Tipe Transaksi & Wallet Target harus diisi agar perubahan dapat disimpan!
+                                Tipe Transaksi wajib dipilih agar perubahan dapat disimpan!
                             </p>
                         </div>
                     </div>
@@ -255,7 +276,7 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                     <tbody class="divide-y divide-gray-50">
                         <tr v-for="(tr, idx) in form.rules" :key="idx" class="hover:bg-blue-50/30 transition-colors">
                             <td class="p-3 font-bold uppercase italic text-gray-700">
-                                {{ getName(transTypes, tr.topup_trans_type_id) }} / <span class="text-blue-600">{{ getName(walletTargets, tr.wallet_target_id) }}</span>
+                                {{ getName(transTypes, tr.topup_trans_type_id) }} / <span :class="tr.wallet_target_id ? 'text-blue-600' : 'text-amber-600 font-black'">{{ getName(walletTargets, tr.wallet_target_id) }}</span>
                             </td>
                             <td class="p-3 text-center font-bold text-gray-700">{{ displayLimit(tr.min_limit) }} - {{ displayLimit(tr.max_limit) }}</td>
                             <td class="p-3 font-black text-green-600 text-center">Rp {{ formatCurrency(tr.fee) }}</td>
@@ -294,7 +315,12 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                     <span class="font-bold text-gray-800 uppercase text-[10px] italic tracking-tight">{{ row.topup_trans_type?.name }}</span>
                 </template>
                 <template #target_name="{ row }">
-                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-blue-100 shadow-sm">{{ row.wallet_target?.name }}</span>
+                    <span v-if="row.wallet_target" class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-blue-100 shadow-sm">
+                        {{ row.wallet_target.name }}
+                    </span>
+                    <span v-else class="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-amber-100 shadow-sm">
+                        Semua Wallet
+                    </span>
                 </template>
                 <template #min_limit="{ value }"><span class="text-gray-400 font-medium text-[11px]">{{ displayLimit(value) }}</span></template>
                 <template #max_limit="{ value }"><span class="text-gray-900 font-black text-[11px]">{{ displayLimit(value) }}</span></template>
