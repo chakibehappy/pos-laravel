@@ -1,6 +1,9 @@
 <?php
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Carbon\Carbon;
+
+use \App\Models\Store;
 use App\Models\Product;
 use App\Models\StoreProduct;
 use App\Models\PosUser;
@@ -19,48 +22,71 @@ use App\Models\CashStore;
 use App\Models\CashWithdrawal;
 use App\Models\TopupFeeRule;
 
+use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
 
+Route::prefix('test-api')->group(function () {
+    
+    Route::get('/ping', fn() => response()->json(['message' => 'pong']));
+    // store-login
+    Route::post('/store-login', function (Request $request) {
+        $request->validate([
+            'keyname' => 'required|string',
+            'password' => 'required|string',
+        ]);
 
-function getPosData($storeId) {
-    // Products
-    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
-        ->where('store_products.store_id', $storeId)
-        ->select('products.*', 'store_products.stock as store_stock')
-        ->get();
+        $store = Store::where('keyname', $request->keyname)->first();
 
-    // Store wallets
-    $storeWallets = DigitalWalletStore::join('digital_wallet', 'digital_wallet_store.digital_wallet_id', '=', 'digital_wallet.id')
-        ->where('digital_wallet_store.store_id', $storeId)
-        ->select('digital_wallet_store.id', 'digital_wallet.id as wallet_id', 'digital_wallet.name', 'digital_wallet_store.balance')
-        ->get();
+        if (!$store || !Hash::check($request->password, $store->password)) {
+            return response()->json(['message' => 'Invalid store credentials'], 401);
+        }
 
-    // Topup Types
-    $topupTypes = TopupTransType::select('id', 'name', 'type')
-        ->orderBy('id', 'desc')->get();
+        // Return store info + available operators
+        $operators = $store->operators()->where('is_active', 1)
+            ->whereNotIn('pos_users.role', ['admin', 'developer'])
+            ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift')
+            ->get();
 
-    $withdrawalSrcTypes = WithdrawalSourceType::select( 'id', 'name')
-        ->orderBy('id', 'desc')
-        ->get();
+        return response()->json([
+            'store' => $store,
+            'operators' => $operators
+        ]);
+    });
+    
+    // pos-user-login
+    Route::post('/pos-user-login', function (Request $request) {
+        $request->validate([
+            'pos_user_id' => 'required|integer',
+            'pin' => 'required|string',
+            'device_name' => 'required|string',
+        ]);
 
-    $cashStore = CashStore::where('cash_store.store_id', $storeId)
-        ->select('cash_store.*')
-        ->first();
+        $user = PosUser::find($request->pos_user_id);
 
-    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
-        ->orderBy('topup_trans_type_id')
-        ->get();
+        if (!$user || !Hash::check($request->pin, $user->pin)) {
+            return response()->json(['message' => 'Invalid POS user credentials'], 401);
+        }
 
+        $token = $user->createToken($request->device_name)->plainTextToken;
 
-    return [
-        'products' => $products,
-        'store_wallets' => $storeWallets,
-        'topup_types' => $topupTypes,
-        'withdrawal_src_types' => $withdrawalSrcTypes,
-        'cash_store' => $cashStore,
-        'topup_fee_rules' => $topupFeeRules,
-    ];
-}
+        return response()->json([
+            'user' => $user,
+            'token' => $token,
+            'token_type' => 'Bearer'
+        ]);
+    });
+
+    // pos-data
+    Route::post('/pos-data', function (Request $request) {
+        
+        $storeId = $request->input('store_id'); // send store_id directly
+        if (!$storeId) {
+            return response()->json(['message' => 'store_id is required'], 400);
+        }
+
+        return response()->json(PosHelper::getPosData($storeId));
+    });
+});
 
 Route::post('/login', function (Request $request) {
     $request->validate([
@@ -105,66 +131,17 @@ Route::middleware('auth:sanctum')->get('/products', function (Request $request) 
 });
 
 Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) {
-
-    $storeId = $request->user()->store_id;
-
-    // Products
-    $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
-        ->where('store_products.store_id', $storeId)
-        ->select(
-            'products.*',
-            'store_products.stock as store_stock'
-        )
-        ->get();
-
-    // Store wallets
-    $storeWallets = DigitalWalletStore::join(
-            'digital_wallet',
-            'digital_wallet_store.digital_wallet_id',
-            '=',
-            'digital_wallet.id'
-        )
-        ->where('digital_wallet_store.store_id', $storeId)
-        ->select(
-            'digital_wallet_store.id',
-            'digital_wallet.id as wallet_id',
-            'digital_wallet.name',
-            'digital_wallet_store.balance'
-        )
-        ->get();
-
-    // Topup / Bill transaction types
-    $topupTypes = TopupTransType::select( 'id', 'name', 'type' )
-        ->orderBy('id', 'desc')
-        ->get();
-        
-    $withdrawalSrcTypes = WithdrawalSourceType::select( 'id', 'name')
-        ->orderBy('id', 'desc')
-        ->get();
-
-        
-    $cashStore = CashStore::where('cash_store.store_id', $storeId)
-        ->select('cash_store.*')
-        ->first();
-
-
-    $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
-        ->orderBy('topup_trans_type_id')
-        ->get();
-
-    return response()->json([
-        'products' => $products,
-        'store_wallets' => $storeWallets,
-        'topup_types' => $topupTypes,
-        'withdrawal_src_types' => $withdrawalSrcTypes,
-        'cash_store' => $cashStore,
-        'topup_fee_rules' => $topupFeeRules,
-    ]);
+    $storeId = $request->query('store_id'); // get store ID from query param
+    if (!$storeId) {
+        return response()->json(['error' => 'Store ID is required'], 400);
+    }
+    return response()->json(PosHelper::getPosData($storeId));
 });
 
 Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
 
     $request->validate([
+        'store_id' => 'required|numeric',
         'transaction_at' => 'required|date',
         'subtotal' => 'required|numeric',
         'tax' => 'required|numeric',
@@ -182,7 +159,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
     try {
         // Create Transaction Header
         $transaction = Transaction::create([
-            'store_id'       => $posUser->store_id,
+            'store_id'       => $request->store_id,
             'pos_user_id'    => $posUser->id,
             'transaction_at' => $request->transaction_at,
             'subtotal'       => $request->subtotal,
@@ -204,7 +181,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 $topupData = $item['topup_transaction'];
                 
                 $topup = TopupTransaction::create([
-                    'store_id'                => $posUser->store_id,
+                    'store_id'                => $request->store_id,
                     'cust_account_number'     => $topupData['cust_account_number'],
                     'nominal_request'         => $topupData['nominal_request'],
                     'nominal_pay'             => $topupData['nominal_pay'],
@@ -220,7 +197,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
                     ->decrement('balance', $topupData['adm_fee']);
                     
-                CashStore::where('store_id', $posUser->store_id)
+                CashStore::where('store_id', $request->store_id)
                     ->increment('cash', $topupData['nominal_pay']);
             }
             
@@ -228,7 +205,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             if (!empty($item['cash_withdrawal'])) {
                 $wdData = $item['cash_withdrawal'];
                 $withdrawal = CashWithdrawal::create([
-                    'store_id'             => $posUser->store_id,
+                    'store_id'             => $request->store_id,
                     'customer_name'        => $wdData['customer_name'],
                     'withdrawal_source_id' => $wdData['withdrawal_source_id'],
                     'withdrawal_count'     => $wdData['withdrawal_count'],
@@ -237,7 +214,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 $withdrawalId = $withdrawal->id;
 
                 // Decrement the physical store cash balance
-                CashStore::where('store_id', $posUser->store_id)
+                CashStore::where('store_id', $request->store_id)
                     ->decrement('cash', $wdData['withdrawal_count']);
             }
 
@@ -255,18 +232,18 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
             // Reduce stock (if product exists)
             if (!empty($productId)) {
-                StoreProduct::where('store_id', $posUser->store_id)
+                StoreProduct::where('store_id', $request->store_id)
                     ->where('product_id', $productId)
                     ->decrement('stock', $item['quantity']);
 
-                CashStore::where('store_id', $posUser->store_id)
+                CashStore::where('store_id', $request->store_id)
                     ->increment('cash', $lineSubtotal);
             }
         }
 
         DB::commit();
         // Fetch FRESH data to sync Unity UI immediately
-        $updatedData = getPosData($posUser->store_id);
+        $updatedData = PosHelper::getPosData($request->store_id);
         
         return response()->json([
             'message' => 'Transaction created successfully',
@@ -282,4 +259,41 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             'error' => $e->getMessage()
         ], 500);
     }
+});
+
+Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $request) {
+
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+    ]);
+
+    $storeId = $request->store_id;
+
+    $timezone = 'Asia/Jakarta';
+
+    $startOfDay = Carbon::now($timezone)->startOfDay();
+    $endOfDay   = Carbon::now($timezone)->endOfDay();
+
+    $transactions = Transaction::with([
+            'posUser',
+            'details' => function ($q) {
+                $q->with([
+                    'product',
+                    'topupTransaction',
+                    'cashWithdrawal',
+                ]);
+            }
+        ])
+        ->where('store_id', $storeId)
+        ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        ->orderBy('transaction_at', 'desc')
+        ->get();
+
+    return response()->json([
+        'timezone' => $timezone,
+        'date' => $startOfDay->toDateString(),
+        'store_id' => $storeId,
+        'count' => $transactions->count(),
+        'transactions' => $transactions,
+    ]);
 });
