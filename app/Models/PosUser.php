@@ -2,35 +2,42 @@
 
 namespace App\Models;
 
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class PosUser extends Authenticatable
+class PosUser extends Model
 {
-    use HasApiTokens, Notifiable;
+    use HasFactory;
 
     protected $table = 'pos_users';
 
-    public $timestamps = true;
-
+    /**
+     * Kolom yang boleh diisi secara massal.
+     * Disesuaikan dengan gambar: name, username, pin, role, shift, is_active.
+     */
     protected $fillable = [
-        'store_id',
         'name',
+        'username',
         'pin',
         'role',
-        'shift', // Kolom baru ditambahkan di sini
+        'shift',
         'is_active',
+        'created_by'
     ];
 
     /**
-     * Cast attributes to native types.
+     * Casting tipe data agar lebih mudah dikelola di Frontend.
      */
     protected $casts = [
         'is_active' => 'boolean',
-        'shift' => 'string', // Memastikan enum dibaca sebagai string
     ];
 
+    /**
+     * Sembunyikan PIN agar tidak sembarangan muncul di response API/Inertia
+     */
+    //protected $hidden = [
+     //   'pin',
+    //];
     public function store()
     {
         return $this->belongsTo(Store::class);
@@ -40,8 +47,4 @@ class PosUser extends Authenticatable
     {
         return $this->belongsToMany(Store::class, 'pos_user_store', 'pos_user_id', 'store_id');
     }
-
-    // protected $hidden = [
-    //     'pin',
-    // ];
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { useForm, Head } from '@inertiajs/vue3';
+import { useForm, Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
@@ -12,6 +12,7 @@ const props = defineProps({
 });
 
 const showForm = ref(false);
+const errorMessage = ref('');
 
 const form = useForm({
     id: null,
@@ -20,12 +21,14 @@ const form = useForm({
 });
 
 const openCreate = () => {
+    errorMessage.value = '';
     form.reset();
     form.id = null;
     showForm.value = true;
 };
 
 const openEdit = (row) => {
+    errorMessage.value = '';
     form.clearErrors();
     form.id = row.id;
     form.pos_user_id = row.pos_user_id;
@@ -34,6 +37,14 @@ const openEdit = (row) => {
 };
 
 const submit = () => {
+    errorMessage.value = '';
+
+    // Validasi: Cek jika ada field yang belum dipilih
+    if (!form.pos_user_id || !form.store_id) {
+        errorMessage.value = "Pilih User dan Unit Toko terlebih dahulu!";
+        return;
+    }
+
     form.post(route('pos-user-stores.store'), {
         onSuccess: () => {
             showForm.value = false;
@@ -44,7 +55,7 @@ const submit = () => {
 
 const destroy = (id) => {
     if (confirm('Cabut akses user ini dari toko?')) {
-        form.delete(route('pos-user-stores.destroy', id));
+        router.delete(route('pos-user-stores.destroy', id));
     }
 };
 
@@ -58,39 +69,54 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
     <AuthenticatedLayout>
         <div class="p-8">
-            <div v-if="showForm" class="mb-10 p-8 border-4 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                <h2 class="text-2xl font-black uppercase italic mb-6">
-                    {{ form.id ? 'Edit Akses User' : 'Assign User Ke Toko' }}
-                </h2>
-                
-                <form @submit.prevent="submit" class="grid grid-cols-1 md:grid-cols-2 gap-6 italic">
-                    <div class="flex flex-col">
-                        <label class="font-black uppercase text-xs mb-1">Unit Toko Tujuan</label>
-                        <select v-model="form.store_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
-                            <option value="">-- PILIH TOKO --</option>
-                            <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
-                        </select>
-                        <span v-if="form.errors.store_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.store_id }}</span>
+            
+            <div v-if="showForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                    <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                        {{ form.id ? '✏️ Edit Akses User' : '➕ Assign User Ke Toko' }}
+                    </h2>
+                    <button @click="showForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
+                </div>
+
+                <div class="p-6">
+                    <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 animate-pulse">
+                        <span class="text-red-500 font-bold">⚠️</span>
+                        <p class="text-xs font-bold text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
                     </div>
 
-                    <div class="flex flex-col">
-                        <label class="font-black uppercase text-xs mb-1">Pilih Kasir / Pegawai</label>
-                        <select v-model="form.pos_user_id" class="border-4 border-black p-3 font-bold focus:bg-blue-50 outline-none uppercase">
-                            <option value="">-- PILIH USER --</option>
-                            <option v-for="u in posUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
-                        </select>
-                        <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-black uppercase mt-1">{{ form.errors.pos_user_id }}</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Unit Toko Tujuan</label>
+                            <select v-model="form.store_id" 
+                                class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all uppercase">
+                                <option value="">-- PILIH TOKO --</option>
+                                <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
+                            </select>
+                            <span v-if="form.errors.store_id" class="text-red-600 text-[10px] font-bold mt-1 uppercase">{{ form.errors.store_id }}</span>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Pilih Kasir / Pegawai</label>
+                            <select v-model="form.pos_user_id" 
+                                class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all uppercase">
+                                <option value="">-- PILIH USER --</option>
+                                <option v-for="u in posUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
+                            </select>
+                            <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-bold mt-1 uppercase">{{ form.errors.pos_user_id }}</span>
+                        </div>
                     </div>
 
-                    <div class="md:col-span-2 flex gap-4 pt-2">
-                        <button type="submit" :disabled="form.processing" class="bg-black text-white px-8 py-3 font-black uppercase shadow-[4px_4px_0_#3b82f6] hover:shadow-none transition-all disabled:opacity-50">
+                    <div class="mt-8 flex gap-3 border-t border-gray-100 pt-6">
+                        <button @click="submit" :disabled="form.processing" 
+                            class="bg-blue-600 text-white px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm active:scale-95 disabled:opacity-50">
                             {{ form.id ? 'Simpan Perubahan' : 'Proses Penugasan' }}
                         </button>
-                        <button type="button" @click="showForm = false" class="border-4 border-black px-8 py-3 font-black uppercase hover:bg-gray-100 transition-all">
-                            Batalkan
+                        <button @click="showForm = false" 
+                            class="bg-white border border-gray-300 text-gray-600 px-8 py-2.5 rounded-lg text-xs font-bold uppercase hover:bg-gray-50 transition-all">
+                            Batal
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
 
             <DataTable 
@@ -108,29 +134,29 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 @on-add="openCreate"
             >
                 <template #pos_user_name="{ row }">
-                    <span class="font-black uppercase tracking-tight italic">{{ row.pos_user?.name }}</span>
+                    <span class="font-bold text-gray-800 uppercase text-xs tracking-tight italic">{{ row.pos_user?.name }}</span>
                 </template>
 
                 <template #store_name="{ row }">
-                    <span class="bg-blue-600 text-white px-3 py-1 font-black text-[10px] uppercase italic">
+                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-blue-100 shadow-sm">
                         {{ row.pos_user?.role == 'admin' ? 'ALL STORES' : row.store?.name }}
                     </span>
                 </template>
 
                 <template #creator_name="{ row }">
-                    <span class="text-xs font-bold uppercase text-gray-600 italic">
+                    <span class="text-[10px] font-bold uppercase text-gray-500 italic">
                         👤 {{ row.creator?.name || 'System' }}
                     </span>
                 </template>
 
                 <template #created_at="{ row }">
-                    <span class="font-mono text-xs text-gray-400">{{ formatDate(row.created_at) }}</span>
+                    <span class="font-mono text-[11px] text-gray-400">{{ formatDate(row.created_at) }}</span>
                 </template>
 
                 <template #actions="{ row }">
-                    <div class="flex flex-row gap-x-4 justify-end">
-                        <button @click="openEdit(row)" title="Edit" class="font-black hover:scale-125 transition-transform">✏️</button>
-                        <button @click="destroy(row.id)" title="Hapus" class="font-black text-red-500 hover:scale-125 transition-transform">❌</button>
+                    <div class="flex flex-row gap-4 justify-end">
+                        <button @click="openEdit(row)" title="Edit" class="text-gray-400 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
+                        <button @click="destroy(row.id)" title="Hapus" class="text-gray-400 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
                     </div>
                 </template>
             </DataTable>
