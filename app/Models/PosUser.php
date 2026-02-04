@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Laravel\Sanctum\HasApiTokens;
 
 class PosUser extends Model
 {
     use HasFactory;
+    use HasApiTokens;
 
     protected $table = 'pos_users';
 
