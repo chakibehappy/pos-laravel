@@ -4,82 +4,110 @@ namespace App\Http\Controllers;
 
 use App\Models\TopupFeeRule;
 use App\Models\TopupTransType;
+use App\Models\DigitalWallet; 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class TopupFeeRuleController extends Controller
 {
+    /**
+     * Menampilkan daftar rule dengan Paginasi 10 Item.
+     */
     public function index(Request $request)
     {
-        // 1. Query dengan Filter & Search (Berdasarkan Nama Tipe Transaksi)
-        $rules = TopupFeeRule::with('transType')
+        $data = TopupFeeRule::with(['topup_trans_type', 'wallet_target', 'creator'])
             ->when($request->search, function ($query, $search) {
-                $query->whereHas('transType', function ($q) use ($search) {
+                $query->whereHas('topup_trans_type', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })->orWhereHas('wallet_target', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%");
                 });
             })
             ->latest()
-            ->paginate(10)
+            ->paginate(10) // DIUBAH MENJADI 10
             ->withQueryString();
 
-        // 2. Transformasi Data agar konsisten dengan tampilan Vue
-        $rules->getCollection()->transform(function ($rule) {
-            return [
-                'id' => $rule->id,
-                'topup_trans_type_id' => $rule->topup_trans_type_id,
-                'trans_type_name' => $rule->transType->name ?? '-',
-                'min_limit' => $rule->min_limit,
-                'max_limit' => $rule->max_limit,
-                'fee' => $rule->fee,
-                'admin_fee' => $rule->admin_fee,
-            ];
-        });
-
         return Inertia::render('TopupFeeRules/Index', [
-            'rules' => $rules,
-            'transTypes' => TopupTransType::all(['id', 'name']),
-            'filters' => $request->only(['search'])
+            'data' => $data,
+            'filters' => $request->only(['search']),
+            'transTypes' => TopupTransType::all(),
+            'walletTargets' => DigitalWallet::all(),
         ]);
     }
 
+    /**
+     * Store & Update (Kompatibel dengan sistem Batch Vue)
+     */
     public function store(Request $request)
     {
-        // Mendukung UpdateOrCreate jika id dikirim (seperti sistem Product Anda)
-        $validated = $request->validate([
-            'id'                  => 'nullable|numeric',
-            'topup_trans_type_id' => 'required|exists:topup_trans_type,id',
-            'min_limit'           => 'nullable|numeric',
-            'max_limit'           => 'nullable|numeric',
-            'fee'                 => 'nullable|numeric',
-            'admin_fee'           => 'nullable|numeric',
+        $request->validate([
+            'rules' => 'required|array|min:1',
+            'rules.*.topup_trans_type_id' => 'required',
+            'rules.*.wallet_target_id'    => 'required',
+            'rules.*.min_limit'           => 'required|numeric',
+            'rules.*.max_limit'           => 'required|numeric',
+            'rules.*.fee'                 => 'required|numeric|min:0',
+            'rules.*.admin_fee'           => 'required|numeric|min:0',
         ]);
 
-        // Proteksi nilai null menjadi 0
-        $data = [
-            'topup_trans_type_id' => $validated['topup_trans_type_id'],
-            'min_limit'           => $validated['min_limit'] ?? 0,
-            'max_limit'           => $validated['max_limit'] ?? 0,
-            'fee'                 => $validated['fee'] ?? 0,
-            'admin_fee'           => $validated['admin_fee'] ?? 0,
-        ];
+        try {
+            $authEmail = Auth::user()->email;
+            $posUser = DB::table('pos_users')->where('username', $authEmail)->first();
 
-        TopupFeeRule::updateOrCreate(['id' => $request->id], $data);
+            if (!$posUser) {
+                return back()->withErrors(['error' => "Akun ($authEmail) tidak terdeteksi di pos_users."]);
+            }
 
-        return redirect()->back()->with('success', 'Aturan biaya berhasil disimpan!');
+            DB::transaction(function () use ($request, $posUser) {
+                // Logika UPDATE jika ada ID (Mode Edit Tunggal)
+                if ($request->id) {
+                    $rule = TopupFeeRule::findOrFail($request->id);
+                    $rule->update([
+                        'topup_trans_type_id' => $request->rules[0]['topup_trans_type_id'],
+                        'wallet_target_id'    => $request->rules[0]['wallet_target_id'],
+                        'min_limit'           => $request->rules[0]['min_limit'],
+                        'max_limit'           => $request->rules[0]['max_limit'],
+                        'fee'                 => $request->rules[0]['fee'],
+                        'admin_fee'           => $request->rules[0]['admin_fee'],
+                    ]);
+                } else {
+                    // Logika INSERT MASSAL (Mode Batch Tambah)
+                    foreach ($request->rules as $ruleData) {
+                        TopupFeeRule::create([
+                            'topup_trans_type_id' => $ruleData['topup_trans_type_id'],
+                            'wallet_target_id'    => $ruleData['wallet_target_id'],
+                            'min_limit'           => $ruleData['min_limit'],
+                            'max_limit'           => $ruleData['max_limit'],
+                            'fee'                 => $ruleData['fee'],
+                            'admin_fee'           => $ruleData['admin_fee'],
+                            'created_by'          => $posUser->id,
+                        ]);
+                    }
+                }
+            });
+
+            return redirect()->route('topup-fee-rules.index')
+                ->with('message', 'Data berhasil diproses!');
+                
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal: ' . $e->getMessage()]);
+        }
     }
 
-    // Fungsi update tetap ada untuk kompatibilitas route, 
-    // tapi isinya memanggil logika yang sama dengan store
-    public function update(Request $request, $id)
-    {
-        return $this->store($request->merge(['id' => $id]));
-    }
-
+    /**
+     * Menghapus rule menggunakan ID (Mengatasi masalah Model Binding)
+     */
     public function destroy($id)
     {
-        $rule = TopupFeeRule::findOrFail($id);
-        $rule->delete();
-
-        return redirect()->back()->with('success', 'Aturan biaya berhasil dihapus!');
+        try {
+            $rule = TopupFeeRule::findOrFail($id);
+            $rule->delete();
+            
+            return back()->with('message', 'Rule berhasil dihapus.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal menghapus data: ' . $e->getMessage()]);
+        }
     }
 }
