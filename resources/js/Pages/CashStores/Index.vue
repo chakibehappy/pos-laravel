@@ -5,8 +5,9 @@ import debounce from 'lodash/debounce';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 
 const props = defineProps({
-    cashBalances: Object, // Data utama (ter-paginate)
+    cashBalances: Object, 
     filters: Object,
+    storeTypes: Array, // Tambahkan prop storeTypes dari controller
 });
 
 // State Accordion
@@ -15,12 +16,17 @@ const toggleAccordion = (id) => {
     expandedStore.value = expandedStore.value === id ? null : id;
 };
 
-// Search System
+// Filter System (Search & Type)
 const search = ref(props.filters?.search || '');
-watch(search, debounce((value) => {
+const selectedType = ref(props.filters?.type || '');
+
+watch([search, selectedType], debounce(([searchValue, typeValue]) => {
     router.get(
         route('cash-stores.index'), 
-        { search: value }, 
+        { 
+            search: searchValue,
+            type: typeValue 
+        }, 
         { preserveState: true, replace: true }
     );
 }, 500));
@@ -31,14 +37,14 @@ const form = useForm({
     id: null,
     store_id: '',
     cash: 0,
-    action_type: 'add', // Default aksi: Tambah
+    action_type: 'add', 
 });
 
 const openEdit = (row) => {
     form.clearErrors();
     form.id = row.id;
     form.store_id = row.store_id;
-    form.cash = 0; // Reset input nominal ke 0
+    form.cash = 0; 
     form.action_type = 'add';
     activeEditId.value = row.id;
 };
@@ -75,13 +81,26 @@ const submit = () => {
                     <p class="text-[10px] font-black uppercase text-gray-400 italic">Pengelolaan Saldo Tunai Per Unit Toko</p>
                 </div>
 
-                <div class="mb-6">
+                <div class="mb-6 flex flex-col md:flex-row gap-4">
                     <input 
                         v-model="search"
                         type="text" 
                         placeholder="CARI UNIT TOKO..." 
                         class="w-full md:w-1/3 border border-gray-300 rounded-lg p-2.5 text-sm font-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm transition-all uppercase placeholder:text-gray-300 placeholder:italic"
                     />
+
+                    <div class="w-full md:w-1/4 relative">
+                        <select 
+                            v-model="selectedType"
+                            class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm transition-all uppercase italic appearance-none cursor-pointer"
+                        >
+                            <option value="">-- SEMUA KATEGORI --</option>
+                            <option v-for="type in storeTypes" :key="type.id" :value="type.id">
+                                {{ type.name }}
+                            </option>
+                        </select>
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[10px]">▼</div>
+                    </div>
                 </div>
 
                 <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -218,7 +237,6 @@ const submit = () => {
 </template>
 
 <style scoped>
-/* Menghilangkan panah spinner pada input number */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;

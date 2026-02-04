@@ -10,67 +10,106 @@ const props = defineProps({
     filters: Object 
 });
 
-// Konfigurasi Kolom Tabel
 const columns = [
     { label: 'Nama Lengkap', key: 'name' }, 
     { label: 'Username', key: 'username' },
+    { label: 'PIN', key: 'pin_status' }, 
+    { label: 'Shift', key: 'shift' },
     { label: 'Jabatan (Role)', key: 'role' },
-    { label: 'Status', key: 'is_active' }
+    { label: 'Status', key: 'is_active' }, // Status sekarang di posisi ke-6
+    { label: 'Dibuat Oleh', key: 'created_by' }    // Oleh sekarang di posisi terakhir sebelum Action
 ];
 
-// --- FITUR PENCARIAN ---
+// --- SEARCH ---
 const search = ref(props.filters.search);
-
 watch(search, debounce((value) => {
-    router.get(
-        route('pos_users.index'), 
-        { search: value }, 
-        { preserveState: true, replace: true }
-    );
+    router.get(route('pos_users.index'), { search: value }, { preserveState: true, replace: true });
 }, 300));
 
-// --- FORM LOGIC ---
-const showForm = ref(false);
+// --- FORM & MODAL LOGIC ---
+const showForm = ref(false); 
+const showModal = ref(false); 
+const localErrors = ref({}); 
+
 const form = useForm({
     id: null,
     name: '',
     username: '',
     pin: '',
     role: 'cashier',
+    shift: 'pagi',
 });
+
+const onlyNumber = (event) => {
+    if (!/[0-9]/.test(event.key)) {
+        event.preventDefault();
+    }
+};
 
 const openCreate = () => {
     form.reset();
+    form.clearErrors();
+    localErrors.value = {};
     form.id = null;
+    showModal.value = false;
     showForm.value = true;
 };
 
 const openEdit = (row) => {
     form.clearErrors();
+    localErrors.value = {};
     form.id = row.id;
     form.name = row.name;
     form.username = row.username;
     form.role = row.role;
-    form.pin = '****'; // Visual placeholder untuk PIN lama
-    showForm.value = true;
+    form.shift = row.shift || 'pagi';
+    form.pin = '****'; 
+    showForm.value = false;
+    showModal.value = true;
 };
 
 const submit = () => {
-    // Peringatan PIN untuk User Baru
-    if (!form.id && !form.pin) {
-        alert("PERINGATAN: PIN WAJIB DIISI UNTUK USER BARU!");
-        return;
+    localErrors.value = {}; 
+    let hasError = false;
+
+    if (!form.name) { localErrors.value.name = "Nama wajib diisi!"; hasError = true; }
+    if (!form.username) { localErrors.value.username = "Username wajib diisi!"; hasError = true; }
+
+    const pinRegex = /^[0-9]+$/;
+    
+    if (!form.id) {
+        if (!form.pin) {
+            localErrors.value.pin = "PIN Wajib diisi!";
+            hasError = true;
+        } else if (!pinRegex.test(form.pin)) {
+            localErrors.value.pin = "Gunakan angka saja!";
+            hasError = true;
+        } else if (form.pin.length < 4) {
+            localErrors.value.pin = "Minimal 4 angka!";
+            hasError = true;
+        }
+    } else {
+        if (form.pin !== '****' && form.pin !== '') {
+            if (!pinRegex.test(form.pin)) {
+                localErrors.value.pin = "Gunakan angka saja!";
+                hasError = true;
+            } else if (form.pin.length < 4) {
+                localErrors.value.pin = "Minimal 4 angka!";
+                hasError = true;
+            }
+        }
     }
 
-    // Jika edit dan PIN tidak diubah, kosongkan agar tidak di-hash ulang di controller
-    if (form.id && form.pin === '****') {
-        form.pin = '';
-    }
+    if (hasError) return;
+
+    if (form.id && form.pin === '****') form.pin = '';
 
     form.post(route('pos_users.store'), {
         onSuccess: () => {
             showForm.value = false;
+            showModal.value = false;
             form.reset();
+            localErrors.value = {};
         },
     });
 };
@@ -85,87 +124,139 @@ const destroy = (id) => {
 <template>
     <Head title="Manajemen User POS" />
     <AuthenticatedLayout>
-        <div v-if="showForm" class="mb-8 p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-black">
-            <h2 class="font-black uppercase mb-4 text-xl italic">
-                {{ form.id ? 'Edit Informasi User' : 'Tambah User POS Baru' }}
-            </h2>
+        <div class="p-8">
             
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="flex flex-col">
-                    <label class="font-black uppercase text-[10px] mb-1">Nama Lengkap</label>
-                    <input v-model="form.name" type="text" placeholder="NAMA..." 
-                        class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] uppercase text-sm" />
-                    <div v-if="form.errors.name" class="text-[9px] text-red-600 font-black mt-1 uppercase">{{ form.errors.name }}</div>
+            <div v-if="showForm" class="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                <div class="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                    <h3 class="text-sm font-bold text-gray-700 uppercase">➕ Tambah Pengguna Baru</h3>
+                    <button @click="showForm = false" class="text-xs text-gray-400 hover:text-red-500 font-bold uppercase transition-colors italic">❌</button>
                 </div>
-
-                <div class="flex flex-col">
-                    <label class="font-black uppercase text-[10px] mb-1">Username</label>
-                    <input v-model="form.username" type="text" placeholder="USERNAME..." 
-                        class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-sm" />
-                    <div v-if="form.errors.username" class="text-[9px] text-red-600 font-black mt-1 uppercase">{{ form.errors.username }}</div>
-                </div>
-
-                <div class="flex flex-col">
-                    <label class="font-black uppercase text-[10px] mb-1">PIN (4-6 DIGIT)</label>
-                    <input v-model="form.pin" type="text" maxlength="6" @focus="$event.target.select()"
-                        class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-sm" />
-                    <div v-if="form.errors.pin" class="text-[9px] text-red-600 font-black mt-1 uppercase">{{ form.errors.pin }}</div>
-                </div>
-
-                <div class="flex flex-col">
-                    <label class="font-black uppercase text-[10px] mb-1">Jabatan / Role</label>
-                    <select v-model="form.role" 
-                        class="border-2 border-black p-2 font-bold focus:bg-yellow-50 outline-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-sm uppercase italic">
-                        <option value="cashier">Kasir</option>
-                        <option value="collector">Kolektor</option>
-                        <option value="admin">Admin</option>
+                <div class="p-4 grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                    <div class="flex flex-col">
+                        <label v-if="localErrors.name" class="text-[9px] text-red-500 font-bold uppercase mb-1">{{ localErrors.name }}</label>
+                        <input v-model="form.name" type="text" placeholder="NAMA LENGKAP..." class="border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                    </div>
+                    <div class="flex flex-col">
+                        <label v-if="localErrors.username" class="text-[9px] text-red-500 font-bold uppercase mb-1">{{ localErrors.username }}</label>
+                        <input v-model="form.username" type="text" placeholder="USERNAME..." class="border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                    </div>
+                    <div class="flex flex-col">
+                        <label v-if="localErrors.pin" class="text-[9px] text-red-500 font-bold uppercase mb-1 italic">⚠️ {{ localErrors.pin }}</label>
+                        <input v-model="form.pin" type="text" inputmode="numeric" @keypress="onlyNumber" placeholder="PIN (ANGKA)..." maxlength="6" class="border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                    </div>
+                    <select v-model="form.shift" class="border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-bold cursor-pointer h-[42px]">
+                        <option value="pagi">PAGI</option>
+                        <option value="malam">MALAM</option>
                     </select>
+                    <select v-model="form.role" class="border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-bold cursor-pointer h-[42px]">
+                        <option value="cashier">KASIR</option>
+                        <option value="collector">KOLEKTOR</option>
+                        <option value="admin">ADMIN</option>
+                    </select>
+                    <button @click="submit" :disabled="form.processing" class="bg-black text-white h-[42px] rounded-lg font-bold text-xs uppercase hover:bg-gray-800 transition-all shadow-sm active:scale-95">
+                        Simpan
+                    </button>
                 </div>
             </div>
 
-            <div class="mt-6 flex gap-x-2">
-                <button @click="submit" :disabled="form.processing" 
-                    class="bg-black text-white px-8 py-2 font-black uppercase text-xs shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:translate-x-[2px] active:shadow-none transition-all disabled:opacity-50">
-                    {{ form.id ? 'Simpan Perubahan' : 'Daftarkan User' }}
-                </button>
-                <button @click="showForm = false" 
-                    class="border-2 border-black bg-white px-8 py-2 font-black uppercase text-xs active:translate-y-[2px] active:translate-x-[2px] transition-all">
-                    Batal
-                </button>
+            <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div class="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h3 class="font-black text-gray-800 uppercase italic">✏️ Edit Informasi User</h3>
+                        <button @click="showModal = false" class="text-gray-400 hover:text-black font-bold">❌</button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="space-y-1">
+                            <div class="flex justify-between">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Nama Lengkap</label>
+                                <span v-if="localErrors.name" class="text-[9px] text-red-500 font-bold uppercase">{{ localErrors.name }}</span>
+                            </div>
+                            <input v-model="form.name" type="text" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold transition-all" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <div class="flex justify-between">
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Username</label>
+                                    <span v-if="localErrors.username" class="text-[9px] text-red-500 font-bold uppercase">{{ localErrors.username }}</span>
+                                </div>
+                                <input v-model="form.username" type="text" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold transition-all" />
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex justify-between">
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">PIN (ANGKA)</label>
+                                    <span v-if="localErrors.pin" class="text-[9px] text-red-500 font-bold uppercase italic">{{ localErrors.pin }}</span>
+                                </div>
+                                <input v-model="form.pin" type="text" inputmode="numeric" @keypress="onlyNumber" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold transition-all" maxlength="6" />
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Shift Kerja</label>
+                                <select v-model="form.shift" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-bold cursor-pointer">
+                                    <option value="pagi">PAGI</option>
+                                    <option value="malam">MALAM</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Jabatan / Role</label>
+                                <select v-model="form.role" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-bold cursor-pointer">
+                                    <option value="cashier">KASIR</option>
+                                    <option value="collector">KOLEKTOR</option>
+                                    <option value="admin">ADMIN</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6 bg-gray-50 flex gap-3 border-t border-gray-100">
+                        <button @click="showModal = false" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-bold text-xs uppercase hover:bg-white transition-all">Batal</button>
+                        <button @click="submit" :disabled="form.processing" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase hover:bg-blue-700 shadow-md transition-all active:scale-95 disabled:opacity-50">
+                            Update Data
+                        </button>
+                    </div>
+                </div>
             </div>
+
+            <DataTable 
+                title="Daftar Pengguna Sistem POS"
+                :resource="resource" 
+                :columns="columns"
+                :showAddButton="!showForm"
+                route-name="pos_users.index" 
+                :initialSearch="filters.search"
+                @on-add="openCreate" 
+            >
+                <template #username="{ row }">
+                    <span class="text-gray-400 font-normal lowercase">{{ row.username }}</span>
+                </template>
+                
+                <template #pin_status="{ row }">
+                    <span class="font-mono text-[10px] bg-gray-50 px-2 py-1 rounded border border-gray-200 text-gray-400 italic">
+                        {{ row.pin ? '••••••' : 'KOSONG' }}
+                    </span>
+                </template>
+
+                <template #is_active="{ row }">
+                    <span 
+                        class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border shadow-sm"
+                        :class="row.is_active 
+                            ? 'bg-green-50 text-green-600 border-green-200' 
+                            : 'bg-red-50 text-red-600 border-red-200'"
+                    >
+                        {{ row.is_active ? '● Aktif' : '○ Tidak Aktif' }}
+                    </span>
+                </template>
+
+                <template #created_by="{ row }">
+                    <span class="text-[10px] font-semibold text-gray-400 uppercase italic tracking-tighter">👤 {{ row.creator?.name || 'System' }}</span>
+                </template>
+
+                <template #actions="{ row }">
+                    <div class="flex flex-row gap-4 justify-end items-center">
+                        <button @click="openEdit(row)" class="text-lg hover:scale-125 transition-transform" title="Edit Data">✏️</button>
+                        <button @click="destroy(row.id)" class="text-lg hover:scale-125 transition-transform" title="Hapus User">❌</button>
+                    </div>
+                </template>
+            </DataTable>
         </div>
-
-        <DataTable 
-            title="Daftar Pengguna Sistem POS"
-            :resource="resource" 
-            :columns="columns"
-            :showAddButton="!showForm"
-            route-name="pos_users.index" 
-            :initialSearch="filters.search"
-            @on-add="openCreate" 
-        >
-            <template #username="{ row }">
-                <span class="font-medium text-gray-500 lowercase">{{ row.username }}</span>
-            </template>
-
-            <template #role="{ row }">
-                <span class="font-black uppercase text-[9px] italic bg-gray-100 px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-                    {{ row.role }}
-                </span>
-            </template>
-
-            <template #is_active="{ row }">
-                <span :class="row.is_active ? 'text-green-600' : 'text-red-600'" class="font-black text-[10px] uppercase">
-                    {{ row.is_active ? '● Aktif' : '○ Non-Aktif' }}
-                </span>
-            </template>
-
-            <template #actions="{ row }">
-                <div class="flex flex-row gap-x-[15px] justify-end uppercase text-xs">
-                    <button @click="openEdit(row)" class="font-black hover:text-blue-600 transition-transform hover:scale-125">✏️</button>
-                    <button @click="destroy(row.id)" class="font-black text-red-500 hover:text-red-700 transition-transform hover:scale-125">❌</button>
-                </div>
-            </template>
-        </DataTable>
     </AuthenticatedLayout>
 </template>

@@ -10,61 +10,86 @@ use Inertia\Inertia;
 
 class CashStoreController extends Controller
 {
-    /**
-     * READ: Menampilkan dashboard kas dengan Paginasi & Search.
-     */
     public function index(Request $request)
     {
-        // 1. Query dengan filter search dan relasi store
+        // 1. SYNC OTOMATIS: Pastikan setiap toko di tabel stores punya baris di cash_stores
+        $allStoreIds = Store::pluck('id');
+        $existingCashStoreIds = CashStore::pluck('store_id')->toArray();
+        $missingStores = $allStoreIds->diff($existingCashStoreIds);
+
+        if ($missingStores->count() > 0) {
+            foreach ($missingStores as $storeId) {
+                CashStore::create([
+                    'store_id' => $storeId,
+                    'cash' => 0
+                ]);
+            }
+        }
+
+        // 2. QUERY DATA: Ambil saldo kas dengan pencarian dan FILTER TIPE
         $cashBalances = CashStore::with('store')
             ->when($request->search, function ($query, $search) {
                 $query->whereHas('store', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%");
                 });
             })
+            // Tambahan Filter Tipe Usaha
+            ->when($request->type, function ($query, $type) {
+                $query->whereHas('store', function ($q) use ($type) {
+                    $q->where('store_type_id', $type);
+                });
+            })
             ->latest()
-            ->paginate(10) // Paginasi 10 data per halaman
+            ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('CashStores/Index', [
-            // Data utama dengan paginasi
             'cashBalances' => $cashBalances,
-            
-            // Data pendukung untuk modal/dropdown
             'stores' => Store::all(['id', 'name', 'store_type_id']),
             'storeTypes' => StoreType::all(['id', 'name']),
-            
-            // Mengirim balik parameter filter untuk input search di Vue
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'type']), // Tambahkan 'type' ke filters
         ]);
     }
 
-    /**
-     * CREATE/UPDATE: Menyimpan data baru atau memperbarui data kas.
-     */
     public function store(Request $request)
     {
+        // Validasi input dari form
         $request->validate([
-            'id'       => 'nullable|exists:cash_store,id',
-            'store_id' => 'required|exists:stores,id',
-            'cash'     => 'required|numeric|min:0'
+            'id'          => 'required|exists:cash_store,id', 
+            'store_id'    => 'required|exists:stores,id',
+            'cash'        => 'required|numeric|min:0',
+            'action_type' => 'required|in:add,subtract,reset'
         ]);
 
-        CashStore::updateOrCreate(
-            ['id' => $request->id],
-            [
-                'store_id' => $request->store_id,
-                'cash'     => $request->cash
-            ]
-        );
+        $cashStore = CashStore::findOrFail($request->id);
+        
+        // Logika Kalkulasi Berdasarkan action_type
+        $currentCash = $cashStore->cash;
+        $inputAmount = $request->cash;
+        $finalCash = $currentCash;
 
-        $message = $request->id ? 'Data kas berhasil diperbarui!' : 'Data kas berhasil dicatat!';
-        return back()->with('message', $message);
+        if ($request->action_type === 'add') {
+            $finalCash = $currentCash + $inputAmount;
+        } elseif ($request->action_type === 'subtract') {
+            $finalCash = $currentCash - $inputAmount;
+        } elseif ($request->action_type === 'reset') {
+            $finalCash = 0;
+        }
+
+        // Simpan hasil kalkulasi ke database
+        $cashStore->update([
+            'cash' => $finalCash
+        ]);
+
+        $statusLabel = [
+            'add' => 'ditambahkan',
+            'subtract' => 'dikurangi',
+            'reset' => 'direset ke 0'
+        ];
+
+        return back()->with('message', "Saldo kas berhasil {$statusLabel[$request->action_type]}!");
     }
 
-    /**
-     * DELETE: Menghapus pencatatan kas berdasarkan ID.
-     */
     public function destroy($id)
     {
         try {

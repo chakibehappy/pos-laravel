@@ -12,21 +12,23 @@ use Inertia\Inertia;
 
 class TopupFeeRuleController extends Controller
 {
-    /**
-     * Menampilkan daftar rule dengan Paginasi 10 Item.
-     */
     public function index(Request $request)
     {
         $data = TopupFeeRule::with(['topup_trans_type', 'wallet_target', 'creator'])
             ->when($request->search, function ($query, $search) {
-                $query->whereHas('topup_trans_type', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })->orWhereHas('wallet_target', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
+                $query->where(function ($q) use ($search) {
+                    // Cari di tipe transaksi
+                    $q->whereHas('topup_trans_type', function ($sub) use ($search) {
+                        $sub->where('name', 'like', "%{$search}%");
+                    })
+                    // Cari di wallet target (hanya jika wallet_target_id tidak null)
+                    ->orWhereHas('wallet_target', function ($sub) use ($search) {
+                        $sub->where('name', 'like', "%{$search}%");
+                    });
                 });
             })
             ->latest()
-            ->paginate(10) // DIUBAH MENJADI 10
+            ->paginate(10) 
             ->withQueryString();
 
         return Inertia::render('TopupFeeRules/Index', [
@@ -37,15 +39,13 @@ class TopupFeeRuleController extends Controller
         ]);
     }
 
-    /**
-     * Store & Update (Kompatibel dengan sistem Batch Vue)
-     */
     public function store(Request $request)
     {
         $request->validate([
             'rules' => 'required|array|min:1',
-            'rules.*.topup_trans_type_id' => 'required',
-            'rules.*.wallet_target_id'    => 'required',
+            'rules.*.topup_trans_type_id' => 'required|exists:topup_trans_type,id',
+            // DIUBAH: Sekarang boleh null
+            'rules.*.wallet_target_id'    => 'nullable|exists:digital_wallet,id', 
             'rules.*.min_limit'           => 'required|numeric',
             'rules.*.max_limit'           => 'required|numeric',
             'rules.*.fee'                 => 'required|numeric|min:0',
@@ -61,23 +61,21 @@ class TopupFeeRuleController extends Controller
             }
 
             DB::transaction(function () use ($request, $posUser) {
-                // Logika UPDATE jika ada ID (Mode Edit Tunggal)
                 if ($request->id) {
                     $rule = TopupFeeRule::findOrFail($request->id);
                     $rule->update([
                         'topup_trans_type_id' => $request->rules[0]['topup_trans_type_id'],
-                        'wallet_target_id'    => $request->rules[0]['wallet_target_id'],
+                        'wallet_target_id'    => $request->rules[0]['wallet_target_id'] ?? null,
                         'min_limit'           => $request->rules[0]['min_limit'],
                         'max_limit'           => $request->rules[0]['max_limit'],
                         'fee'                 => $request->rules[0]['fee'],
                         'admin_fee'           => $request->rules[0]['admin_fee'],
                     ]);
                 } else {
-                    // Logika INSERT MASSAL (Mode Batch Tambah)
                     foreach ($request->rules as $ruleData) {
                         TopupFeeRule::create([
                             'topup_trans_type_id' => $ruleData['topup_trans_type_id'],
-                            'wallet_target_id'    => $ruleData['wallet_target_id'],
+                            'wallet_target_id'    => $ruleData['wallet_target_id'] ?? null,
                             'min_limit'           => $ruleData['min_limit'],
                             'max_limit'           => $ruleData['max_limit'],
                             'fee'                 => $ruleData['fee'],
@@ -96,9 +94,6 @@ class TopupFeeRuleController extends Controller
         }
     }
 
-    /**
-     * Menghapus rule menggunakan ID (Mengatasi masalah Model Binding)
-     */
     public function destroy($id)
     {
         try {
