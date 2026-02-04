@@ -16,8 +16,8 @@ const columns = [
     { label: 'PIN', key: 'pin_status' }, 
     { label: 'Shift', key: 'shift' },
     { label: 'Jabatan (Role)', key: 'role' },
-    { label: 'Oleh', key: 'created_by' },
-    { label: 'Status', key: 'is_active' }
+    { label: 'Status', key: 'is_active' }, // Status sekarang di posisi ke-6
+    { label: 'Oleh', key: 'created_by' }    // Oleh sekarang di posisi terakhir sebelum Action
 ];
 
 // --- SEARCH ---
@@ -29,7 +29,7 @@ watch(search, debounce((value) => {
 // --- FORM & MODAL LOGIC ---
 const showForm = ref(false); 
 const showModal = ref(false); 
-const localErrors = ref({}); // Untuk menampung error validasi frontend
+const localErrors = ref({}); 
 
 const form = useForm({
     id: null,
@@ -40,7 +40,6 @@ const form = useForm({
     shift: 'pagi',
 });
 
-// Hanya membatasi input saat mengetik (opsional, tapi bagus untuk UX)
 const onlyNumber = (event) => {
     if (!/[0-9]/.test(event.key)) {
         event.preventDefault();
@@ -70,17 +69,15 @@ const openEdit = (row) => {
 };
 
 const submit = () => {
-    localErrors.value = {}; // Reset error setiap kali klik simpan
+    localErrors.value = {}; 
     let hasError = false;
 
-    // 1. Validasi Field Kosong
     if (!form.name) { localErrors.value.name = "Nama wajib diisi!"; hasError = true; }
     if (!form.username) { localErrors.value.username = "Username wajib diisi!"; hasError = true; }
 
-    // 2. Validasi PIN (Hanya dilakukan saat simpan)
     const pinRegex = /^[0-9]+$/;
     
-    if (!form.id) { // Mode Create
+    if (!form.id) {
         if (!form.pin) {
             localErrors.value.pin = "PIN Wajib diisi!";
             hasError = true;
@@ -91,7 +88,7 @@ const submit = () => {
             localErrors.value.pin = "Minimal 4 angka!";
             hasError = true;
         }
-    } else { // Mode Edit
+    } else {
         if (form.pin !== '****' && form.pin !== '') {
             if (!pinRegex.test(form.pin)) {
                 localErrors.value.pin = "Gunakan angka saja!";
@@ -103,9 +100,8 @@ const submit = () => {
         }
     }
 
-    if (hasError) return; // Berhenti jika ada error
+    if (hasError) return;
 
-    // Proses kirim data
     if (form.id && form.pin === '****') form.pin = '';
 
     form.post(route('pos_users.store'), {
@@ -133,7 +129,7 @@ const destroy = (id) => {
             <div v-if="showForm" class="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
                 <div class="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                     <h3 class="text-sm font-bold text-gray-700 uppercase">➕ Tambah Pengguna Baru</h3>
-                    <button @click="showForm = false" class="text-xs text-gray-400 hover:text-red-500 font-bold uppercase">❌</button>
+                    <button @click="showForm = false" class="text-xs text-gray-400 hover:text-red-500 font-bold uppercase transition-colors italic">❌</button>
                 </div>
                 <div class="p-4 grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                     <div class="flex flex-col">
@@ -232,18 +228,32 @@ const destroy = (id) => {
                 <template #username="{ row }">
                     <span class="text-gray-400 font-normal lowercase">{{ row.username }}</span>
                 </template>
+                
                 <template #pin_status="{ row }">
                     <span class="font-mono text-[10px] bg-gray-50 px-2 py-1 rounded border border-gray-200 text-gray-400 italic">
                         {{ row.pin ? '••••••' : 'KOSONG' }}
                     </span>
                 </template>
+
+                <template #is_active="{ row }">
+                    <span 
+                        class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border shadow-sm"
+                        :class="row.is_active 
+                            ? 'bg-green-50 text-green-600 border-green-200' 
+                            : 'bg-red-50 text-red-600 border-red-200'"
+                    >
+                        {{ row.is_active ? '● Aktif' : '○ Tidak Aktif' }}
+                    </span>
+                </template>
+
                 <template #created_by="{ row }">
                     <span class="text-[10px] font-semibold text-gray-400 uppercase italic tracking-tighter">👤 {{ row.creator?.name || 'System' }}</span>
                 </template>
+
                 <template #actions="{ row }">
                     <div class="flex flex-row gap-4 justify-end items-center">
-                        <button @click="openEdit(row)" class="text-lg hover:scale-125 transition-transform">✏️</button>
-                        <button @click="destroy(row.id)" class="text-lg hover:scale-125 transition-transform">❌</button>
+                        <button @click="openEdit(row)" class="text-lg hover:scale-125 transition-transform" title="Edit Data">✏️</button>
+                        <button @click="destroy(row.id)" class="text-lg hover:scale-125 transition-transform" title="Hapus User">❌</button>
                     </div>
                 </template>
             </DataTable>
