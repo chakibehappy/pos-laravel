@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { useForm, Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
-import SearchableSelect from '@/Components/SearchableSelect.vue'; // Import komponen pencarian
+import SearchableSelect from '@/Components/SearchableSelect.vue'; 
 
 const props = defineProps({
     resource: Object, 
@@ -40,17 +40,36 @@ const openEdit = (row) => {
 const submit = () => {
     errorMessage.value = '';
 
-    // Validasi internal sebelum kirim ke database
+    // 1. Validasi Input Kosong
     if (!form.pos_user_id || !form.store_id) {
         errorMessage.value = "Pilih User dan Unit Toko terlebih dahulu!";
         return;
     }
 
-    form.post(route('pos-user-stores.store'), {
+    // 2. Filter Duplikasi User (Hanya satu user per satu akses toko)
+    const userAlreadyExists = props.resource.data.some(item => 
+        item.pos_user_id === form.pos_user_id && 
+        item.id !== form.id
+    );
+
+    if (userAlreadyExists) {
+        const userData = props.posUsers.find(u => u.id === form.pos_user_id);
+        errorMessage.value = `TOLAK: ${userData?.name || 'USER'} SUDAH MEMILIKI AKSES DI TOKO LAIN!`;
+        return; 
+    }
+
+    // 3. Eksekusi Kirim
+    const action = form.id ? 'put' : 'post';
+    const url = form.id ? route('pos-user-stores.update', form.id) : route('pos-user-stores.store');
+
+    form[action](url, {
         onSuccess: () => {
             showForm.value = false;
             form.reset();
         },
+        onError: (errors) => {
+            errorMessage.value = errors.pos_user_id || errors.store_id || "Gagal menyimpan data.";
+        }
     });
 };
 
@@ -80,9 +99,9 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 </div>
 
                 <div class="p-6">
-                    <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 animate-pulse">
-                        <span class="text-red-500 font-bold">⚠️</span>
-                        <p class="text-xs font-bold text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
+                    <div v-if="errorMessage" class="mb-6 p-4 bg-red-600 border border-red-700 rounded-lg flex items-center gap-3 shadow-md animate-pulse">
+                        <span class="text-white text-lg">🚫</span>
+                        <p class="text-xs font-black text-white uppercase tracking-widest">{{ errorMessage }}</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -93,7 +112,6 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                                 :options="stores"
                                 placeholder="Cari atau pilih unit toko..."
                             />
-                            <span v-if="form.errors.store_id" class="text-red-600 text-[10px] font-bold mt-1 uppercase">{{ form.errors.store_id }}</span>
                         </div>
 
                         <div class="flex flex-col gap-1">
@@ -103,13 +121,12 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                                 :options="posUsers"
                                 placeholder="Cari nama kasir atau pegawai..."
                             />
-                            <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-bold mt-1 uppercase">{{ form.errors.pos_user_id }}</span>
                         </div>
                     </div>
 
                     <div class="mt-8 flex gap-3 border-t border-gray-100 pt-6">
                         <button @click="submit" :disabled="form.processing" 
-                            class="bg-blue-600 text-white px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm active:scale-95 disabled:opacity-50">
+                            class="bg-blue-600 text-white px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md active:scale-95 disabled:opacity-50">
                             {{ form.id ? 'Simpan Perubahan' : 'Proses Penugasan' }}
                         </button>
                         <button @click="showForm = false" 
@@ -124,34 +141,34 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 title="Akses User Toko"
                 :resource="resource" 
                 :columns="[
-                    { label: 'Nama User', key: 'pos_user_name' }, 
                     { label: 'Unit Toko', key: 'store_name' }, 
-                    { label: 'Diberikan Oleh', key: 'creator_name' }, 
-                    { label: 'Tanggal', key: 'created_at' }
+                    { label: 'Nama User', key: 'pos_user_name' }, 
+                    { label: 'Tanggal', key: 'created_at' }, 
+                    { label: 'Diberikan Oleh', key: 'creator_name' }
                 ]"
                 routeName="pos-user-stores.index" 
                 :initialSearch="filters?.search || ''"
                 :showAddButton="!showForm"
                 @on-add="openCreate"
             >
-                <template #pos_user_name="{ row }">
-                    <span class="font-bold text-gray-800 uppercase text-xs tracking-tight italic">{{ row.pos_user?.name }}</span>
-                </template>
-
                 <template #store_name="{ row }">
                     <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-blue-100 shadow-sm">
                         {{ row.pos_user?.role == 'admin' ? 'ALL STORES' : row.store?.name }}
                     </span>
                 </template>
 
-                <template #creator_name="{ row }">
-                    <span class="text-[10px] font-bold uppercase text-gray-500 italic">
-                        👤 {{ row.creator?.name || 'System' }}
-                    </span>
+                <template #pos_user_name="{ row }">
+                    <span class="font-bold text-gray-800 uppercase text-xs tracking-tight italic">{{ row.pos_user?.name }}</span>
                 </template>
 
                 <template #created_at="{ row }">
                     <span class="font-mono text-[11px] text-gray-400">{{ formatDate(row.created_at) }}</span>
+                </template>
+
+                <template #creator_name="{ row }">
+                    <span class="text-[10px] font-bold uppercase text-gray-500 italic">
+                        👤 {{ row.creator?.name || 'System' }}
+                    </span>
                 </template>
 
                 <template #actions="{ row }">
