@@ -15,9 +15,11 @@ const menuItems = [
     { label: 'Pengguna Toko', icon: '🛒', name: 'pos_user_store.*', route: route('pos-user-stores.index') },
     { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
     { label: 'Pengguna', icon: '👤', name: 'users.*', route: route('users.index') },
+    { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
+    
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
 
-    { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
+    
   
     { label: 'Kas Toko', icon: '🏪', name: 'cash-stores.*', route: route('cash-stores.index') },
     { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') },
