@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useForm, Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
+import SearchableSelect from '@/Components/SearchableSelect.vue'; // Import komponen pencarian
 
 const props = defineProps({
     resource: Object, 
@@ -39,7 +40,7 @@ const openEdit = (row) => {
 const submit = () => {
     errorMessage.value = '';
 
-    // Validasi: Cek jika ada field yang belum dipilih
+    // Validasi internal sebelum kirim ke database
     if (!form.pos_user_id || !form.store_id) {
         errorMessage.value = "Pilih User dan Unit Toko terlebih dahulu!";
         return;
@@ -86,22 +87,22 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Unit Toko Tujuan</label>
-                            <select v-model="form.store_id" 
-                                class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all uppercase">
-                                <option value="">-- PILIH TOKO --</option>
-                                <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
-                            </select>
+                            <SearchableSelect 
+                                label="Unit Toko Tujuan"
+                                v-model="form.store_id"
+                                :options="stores"
+                                placeholder="Cari atau pilih unit toko..."
+                            />
                             <span v-if="form.errors.store_id" class="text-red-600 text-[10px] font-bold mt-1 uppercase">{{ form.errors.store_id }}</span>
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Pilih Kasir / Pegawai</label>
-                            <select v-model="form.pos_user_id" 
-                                class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all uppercase">
-                                <option value="">-- PILIH USER --</option>
-                                <option v-for="u in posUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
-                            </select>
+                            <SearchableSelect 
+                                label="Pilih Kasir / Pegawai"
+                                v-model="form.pos_user_id"
+                                :options="posUsers"
+                                placeholder="Cari nama kasir atau pegawai..."
+                            />
                             <span v-if="form.errors.pos_user_id" class="text-red-600 text-[10px] font-bold mt-1 uppercase">{{ form.errors.pos_user_id }}</span>
                         </div>
                     </div>
