@@ -219,11 +219,11 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                             <input v-model="singleEntry.max_limit" type="number" class="border border-gray-300 rounded-lg p-2 font-bold outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div class="flex flex-col gap-1" :class="isEditMode ? '' : 'text-xs'">
-                            <label class="font-bold text-green-600 uppercase tracking-tighter">Profit (Fee)</label>
+                            <label class="font-bold text-green-600 uppercase tracking-tighter">Fee Profit</label>
                             <input v-model="singleEntry.fee" type="number" class="border border-green-100 bg-green-50 rounded-lg p-2 text-green-700 font-black outline-none" />
                         </div>
                         <div class="flex flex-col gap-1" :class="isEditMode ? '' : 'text-xs'">
-                            <label class="font-bold text-blue-600 uppercase italic tracking-tighter">Provider Fee</label>
+                            <label class="font-bold text-blue-600 uppercase italic tracking-tighter">Fee Modal</label>
                             <input v-model="singleEntry.admin_fee" type="number" class="border border-blue-100 bg-blue-50 rounded-lg p-2 text-blue-700 font-black outline-none" />
                         </div>
 
@@ -302,8 +302,8 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                     { label: 'Target', key: 'target_name' }, 
                     { label: 'Min Limit', key: 'min_limit' },
                     { label: 'Max Limit', key: 'max_limit' },
-                    { label: 'Profit', key: 'fee' },
-                    { label: 'Provider', key: 'admin_fee' },
+                    { label: 'Fee Profit', key: 'fee' },
+                    { label: 'Fee Modal', key: 'admin_fee' },
                     { label: 'Dibuat Oleh', key: 'creator' }
                 ]"
                 routeName="topup-fee-rules.index" 

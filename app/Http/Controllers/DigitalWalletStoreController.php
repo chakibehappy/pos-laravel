@@ -5,16 +5,45 @@ namespace App\Http\Controllers;
 use App\Models\DigitalWallet;
 use App\Models\DigitalWalletStore;
 use App\Models\Store;
+use App\Models\StoreType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class DigitalWalletStoreController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Ambil data mentah dengan filter search
+        $konterTypeIds = StoreType::where('name', 'LIKE', 'konter')->pluck('id');
+
+        if ($konterTypeIds->isNotEmpty()) {
+            $konterStores = Store::whereIn('store_type_id', $konterTypeIds)->get();
+            $allWallets = DigitalWallet::all();
+            
+            $posUser = DB::table('pos_users')
+                ->where('username', auth()->user()->email)
+                ->first();
+                
+            $creatorId = $posUser ? $posUser->id : null;
+
+            foreach ($konterStores as $store) {
+                foreach ($allWallets as $wallet) {
+                    DigitalWalletStore::firstOrCreate([
+                        'store_id' => $store->id,
+                        'digital_wallet_id' => $wallet->id,
+                    ], [
+                        'balance' => 0,
+                        'created_by' => $creatorId,
+                    ]);
+                }
+            }
+        }
+
         $query = DigitalWalletStore::with(['store', 'wallet'])
+            ->whereHas('store', function ($q) use ($konterTypeIds) {
+                $q->whereIn('store_type_id', $konterTypeIds);
+            })
             ->when($request->search, function ($query, $search) {
                 $query->whereHas('store', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%");
@@ -23,7 +52,6 @@ class DigitalWalletStoreController extends Controller
                 });
             });
 
-        // 2. Kelompokkan data berdasarkan store_id di level Collection
         $groupedData = $query->get()->groupBy('store_id')->map(function ($items) {
             $first = $items->first();
             return [
@@ -43,7 +71,6 @@ class DigitalWalletStoreController extends Controller
             ];
         })->values();
 
-        // 3. Implementasi Manual Pagination (10 data per halaman)
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $perPage = 10;
         $currentItems = $groupedData->slice(($currentPage - 1) * $perPage, $perPage)->all();
@@ -57,8 +84,8 @@ class DigitalWalletStoreController extends Controller
         );
 
         return Inertia::render('DigitalWalletStores/Index', [
-            'resource' => $paginatedItems, // Sekarang berisi data, links, from, to, total
-            'stores'   => Store::where('store_type_id', 1)->get(['id', 'name']),
+            'resource' => $paginatedItems,
+            'stores'   => Store::whereIn('store_type_id', $konterTypeIds)->get(['id', 'name']),
             'wallets'  => DigitalWallet::all(['id', 'name']),
             'filters'  => $request->only(['search']),
         ]);
@@ -67,38 +94,49 @@ class DigitalWalletStoreController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id'                => 'nullable|exists:digital_wallet_store,id',
-            'store_id'          => 'required|exists:stores,id',
-            'digital_wallet_id' => 'required|exists:digital_wallet,id',
-            'balance'           => 'required|numeric|min:0',
-            'action_type'       => 'required|in:add,subtract,reset',
+            'id'          => 'required',
+            'balance'     => 'required|numeric',
+            'action_type' => 'required|in:add,subtract,reset',
         ]);
 
-        $walletStore = DigitalWalletStore::find($request->id);
-        $newBalance = $request->balance;
-
-        if ($walletStore && $request->action_type !== 'reset') {
-            $newBalance = $request->action_type === 'add' 
-                ? $walletStore->balance + $request->balance 
-                : $walletStore->balance - $request->balance;
+        // 1. Ambil data lama menggunakan Query Builder agar lebih ringan dan pasti
+        $walletStore = DB::table('digital_wallet_store')->where('id', $request->id)->first();
+        
+        if (!$walletStore) {
+            return back()->withErrors(['message' => 'Data tidak ditemukan']);
         }
 
-        DigitalWalletStore::updateOrCreate(
-            ['id' => $request->id],
-            [
-                'store_id'          => $request->store_id,
-                'digital_wallet_id' => $request->digital_wallet_id,
-                'balance'           => max(0, $newBalance),
-                'created_by'        => auth()->id(),
-            ]
-        );
+        // 2. Kalkulasi Saldo
+        $currentBalance = (float) $walletStore->balance;
+        $inputAmount = (float) $request->balance;
+        $finalBalance = $currentBalance;
+
+        if ($request->action_type === 'add') {
+            $finalBalance = $currentBalance + $inputAmount;
+        } elseif ($request->action_type === 'subtract') {
+            $finalBalance = $currentBalance - $inputAmount;
+        } elseif ($request->action_type === 'reset') {
+            $finalBalance = 0;
+        }
+
+        // 3. Ambil ID pembuat
+        $posUser = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+
+        // 4. JALUR QUERY BUILDER (Sama seperti cara mentah, pasti masuk database)
+        DB::table('digital_wallet_store')
+            ->where('id', $request->id)
+            ->update([
+                'balance'    => max(0, $finalBalance),
+                'created_by' => $posUser ? $posUser->id : $walletStore->created_by,
+                'updated_at' => now(),
+            ]);
 
         return back()->with('message', 'Saldo berhasil diperbarui!');
     }
 
     public function destroy($id)
     {
-        DigitalWalletStore::findOrFail($id)->delete();
+        DB::table('digital_wallet_store')->where('id', $id)->delete();
         return back()->with('message', 'Data berhasil dihapus!');
     }
 }

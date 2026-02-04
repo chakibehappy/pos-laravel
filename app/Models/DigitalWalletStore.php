@@ -19,7 +19,6 @@ class DigitalWalletStore extends Model
         'created_by'
     ];
 
-    // Relasi hanya untuk mengambil properti 'name' dari wallet
     public function wallet(): BelongsTo
     {
         return $this->belongsTo(DigitalWallet::class, 'digital_wallet_id');
