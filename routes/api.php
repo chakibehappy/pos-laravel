@@ -25,7 +25,7 @@ use App\Models\TopupFeeRule;
 use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
 
-Route::prefix('login')->group(function () {
+Route::prefix('test-api')->group(function () {
     
     Route::get('/ping', fn() => response()->json(['message' => 'pong']));
     // store-login
