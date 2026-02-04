@@ -36,7 +36,7 @@ class PosHelper
 
         $cashStore = CashStore::where('store_id', $storeId)->first();
 
-        $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
+        $topupFeeRules = TopupFeeRule::select('id', 'topup_trans_type_id', 'wallet_target_id', 'min_limit', 'max_limit', 'fee', 'admin_fee as adm_fee')
             ->orderBy('topup_trans_type_id')
             ->get();
 
