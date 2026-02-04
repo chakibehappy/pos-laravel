@@ -28,73 +28,75 @@ use Illuminate\Support\Facades\DB;
 Route::prefix('test-api')->group(function () {
     
     Route::get('/ping', fn() => response()->json(['message' => 'pong']));
-    // store-login
-    Route::post('/store-login', function (Request $request) {
-        $request->validate([
-            'keyname' => 'required|string',
-            'password' => 'required|string',
-        ]);
-
-        $store = Store::where('keyname', $request->keyname)->first();
-
-        if (!$store || !Hash::check($request->password, $store->password)) {
-            return response()->json(['message' => 'Invalid store credentials'], 401);
-        }
-
-        // Return store info + available operators
-        $operators = $store->operators()->where('is_active', 1)
-            ->whereNotIn('pos_users.role', ['admin', 'developer'])
-            ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift')
-            ->get();
-
-        return response()->json([
-            'store' => $store,
-            'operators' => $operators
-        ]);
-    });
     
-    // pos-user-login
-    Route::post('/pos-user-login', function (Request $request) {
-        $request->validate([
-            'pos_user_id' => 'required|integer',
-            'pin' => 'required|string',
-            'device_name' => 'required|string',
-        ]);
-
-        $user = PosUser::find($request->pos_user_id);
-
-        if (!$user || !Hash::check($request->pin, $user->pin)) {
-            return response()->json(['message' => 'Invalid POS user credentials'], 401);
-        }
-
-        $token = $user->createToken($request->device_name)->plainTextToken;
-
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-            'token_type' => 'Bearer'
-        ]);
-    });
 
 });
 
-Route::post('/login', function (Request $request) {
+// Route::post('/login', function (Request $request) {
+//     $request->validate([
+//         'name' => 'required',        // Or use email if you add it to the table
+//         'pin' => 'required',         // Using PIN for POS access
+//         'device_name' => 'required', 
+//     ]);
+
+//     $user = PosUser::with('store')  
+//         ->where('name', $request->name)
+//         //->where('is_active', true)
+//         ->first();
+
+//     if (! $user || ! Hash::check($request->pin, $user->pin)) {
+//         return response()->json(['message' => 'Invalid POS credentials'], 401);
+//     }
+
+//     // Generate the Sanctum Token for the PosUser model
+//     $token = $user->createToken($request->device_name)->plainTextToken;
+
+//     return response()->json([
+//         'user' => $user,
+//         'token' => $token,
+//         'token_type' => 'Bearer'
+//     ]);
+// });
+
+// store-login
+Route::post('/store-login', function (Request $request) {
     $request->validate([
-        'name' => 'required',        // Or use email if you add it to the table
-        'pin' => 'required',         // Using PIN for POS access
-        'device_name' => 'required', 
+        'keyname' => 'required|string',
+        'password' => 'required|string',
     ]);
 
-    $user = PosUser::with('store')  
-        ->where('name', $request->name)
-        //->where('is_active', true)
-        ->first();
+    $store = Store::where('keyname', $request->keyname)->first();
 
-    if (! $user || ! Hash::check($request->pin, $user->pin)) {
-        return response()->json(['message' => 'Invalid POS credentials'], 401);
+    if (!$store || !Hash::check($request->password, $store->password)) {
+        return response()->json(['message' => 'Invalid store credentials'], 401);
     }
 
-    // Generate the Sanctum Token for the PosUser model
+    // Return store info + available operators
+    $operators = $store->operators()->where('is_active', 1)
+        ->whereNotIn('pos_users.role', ['admin', 'developer'])
+        ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift')
+        ->get();
+
+    return response()->json([
+        'store' => $store,
+        'operators' => $operators
+    ]);
+});
+
+// pos-user-login
+Route::post('/pos-user-login', function (Request $request) {
+    $request->validate([
+        'pos_user_id' => 'required|integer',
+        'pin' => 'required|string',
+        'device_name' => 'required|string',
+    ]);
+
+    $user = PosUser::find($request->pos_user_id);
+
+    if (!$user || !Hash::check($request->pin, $user->pin)) {
+        return response()->json(['message' => 'Invalid POS user credentials'], 401);
+    }
+
     $token = $user->createToken($request->device_name)->plainTextToken;
 
     return response()->json([
@@ -103,7 +105,6 @@ Route::post('/login', function (Request $request) {
         'token_type' => 'Bearer'
     ]);
 });
-
 
 // Protected Routes (Requires Token)
 Route::middleware('auth:sanctum')->get('/products', function (Request $request) {
