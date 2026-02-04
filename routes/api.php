@@ -138,7 +138,7 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
     return response()->json(PosHelper::getPosData($storeId));
 });
 
-Route::middleware('auth:api')->post('/transactions', function (Request $request) {
+Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
 
     $request->validate([
         'store_id' => 'required|numeric',
