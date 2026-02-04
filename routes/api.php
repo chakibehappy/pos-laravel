@@ -141,6 +141,7 @@ Route::middleware('auth:sanctum')->get('/pos_data', function (Request $request) 
 Route::middleware('auth:sanctum')->post('/transactions', function (Request $request) {
 
     $request->validate([
+        'store_id' => 'required|numeric',
         'transaction_at' => 'required|date',
         'subtotal' => 'required|numeric',
         'tax' => 'required|numeric',
@@ -158,7 +159,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
     try {
         // Create Transaction Header
         $transaction = Transaction::create([
-            'store_id'       => $posUser->store_id,
+            'store_id'       => $request->store_id,
             'pos_user_id'    => $posUser->id,
             'transaction_at' => $request->transaction_at,
             'subtotal'       => $request->subtotal,
@@ -180,7 +181,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 $topupData = $item['topup_transaction'];
                 
                 $topup = TopupTransaction::create([
-                    'store_id'                => $posUser->store_id,
+                    'store_id'                => $request->store_id,
                     'cust_account_number'     => $topupData['cust_account_number'],
                     'nominal_request'         => $topupData['nominal_request'],
                     'nominal_pay'             => $topupData['nominal_pay'],
@@ -196,7 +197,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
                     ->decrement('balance', $topupData['adm_fee']);
                     
-                CashStore::where('store_id', $posUser->store_id)
+                CashStore::where('store_id', $request->store_id)
                     ->increment('cash', $topupData['nominal_pay']);
             }
             
@@ -204,7 +205,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             if (!empty($item['cash_withdrawal'])) {
                 $wdData = $item['cash_withdrawal'];
                 $withdrawal = CashWithdrawal::create([
-                    'store_id'             => $posUser->store_id,
+                    'store_id'             => $request->store_id,
                     'customer_name'        => $wdData['customer_name'],
                     'withdrawal_source_id' => $wdData['withdrawal_source_id'],
                     'withdrawal_count'     => $wdData['withdrawal_count'],
@@ -213,7 +214,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 $withdrawalId = $withdrawal->id;
 
                 // Decrement the physical store cash balance
-                CashStore::where('store_id', $posUser->store_id)
+                CashStore::where('store_id', $request->store_id)
                     ->decrement('cash', $wdData['withdrawal_count']);
             }
 
@@ -231,18 +232,18 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
             // Reduce stock (if product exists)
             if (!empty($productId)) {
-                StoreProduct::where('store_id', $posUser->store_id)
+                StoreProduct::where('store_id', $request->store_id)
                     ->where('product_id', $productId)
                     ->decrement('stock', $item['quantity']);
 
-                CashStore::where('store_id', $posUser->store_id)
+                CashStore::where('store_id', $request->store_id)
                     ->increment('cash', $lineSubtotal);
             }
         }
 
         DB::commit();
         // Fetch FRESH data to sync Unity UI immediately
-        $updatedData = PosHelper::getPosData($posUser->store_id);
+        $updatedData = PosHelper::getPosData($request->store_id);
         
         return response()->json([
             'message' => 'Transaction created successfully',
