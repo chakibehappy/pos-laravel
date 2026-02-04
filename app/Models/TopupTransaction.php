@@ -24,6 +24,8 @@ class TopupTransaction extends Model
         'nominal_pay',
         'digital_wallet_store_id',
         'topup_trans_type_id',
+        'profit_fee',
+        'provider_fee'
     ];
 
     /**

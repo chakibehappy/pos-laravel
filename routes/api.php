@@ -178,6 +178,8 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     'nominal_pay'             => $topupData['nominal_pay'],
                     'digital_wallet_store_id' => $topupData['digital_wallet_store_id'],
                     'topup_trans_type_id'     => $topupData['topup_trans_type_id'],
+                    'profit_fee'              => $topupData['profit_fee'],
+                    'provider_fee'            => $topupData['provider_fee'],
                 ]);
                 
                 $topupId = $topup->id;
