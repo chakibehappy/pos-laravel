@@ -278,7 +278,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
             'posUser:id,name',
             'details' => function ($q) {
                 $q->with([
-                    'product:id,name,price',
+                    'product',
                     'topupTransaction',
                     'cashWithdrawal',
                 ]);
