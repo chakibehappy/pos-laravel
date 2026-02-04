@@ -115,7 +115,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/digital-wallets/{id}', [DigitalWalletController::class, 'destroy'])->name('digital-wallets.destroy');
     // --- SAMPAI DI SINI ---
     Route::get('/digital-wallet-stores', [DigitalWalletStoreController::class, 'index'])->name('wallet-stores.index');
-    Route::post('/digital-wallet-stores', [DigitalWalletStoreController::class, 'store'])->name('wallet-stores.store');
+    Route::post('/digital-wallet-stores', [DigitalWalletStoreController::class, 'store'])->name('digital-wallet-store.store');
     Route::delete('/digital-wallet-stores/{id}', [DigitalWalletStoreController::class, 'destroy'])->name('wallet-stores.destroy');
 
 

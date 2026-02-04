@@ -17,7 +17,16 @@ const menuItems = [
     { label: 'Pengguna', icon: '👤', name: 'users.*', route: route('users.index') },
     { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
     { label: 'Kas Toko', icon: '🏪', name: 'cash-stores.*', route: route('cash-stores.index') },
-    
+     { 
+        label: 'Master Saldo', 
+        icon: '💳', 
+        isDropdown: true,
+        activeOn: ['digital-wallets.*', 'wallet-stores.*'],
+        children: [
+            { label: '💳 Saldo Gudang', name: 'digital-wallets.index', route: route('digital-wallets.index') },
+            { label: '💳 Saldo Toko', name: 'wallet-stores.index', route: route('wallet-stores.index') },
+        ]
+    },
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
 
     
@@ -48,16 +57,7 @@ const menuItems = [
             { label: '💵 Metode Pembayaran', name: 'payment-methods.*', route: route('payment-methods.index') },
         ]
     },
-    { 
-        label: 'Master Saldo', 
-        icon: '💳', 
-        isDropdown: true,
-        activeOn: ['digital-wallets.*', 'wallet-stores.*'],
-        children: [
-            { label: '💳 Saldo Gudang', name: 'digital-wallets.index', route: route('digital-wallets.index') },
-            { label: '💳 Saldo Toko', name: 'wallet-stores.index', route: route('wallet-stores.index') },
-        ]
-    },
+   
     
     { 
         label: 'Master Produk', 

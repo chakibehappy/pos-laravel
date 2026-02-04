@@ -19,7 +19,7 @@ const toggleAccordion = (id) => {
 const search = ref(props.filters?.search || '');
 watch(search, debounce((value) => {
     router.get(
-        route('digital-wallet-stores.index'), 
+        route('digital-wallet-store.index'), 
         { search: value }, 
         { preserveState: true, replace: true }
     );
@@ -40,7 +40,8 @@ const openEdit = (walletItem) => {
     form.id = walletItem.id;
     form.store_id = walletItem.store_id;
     form.digital_wallet_id = walletItem.digital_wallet_id;
-    form.balance = 0;
+    // Nilai input dimulai dari 0 agar user tinggal memasukkan nominal penambahan/pengurangan
+    form.balance = 0; 
     form.action_type = 'add';
     activeEditId.value = walletItem.id;
 };
@@ -55,7 +56,12 @@ const formatIDR = (num) => new Intl.NumberFormat('id-ID', {
 }).format(num);
 
 const submit = () => {
-    form.post(route('digital-wallet-stores.store'), {
+    // Pastikan jika action_type adalah 'reset', balance dikirim sebagai 0
+    if (form.action_type === 'reset') {
+        form.balance = 0;
+    }
+
+    form.post(route('digital-wallet-store.store'), {
         preserveScroll: true,
         onSuccess: () => { 
             activeEditId.value = null;
