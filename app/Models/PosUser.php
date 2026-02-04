@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Laravel\Sanctum\HasApiTokens;
 
 class PosUser extends Model
 {
     use HasFactory;
+    use HasApiTokens;
 
     protected $table = 'pos_users';
 
@@ -32,12 +34,6 @@ class PosUser extends Model
         'is_active' => 'boolean',
     ];
 
-    /**
-     * Sembunyikan PIN agar tidak sembarangan muncul di response API/Inertia
-     */
-    //protected $hidden = [
-     //   'pin',
-    //];
     public function store()
     {
         return $this->belongsTo(Store::class);
