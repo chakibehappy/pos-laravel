@@ -1,6 +1,8 @@
 <?php
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Carbon\Carbon;
+
 use \App\Models\Store;
 use App\Models\Product;
 use App\Models\StoreProduct;
@@ -256,4 +258,41 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             'error' => $e->getMessage()
         ], 500);
     }
+});
+
+Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $request) {
+
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+    ]);
+
+    $storeId = $request->store_id;
+
+    $timezone = 'Asia/Jakarta';
+
+    $startOfDay = Carbon::now($timezone)->startOfDay();
+    $endOfDay   = Carbon::now($timezone)->endOfDay();
+
+    $transactions = Transaction::with([
+            'posUser:id,name',
+            'details' => function ($q) {
+                $q->with([
+                    'product:id,name,price',
+                    'topupTransaction',
+                    'cashWithdrawal',
+                ]);
+            }
+        ])
+        ->where('store_id', $storeId)
+        ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        ->orderBy('transaction_at', 'desc')
+        ->get();
+
+    return response()->json([
+        'timezone' => $timezone,
+        'date' => $startOfDay->toDateString(),
+        'store_id' => $storeId,
+        'count' => $transactions->count(),
+        'transactions' => $transactions,
+    ]);
 });
