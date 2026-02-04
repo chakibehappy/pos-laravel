@@ -9,6 +9,7 @@ use App\Models\TopupTransType;
 use App\Models\WithdrawalSourceType;
 use App\Models\CashStore;
 use App\Models\TopupFeeRule;
+use App\Models\WithdrawalFeeRule;
 
 class PosHelper
 {
@@ -39,6 +40,10 @@ class PosHelper
             ->orderBy('topup_trans_type_id')
             ->get();
 
+        $withdrawalFeeRules = WithdrawalFeeRule::select('id', 'min_limit', 'max_limit', 'fee')
+            ->orderBy('min_limit')
+            ->get();
+
         return [
             'products' => $products,
             'store_wallets' => $storeWallets,
@@ -46,6 +51,7 @@ class PosHelper
             'withdrawal_src_types' => $withdrawalSrcTypes,
             'cash_store' => $cashStore,
             'topup_fee_rules' => $topupFeeRules,
+            'wd_fee_rules' => $withdrawalFeeRules,
         ];
     }
 }
