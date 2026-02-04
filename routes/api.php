@@ -275,7 +275,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     $endOfDay   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
-            'posUser:id,name',
+            'posUser',
             'details' => function ($q) {
                 $q->with([
                     'product',
