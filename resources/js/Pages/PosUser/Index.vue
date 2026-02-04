@@ -17,7 +17,7 @@ const columns = [
     { label: 'Shift', key: 'shift' },
     { label: 'Jabatan (Role)', key: 'role' },
     { label: 'Status', key: 'is_active' }, // Status sekarang di posisi ke-6
-    { label: 'Oleh', key: 'created_by' }    // Oleh sekarang di posisi terakhir sebelum Action
+    { label: 'Dibuat Oleh', key: 'created_by' }    // Oleh sekarang di posisi terakhir sebelum Action
 ];
 
 // --- SEARCH ---

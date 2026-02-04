@@ -283,7 +283,7 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                     { label: 'Max Limit', key: 'max_limit' },
                     { label: 'Profit', key: 'fee' },
                     { label: 'Provider', key: 'admin_fee' },
-                    { label: 'Oleh', key: 'creator' }
+                    { label: 'Dibuat Oleh', key: 'creator' }
                 ]"
                 routeName="topup-fee-rules.index" 
                 :initialSearch="filters?.search || ''"
