@@ -11,10 +11,6 @@ class PosUser extends Model
 
     protected $table = 'pos_users';
 
-    /**
-     * Kolom yang boleh diisi secara massal.
-     * Disesuaikan dengan gambar: name, username, pin, role, shift, is_active.
-     */
     protected $fillable = [
         'name',
         'username',
@@ -25,19 +21,20 @@ class PosUser extends Model
         'created_by'
     ];
 
-    /**
-     * Casting tipe data agar lebih mudah dikelola di Frontend.
-     */
     protected $casts = [
         'is_active' => 'boolean',
     ];
 
     /**
-     * Sembunyikan PIN agar tidak sembarangan muncul di response API/Inertia
+     * Relasi Jembatan:
+     * Mengambil Nama dari tabel pos_users sendiri berdasarkan ID 
+     * yang disimpan di kolom created_by.
      */
-    //protected $hidden = [
-     //   'pin',
-    //];
+    public function creator()
+    {
+        return $this->belongsTo(PosUser::class, 'created_by', 'id');
+    }
+
     public function store()
     {
         return $this->belongsTo(Store::class);

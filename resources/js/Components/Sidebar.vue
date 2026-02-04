@@ -13,10 +13,11 @@ const menuItems = [
     { label: 'Aturan Biaya', icon: '🛒', name: 'topup_fee_rules.*', route: route('topup-fee-rules.index') },
     { label: 'Aturan Tarik Tunai', icon: '🛒', name: 'withdrawal_fee_rules.*', route: route('withdrawal-fee-rules.index') },
     { label: 'Pengguna Toko', icon: '🛒', name: 'pos_user_store.*', route: route('pos-user-stores.index') },
+    { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { label: 'Pengguna', icon: '👤', name: 'users.*', route: route('users.index') },
     { label: 'Toko', icon: '🏪', name: 'stores.*', route: route('stores.index') },
-    { label: 'Staff', icon: '🪪', name: 'pos_users.*', route: route('pos_users.index') },
+  
     { label: 'Kas Toko', icon: '🏪', name: 'cash-stores.*', route: route('cash-stores.index') },
     { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') },
     

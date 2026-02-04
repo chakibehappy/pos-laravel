@@ -6,15 +6,15 @@ use App\Models\PosUser;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class PosUserController extends Controller
 {
     public function index(Request $request)
     {
-        // Filter agar developer tidak muncul di list
-        $query = PosUser::where('role', '!=', 'developer');
+        // Tetap menggunakan with('creator') agar relasi terbawa
+        $query = PosUser::with('creator')->where('role', '!=', 'developer');
 
-        // Fitur Pencarian Berdasarkan Nama atau Username
         if ($request->filled('search')) {
             $term = "%{$request->search}%";
             $query->where(function($q) use ($term) {
@@ -31,14 +31,13 @@ class PosUserController extends Controller
 
     public function store(Request $request)
     {
-        // 1. Validasi Data
         $rules = [
             'name'     => 'required|string|max:150',
             'username' => 'required|string|max:100|unique:pos_users,username,' . $request->id,
             'role'     => 'required|string',
+            'shift'    => 'required|string',
         ];
 
-        // PIN wajib diisi jika User Baru, Opsional jika Edit
         if (!$request->id) {
             $rules['pin'] = 'required|numeric|digits_between:4,6';
         } else {
@@ -47,38 +46,43 @@ class PosUserController extends Controller
 
         $data = $request->validate($rules);
 
-        // 2. Logika Simpan
+        // --- LOGIKA IDENTIFIKASI PENGEDIT/PEMBUAT ---
+        // Cari ID pengguna POS berdasarkan email admin yang sedang login
+        $adminEmail = Auth::user()->email;
+        $currentUserPos = PosUser::where('username', $adminEmail)->first();
+        $currentEditorId = $currentUserPos ? $currentUserPos->id : null;
+
         if ($request->id) {
-            // PROSES UPDATE
+            // --- PROSES UPDATE ---
             $user = PosUser::findOrFail($request->id);
             
-            // Hapus pin dari array jika tidak diisi atau berisi dummy stars agar tidak di-update
             if (empty($data['pin']) || $data['pin'] === '****') {
                 unset($data['pin']);
             } else {
-                // Gunakan Hash/Bcrypt jika PIN diubah (sesuai gambar DB Anda)
                 $data['pin'] = Hash::make($data['pin']);
             }
 
+            // Update created_by dengan ID pengedit terakhir sesuai permintaan Anda
+            $data['created_by'] = $currentEditorId;
+
             $user->update($data);
         } else {
-            // PROSES CREATE (USER BARU)
-            // Tambahkan default value untuk kolom tambahan di DB Anda
-            $data['pin']       = Hash::make($data['pin']);
-            $data['shift']     = 'pagi'; // Default sesuai gambar
-            $data['is_active'] = 1;      // Default aktif
+            // --- PROSES CREATE ---
+            $data['pin']        = Hash::make($data['pin']);
+            $data['is_active']  = 1;
+            
+            // Isi created_by untuk user baru
+            $data['created_by'] = $currentEditorId;
             
             PosUser::create($data);
         }
 
-        return back()->with('message', 'Data User Berhasil Disimpan!');
+        return back()->with('message', 'Data Berhasil Diperbarui!');
     }
 
     public function destroy($id)
     {
-        $user = PosUser::findOrFail($id);
-        $user->delete();
-
+        PosUser::findOrFail($id)->delete();
         return back()->with('message', 'User Berhasil Dihapus.');
     }
 }
