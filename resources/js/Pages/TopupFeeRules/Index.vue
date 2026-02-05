@@ -127,7 +127,6 @@ const submit = () => {
         return;
     }
 
-    // Pengecekan duplikasi database saat mode edit
     if (isEditMode.value) {
         const isDuplicate = props.data.data.some(item => 
             item.topup_trans_type_id === singleEntry.value.topup_trans_type_id && 
@@ -168,7 +167,11 @@ const destroy = (row) => {
 };
 
 const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
-const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value);
+
+const displayLimit = (value) => {
+    if (value < 0) return 'Tak Hingga';
+    return 'Rp ' + formatCurrency(value);
+};
 </script>
 
 <template>
@@ -213,11 +216,15 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                         <div class="flex flex-col gap-1" :class="isEditMode ? '' : 'text-xs'">
                             <label class="font-bold text-gray-400 uppercase">Min Limit</label>
                             <input v-model="singleEntry.min_limit" type="number" class="border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                            <p class="text-[9px] text-gray-400 italic">Isi -1 untuk tak hingga</p>
                         </div>
+
                         <div class="flex flex-col gap-1" :class="isEditMode ? '' : 'text-xs'">
                             <label class="font-bold text-gray-400 uppercase">Max Limit</label>
                             <input v-model="singleEntry.max_limit" type="number" class="border border-gray-300 rounded-lg p-2 font-bold outline-none focus:ring-2 focus:ring-blue-500" />
+                            <p class="text-[9px] text-gray-400 italic">Isi -1 untuk tak hingga</p>
                         </div>
+
                         <div class="flex flex-col gap-1" :class="isEditMode ? '' : 'text-xs'">
                             <label class="font-bold text-green-600 uppercase tracking-tighter">Fee Profit</label>
                             <input v-model="singleEntry.fee" type="number" class="border border-green-100 bg-green-50 rounded-lg p-2 text-green-700 font-black outline-none" />
@@ -232,15 +239,6 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                             <button @click="addToBatch" class="bg-black text-white rounded-lg py-2 font-bold hover:bg-blue-600 transition-all shadow-sm">
                                 + Antrian
                             </button>
-                        </div>
-                    </div>
-
-                    <div v-if="isEditInvalid" class="px-6 pb-2 animate-pulse">
-                        <div class="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
-                            <span class="text-amber-600">💡</span>
-                            <p class="text-[10px] font-bold text-amber-700 uppercase tracking-wide">
-                                Tipe Transaksi wajib dipilih agar perubahan dapat disimpan!
-                            </p>
                         </div>
                     </div>
 
@@ -322,8 +320,16 @@ const displayLimit = (value) => value <= 0 ? '-' : 'Rp ' + formatCurrency(value)
                         Semua Wallet
                     </span>
                 </template>
-                <template #min_limit="{ value }"><span class="text-gray-400 font-medium text-[11px]">{{ displayLimit(value) }}</span></template>
-                <template #max_limit="{ value }"><span class="text-gray-900 font-black text-[11px]">{{ displayLimit(value) }}</span></template>
+                <template #min_limit="{ value }">
+                    <span :class="value < 0 ? 'text-red-500 font-black' : 'text-gray-400 font-medium'" class="text-[11px]">
+                        {{ displayLimit(value) }}
+                    </span>
+                </template>
+                <template #max_limit="{ value }">
+                    <span :class="value < 0 ? 'text-red-500 font-black' : 'text-gray-900 font-black'" class="text-[11px]">
+                        {{ displayLimit(value) }}
+                    </span>
+                </template>
                 <template #fee="{ value }"><span class="text-green-600 font-black text-[11px]">Rp {{ formatCurrency(value) }}</span></template>
                 <template #admin_fee="{ value }"><span class="text-blue-600 font-black text-[11px] italic">Rp {{ formatCurrency(value) }}</span></template>
                 <template #creator="{ row }"><span class="text-[10px] font-black text-gray-700 uppercase italic">{{ row.creator?.name || 'SYSTEM' }}</span></template>

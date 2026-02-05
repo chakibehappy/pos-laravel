@@ -24,7 +24,7 @@ const menuItems = [
         activeOn: ['digital-wallets.*', 'wallet-stores.*'],
         children: [
             { label: '💳 Saldo Gudang', name: 'digital-wallets.index', route: route('digital-wallets.index') },
-            { label: '💳 Saldo Toko', name: 'wallet-stores.index', route: route('wallet-stores.index') },
+            { label: '💳 Saldo Toko', name: 'digital-wallet-store.index', route: route('digital-wallet-store.index') },
         ]
     },
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },

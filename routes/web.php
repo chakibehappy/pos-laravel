@@ -114,9 +114,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/digital-wallets/{id}/update-balance', [DigitalWalletController::class, 'updateBalance'])->name('wallets.update-balance'); // Khusus Saldo
     Route::delete('/digital-wallets/{id}', [DigitalWalletController::class, 'destroy'])->name('digital-wallets.destroy');
     // --- SAMPAI DI SINI ---
-    Route::get('/digital-wallet-stores', [DigitalWalletStoreController::class, 'index'])->name('wallet-stores.index');
-    Route::post('/digital-wallet-stores', [DigitalWalletStoreController::class, 'store'])->name('digital-wallet-store.store');
-    Route::delete('/digital-wallet-stores/{id}', [DigitalWalletStoreController::class, 'destroy'])->name('wallet-stores.destroy');
+    Route::get('/digital-wallet-store', [DigitalWalletStoreController::class, 'index'])->name('digital-wallet-store.index');
+    Route::post('/digital-wallet-store', [DigitalWalletStoreController::class, 'store'])->name('digital-wallet-store.store');
+    Route::delete('/digital-wallet-store/{id}', [DigitalWalletStoreController::class, 'destroy'])->name('digital-wallet-store.destroy');
 
 
 
