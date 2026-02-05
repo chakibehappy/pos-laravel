@@ -188,7 +188,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
                     ->decrement('balance', $topupData['nominal_request']);
                 DigitalWalletStore::where('id', $topupData['digital_wallet_store_id'])
-                    ->decrement('balance', $topupData['adm_fee']);
+                    ->decrement('balance', $topupData['provider_fee']);
                     
                 CashStore::where('store_id', $request->store_id)
                     ->increment('cash', $topupData['nominal_pay']);
