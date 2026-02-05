@@ -136,7 +136,7 @@ Route::middleware(['auth'])->group(function () {
     // Rute untuk CRUD Master Tipe Transaksi (topup_trans_type)
     Route::get('/topup-trans-types', [TopupTransTypeController::class, 'index'])->name('topup-trans-types.index');
     Route::post('/topup-trans-types', [TopupTransTypeController::class, 'store'])->name('topup-trans-types.store');
-    Route::patch('/topup-trans-types/{id}', [TopupTransTypeController::class, 'update'])->name('topup-trans-types.update');
+    Route::put('/topup-trans-types/{id}', [TopupTransTypeController::class, 'update'])->name('topup-trans-types.update');
     Route::delete('/topup-trans-types/{id}', [TopupTransTypeController::class, 'destroy'])->name('topup-trans-types.destroy');
 
     Route::get('/withdrawal-source-types', [WithdrawalSourceTypeController::class, 'index'])->name('withdrawal-source-types.index');
