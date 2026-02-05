@@ -27,6 +27,19 @@ const menuItems = [
             { label: '💳 Saldo Toko', name: 'digital-wallet-store.index', route: route('digital-wallet-store.index') },
         ]
     },
+    { 
+        label: 'Master Kategori', 
+        icon: '🗂️', 
+        isDropdown: true,
+        activeOn: ['store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
+        children: [
+            { label: '💼 Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
+            { label: '📱 Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
+            { label: '🏧 Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
+            { label: '💵 Metode Pembayaran', name: 'payment-methods.*', route: route('payment-methods.index') },
+        ]
+    },
+    
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
 
     
@@ -45,18 +58,7 @@ const menuItems = [
             { label: '🏧 Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
         ]
     },
-    { 
-        label: 'Master Kategori', 
-        icon: '🗂️', 
-        isDropdown: true,
-        activeOn: ['store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
-        children: [
-            { label: '💼 Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
-            { label: '📱 Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
-            { label: '🏧 Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
-            { label: '💵 Metode Pembayaran', name: 'payment-methods.*', route: route('payment-methods.index') },
-        ]
-    },
+    
    
     
     { 

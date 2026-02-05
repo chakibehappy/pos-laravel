@@ -10,9 +10,11 @@ const props = defineProps({
     filters: Object 
 });
 
+// Menambahkan kolom creator setelah created_at
 const columns = [
     { label: 'Nama Sumber Penarikan', key: 'name' }, 
     { label: 'Tanggal', key: 'created_at' },
+    { label: 'Dibuat Oleh', key: 'creator' },
 ];
 
 const showForm = ref(false); 
@@ -216,6 +218,17 @@ const formatDate = (dateString) => {
                 
                 <template #created_at="{ value }">
                     <span class="text-[10px] font-medium text-gray-500 uppercase">{{ formatDate(value) }}</span>
+                </template>
+
+                <template #creator="{ row }">
+                    <div class="flex items-center gap-2">
+                        <div class="w-5 h-5 rounded bg-blue-600 text-white flex items-center justify-center text-[8px] font-bold uppercase shadow-sm">
+                            {{ row.creator?.name?.charAt(0) || row.user?.name?.charAt(0) || 'U' }}
+                        </div>
+                        <span class="text-[10px] font-bold uppercase text-gray-600 tracking-tight">
+                            {{ row.creator?.name || row.user?.name || 'Admin' }}
+                        </span>
+                    </div>
                 </template>
                 
                 <template #actions="{ row }">

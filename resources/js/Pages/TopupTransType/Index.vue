@@ -10,12 +10,12 @@ const props = defineProps({
     filters: Object 
 });
 
-// Definisi kolom tabel
+// Definisi kolom tabel - Dibuat Oleh diletakkan SETELAH Tanggal
 const columns = [
     { label: 'Nama Layanan', key: 'name' }, 
     { label: 'Kategori (Type)', key: 'type' },
-    { label: 'Dibuat Oleh', key: 'creator' }, // Ditambahkan kolom creator
     { label: 'Tanggal', key: 'created_at' },
+    { label: 'Dibuat Oleh', key: 'creator' }, 
 ];
 
 const showForm = ref(false); 
@@ -56,7 +56,6 @@ const openEdit = (row) => {
     errorMessage.value = '';
     form.clearErrors();
     form.id = row.id;
-    // Set data ke singleEntry untuk tampilan input
     singleEntry.value = {
         name: row.name,
         type: row.type
@@ -232,6 +231,10 @@ const formatDate = (dateString) => {
                     </span>
                 </template>
 
+                <template #created_at="{ value }">
+                    <span class="text-[10px] font-medium text-gray-500 uppercase">{{ formatDate(value) }}</span>
+                </template>
+
                 <template #creator="{ row }">
                     <div class="flex items-center gap-2">
                         <div class="w-6 h-6 rounded bg-gray-800 text-white flex items-center justify-center text-[9px] font-bold uppercase">
@@ -241,10 +244,6 @@ const formatDate = (dateString) => {
                             {{ row.creator?.name || 'SYSTEM' }}
                         </span>
                     </div>
-                </template>
-
-                <template #created_at="{ value }">
-                    <span class="text-[10px] font-medium text-gray-500 uppercase">{{ formatDate(value) }}</span>
                 </template>
 
                 <template #actions="{ row }">

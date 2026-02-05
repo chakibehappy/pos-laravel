@@ -181,6 +181,7 @@ const destroy = (row) => {
                 :columns="[
                     { label: 'Metode Pembayaran', key: 'name' }, 
                     { label: 'Dibuat Pada', key: 'created_at' },
+                    { label: 'Dibuat Oleh', key: 'creator' },
                 ]"
                 routeName="payment-methods.index" 
                 :initialSearch="filters?.search || ''"
@@ -192,7 +193,20 @@ const destroy = (row) => {
                 </template>
                 
                 <template #created_at="{ value }">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase">{{ new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) }}</span>
+                    <span class="text-[10px] font-bold text-gray-400 uppercase">
+                        {{ new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) }}
+                    </span>
+                </template>
+
+                <template #creator="{ row }">
+                    <div class="flex items-center gap-2">
+                        <div class="w-5 h-5 rounded bg-blue-600 text-white flex items-center justify-center text-[8px] font-bold uppercase shadow-sm">
+                            {{ row.creator?.name?.charAt(0) || row.user?.name?.charAt(0) || 'U' }}
+                        </div>
+                        <span class="text-[10px] font-bold uppercase text-gray-600 tracking-tight">
+                            {{ row.creator?.name || row.user?.name || 'Admin' }}
+                        </span>
+                    </div>
                 </template>
 
                 <template #actions="{ row }">
