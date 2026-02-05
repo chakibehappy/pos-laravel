@@ -17,6 +17,7 @@ class DigitalWalletStoreController extends Controller
     {
         $konterTypeIds = StoreType::where('name', 'LIKE', 'konter')->pluck('id');
 
+        // 1. SYNC DATA (Tetap sama)
         if ($konterTypeIds->isNotEmpty()) {
             $konterStores = Store::whereIn('store_type_id', $konterTypeIds)->get();
             $allWallets = DigitalWallet::all();
@@ -40,23 +41,36 @@ class DigitalWalletStoreController extends Controller
             }
         }
 
+        // 2. QUERY UTAMA
+        // Kita mulai dari Store agar pencarian nama Toko lebih akurat saat di-grouping
         $query = DigitalWalletStore::with(['store', 'wallet'])
             ->whereHas('store', function ($q) use ($konterTypeIds) {
                 $q->whereIn('store_type_id', $konterTypeIds);
-            })
-            ->when($request->search, function ($query, $search) {
-                $query->whereHas('store', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })->orWhereHas('wallet', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                });
             });
 
-        $groupedData = $query->get()->groupBy('store_id')->map(function ($items) {
-            $first = $items->first();
+        // 3. LOGIC PENCARIAN (Filter di tingkat Database)
+        if ($request->search) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                // Cari berdasarkan Nama Toko
+                $q->whereHas('store', function ($sq) use ($search) {
+                    $sq->where('name', 'like', "%{$search}%");
+                })
+                // ATAU Cari berdasarkan Nama Wallet (Misal: ketik 'Gopay')
+                ->orWhereHas('wallet', function ($wq) use ($search) {
+                    $wq->where('name', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        // 4. PENGAMBILAN DATA & GROUPING
+        $allResults = $query->get();
+
+        $groupedData = $allResults->groupBy('store_id')->map(function ($items) {
+            $firstItem = $items->first();
             return [
-                'id' => $first->store_id, 
-                'store_name' => $first->store->name ?? 'N/A',
+                'id' => $firstItem->store_id,
+                'store_name' => $firstItem->store->name ?? 'N/A',
                 'total_balance' => $items->sum('balance'),
                 'wallets' => $items->map(function ($item) {
                     return [
@@ -67,10 +81,11 @@ class DigitalWalletStoreController extends Controller
                         'balance' => $item->balance,
                         'updated_at' => $item->updated_at,
                     ];
-                })
+                })->values()
             ];
         })->values();
 
+        // 5. MANUAL PAGINATION (Menjaga agar filter ?search tetap ada di URL)
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $perPage = 10;
         $currentItems = $groupedData->slice(($currentPage - 1) * $perPage, $perPage)->all();
@@ -80,7 +95,10 @@ class DigitalWalletStoreController extends Controller
             $groupedData->count(), 
             $perPage, 
             $currentPage, 
-            ['path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->query()]
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => $request->query() 
+            ]
         );
 
         return Inertia::render('DigitalWalletStores/Index', [
@@ -99,14 +117,12 @@ class DigitalWalletStoreController extends Controller
             'action_type' => 'required|in:add,subtract,reset',
         ]);
 
-        // 1. Ambil data lama menggunakan Query Builder agar lebih ringan dan pasti
         $walletStore = DB::table('digital_wallet_store')->where('id', $request->id)->first();
         
         if (!$walletStore) {
             return back()->withErrors(['message' => 'Data tidak ditemukan']);
         }
 
-        // 2. Kalkulasi Saldo
         $currentBalance = (float) $walletStore->balance;
         $inputAmount = (float) $request->balance;
         $finalBalance = $currentBalance;
@@ -119,10 +135,8 @@ class DigitalWalletStoreController extends Controller
             $finalBalance = 0;
         }
 
-        // 3. Ambil ID pembuat
         $posUser = DB::table('pos_users')->where('username', auth()->user()->email)->first();
 
-        // 4. JALUR QUERY BUILDER (Sama seperti cara mentah, pasti masuk database)
         DB::table('digital_wallet_store')
             ->where('id', $request->id)
             ->update([
