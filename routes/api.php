@@ -26,39 +26,9 @@ use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
 
 Route::prefix('test-api')->group(function () {
-    
     Route::get('/ping', fn() => response()->json(['message' => 'pong']));
-    
-
 });
 
-// Route::post('/login', function (Request $request) {
-//     $request->validate([
-//         'name' => 'required',        // Or use email if you add it to the table
-//         'pin' => 'required',         // Using PIN for POS access
-//         'device_name' => 'required', 
-//     ]);
-
-//     $user = PosUser::with('store')  
-//         ->where('name', $request->name)
-//         //->where('is_active', true)
-//         ->first();
-
-//     if (! $user || ! Hash::check($request->pin, $user->pin)) {
-//         return response()->json(['message' => 'Invalid POS credentials'], 401);
-//     }
-
-//     // Generate the Sanctum Token for the PosUser model
-//     $token = $user->createToken($request->device_name)->plainTextToken;
-
-//     return response()->json([
-//         'user' => $user,
-//         'token' => $token,
-//         'token_type' => 'Bearer'
-//     ]);
-// });
-
-// store-login
 Route::post('/store-login', function (Request $request) {
     $request->validate([
         'keyname' => 'required|string',
@@ -71,7 +41,6 @@ Route::post('/store-login', function (Request $request) {
         return response()->json(['message' => 'Invalid store credentials'], 401);
     }
 
-    // Return store info + available operators
     $operators = $store->operators()->where('is_active', 1)
         ->whereNotIn('pos_users.role', ['admin', 'developer'])
         ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift')
@@ -269,13 +238,9 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
 
     $transactions = Transaction::with([
             'posUser',
-            'details' => function ($q) {
-                $q->with([
-                    'product',
-                    'topupTransaction',
-                    'cashWithdrawal',
-                ]);
-            }
+            'details.product',
+            'details.topupTransaction',
+            'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
