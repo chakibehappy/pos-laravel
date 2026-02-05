@@ -4,35 +4,81 @@ namespace App\Http\Controllers;
 
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class PaymentMethodController extends Controller
 {
-    
-    public function index()
+    public function index(Request $request)
     {
+        // Mendukung fitur search dan eager load relasi creator dari pos_users
+        $query = PaymentMethod::query()
+            ->with(['creator'])
+            ->latest();
+
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
         return Inertia::render('PaymentMethods/Index', [
-            'methods' => PaymentMethod::latest()->get()
+            'methods' => $query->paginate(10)->withQueryString(),
+            'filters' => $request->only(['search'])
         ]);
     }
 
-   
+    /**
+     * Logika Private: Mapping User Admin ke ID PosUser sesuai skema yang Anda minta.
+     */
+    private function getPosUserId()
+    {
+        // 1. Ambil email admin yang sedang login dari tabel 'users'
+        $adminEmail = Auth::user()->email;
+
+        // 2. Cari di tabel 'pos_users' yang username-nya sama dengan email admin
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+
+        // 3. Kembalikan ID dari pos_users jika ketemu
+        return $posUser ? $posUser->id : null;
+    }
+
     public function store(Request $request)
     {
-        $request->validate([
-            'id'   => 'nullable|numeric',
+        // Dapatkan ID pos_users berdasarkan email login
+        $posUserId = $this->getPosUserId();
 
-            'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
-        ]);
+        // 1. Logic untuk MODE EDIT
+        if ($request->id) {
+            $request->validate([
+                'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
+            ]);
 
-        PaymentMethod::updateOrCreate(
-            ['id' => $request->id],
-            ['name' => $request->name]
-        );
+            PaymentMethod::where('id', $request->id)->update([
+                'name'       => $request->name,
+                'created_by' => $posUserId // Update pengedit terakhir
+            ]);
+        } 
+        // 2. Logic untuk MODE CREATE (Batch Antrian)
+        else {
+            $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.name' => 'required|string|max:255|unique:payment_methods,name',
+            ], [
+                'items.*.name.unique' => 'Salah satu metode sudah terdaftar.'
+            ]);
+
+            DB::transaction(function () use ($request, $posUserId) {
+                foreach ($request->items as $item) {
+                    PaymentMethod::create([
+                        'name'       => $item['name'],
+                        'created_by' => $posUserId // Mengisi created_by dengan ID pos_users
+                    ]);
+                }
+            });
+        }
 
         return redirect()->back()->with('success', 'Data berhasil diproses!');
     }
-
 
     public function destroy($id)
     {

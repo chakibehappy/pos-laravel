@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch } from 'vue';
 import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -10,11 +10,12 @@ const props = defineProps({
     filters: Object 
 });
 
+// Definisi kolom tabel - Dibuat Oleh diletakkan SETELAH Tanggal
 const columns = [
     { label: 'Nama Layanan', key: 'name' }, 
     { label: 'Kategori (Type)', key: 'type' },
     { label: 'Tanggal', key: 'created_at' },
-    { label: 'Dibuat Oleh', key: 'creator' },
+    { label: 'Dibuat Oleh', key: 'creator' }, 
 ];
 
 const showForm = ref(false); 
@@ -25,9 +26,9 @@ const search = ref(props.filters.search || '');
 // Form utama untuk pengiriman data
 const form = useForm({
     id: null,
-    name: '', // Ditambahkan agar reactive saat edit
-    type: '', // Ditambahkan agar reactive saat edit
-    items: [] // Untuk Batch Store
+    name: '', 
+    type: '', 
+    items: [] 
 });
 
 // Entry sementara untuk input satu per satu ke antrian
@@ -55,7 +56,6 @@ const openEdit = (row) => {
     errorMessage.value = '';
     form.clearErrors();
     form.id = row.id;
-    // Set data ke singleEntry untuk tampilan input
     singleEntry.value = {
         name: row.name,
         type: row.type
@@ -74,7 +74,6 @@ const addToBatch = () => {
         return;
     }
 
-    // Cek duplikat di antrian
     const isInQueue = form.items.some(item => item.name.toUpperCase() === singleEntry.value.name.toUpperCase());
     if (isInQueue) {
         errorMessage.value = "Item dengan nama ini sudah ada di daftar antrian.";
@@ -93,8 +92,6 @@ const submit = () => {
     errorMessage.value = '';
 
     if (isEditMode.value) {
-        // Logika Update (Single)
-        // Sinkronisasi data dari singleEntry ke form object sebelum PUT
         form.name = singleEntry.value.name;
         form.type = singleEntry.value.type;
         
@@ -105,7 +102,6 @@ const submit = () => {
             },
         });
     } else {
-        // Logika Batch Store
         if (form.items.length === 0) {
             errorMessage.value = "Antrian masih kosong!";
             return;
@@ -157,7 +153,6 @@ const formatDate = (dateString) => {
                     </div>
 
                     <div :class="isEditMode ? 'p-8 grid grid-cols-1 md:grid-cols-2 gap-6' : 'grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200'">
-                        
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nama Layanan</label>
                             <input v-model="singleEntry.name" type="text" placeholder="MASUKKAN NAMA..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase" />
@@ -229,17 +224,28 @@ const formatDate = (dateString) => {
                     <span class="font-bold text-gray-800 uppercase italic">{{ row.name }}</span>
                     <p class="text-[8px] text-gray-400 font-mono italic">ID: #{{ row.id }}</p>
                 </template>
+                
                 <template #type="{ value }">
                     <span :class="['px-3 py-1 rounded-full text-[10px] font-black uppercase italic border shadow-[2px_2px_0px_0px_currentColor]', value === 'digital' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-purple-50 text-purple-600 border-purple-200']">
                         {{ value }}
                     </span>
                 </template>
+
                 <template #created_at="{ value }">
                     <span class="text-[10px] font-medium text-gray-500 uppercase">{{ formatDate(value) }}</span>
                 </template>
+
                 <template #creator="{ row }">
-                    <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-600">👤 {{ row.creator?.name || 'SYSTEM' }}</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded bg-gray-800 text-white flex items-center justify-center text-[9px] font-bold uppercase">
+                            {{ row.creator?.name?.charAt(0) || 'S' }}
+                        </div>
+                        <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-600 tracking-tighter">
+                            {{ row.creator?.name || 'SYSTEM' }}
+                        </span>
+                    </div>
                 </template>
+
                 <template #actions="{ row }">
                     <div class="flex flex-row gap-4 justify-end items-center">
                         <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>

@@ -2,20 +2,29 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StoreType extends Model
 {
-    protected $table = 'store_types';
-    
-    protected $fillable = ['name'];
+    use HasFactory;
 
     /**
-     * Get all stores assigned to this type.
+     * Kolom yang dapat diisi secara mass-assignment.
+     * Pastikan 'created_by' sudah ada di database server Anda.
      */
-    public function stores(): HasMany
+    protected $fillable = [
+        'name',
+        'created_by'
+    ];
+
+    /**
+     * Relasi ke tabel pos_users.
+     * Digunakan untuk menampilkan siapa yang membuat jenis usaha ini.
+     */
+    public function creator()
     {
-        return $this->hasMany(Store::class, 'store_type_id');
+        // Menghubungkan created_by ke id di model PosUser
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 }
