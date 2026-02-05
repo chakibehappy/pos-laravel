@@ -1,132 +1,223 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue'; 
+import { useForm, Head, router } from '@inertiajs/vue3';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
-    types: Array,
+    types: Object, // Paginasi dari Controller
+    filters: Object
 });
 
-const isEditing = ref(false); 
+const showForm = ref(false);
+const isEditMode = ref(false);
+const errorMessage = ref('');
 
 const form = useForm({
-    id: null, 
-    name: '',
+    id: null,   // Digunakan Controller untuk cek mode edit
+    name: '',   // Digunakan Controller untuk mode edit
+    items: []   // Digunakan Controller untuk mode batch create
 });
 
-const editType = (type) => {
-    isEditing.value = true;
-    form.id = type.id;   
-    form.name = type.name;
+const singleEntry = ref({
+    name: ''
+});
+
+const openCreate = () => {
+    isEditMode.value = false;
+    errorMessage.value = '';
+    form.reset();
+    form.items = [];
+    singleEntry.value.name = '';
+    showForm.value = true;
 };
 
-const cancelEdit = () => {
-    isEditing.value = false;
-    form.reset(); 
+const openEdit = (row) => {
+    isEditMode.value = true;
+    errorMessage.value = '';
+    form.clearErrors();
+    
+    // Set data ke form utama untuk dikirim ke Controller
+    form.id = row.id;
+    singleEntry.value.name = row.name;
+    
+    showForm.value = true;
+};
+
+const addToBatch = () => {
+    errorMessage.value = ''; 
+    if (!singleEntry.value.name) {
+        errorMessage.value = "Nama jenis usaha tidak boleh kosong!";
+        return;
+    }
+
+    const isInQueue = form.items.some(item => 
+        item.name.toLowerCase() === singleEntry.value.name.trim().toLowerCase()
+    );
+
+    if (isInQueue) {
+        errorMessage.value = "Nama ini sudah ada di antrian.";
+        return;
+    }
+
+    form.items.push({ name: singleEntry.value.name.trim() });
+    singleEntry.value.name = '';
+};
+
+const removeFromBatch = (index) => {
+    form.items.splice(index, 1);
 };
 
 const submit = () => {
-   
-    form.post(route('store-types.store'), {
-        onSuccess: () => cancelEdit(),
-    });
+    errorMessage.value = '';
+
+    if (isEditMode.value) {
+        // Logika untuk EDIT (Single)
+        if (!singleEntry.value.name) {
+            alert("Nama tidak boleh kosong!");
+            return;
+        }
+        form.name = singleEntry.value.name; // Masukkan ke form.name agar dibaca $request->name
+        form.items = []; // Pastikan items kosong agar controller masuk ke logic edit
+    } else {
+        // Logika untuk CREATE (Batch)
+        if (form.items.length === 0) {
+            alert("Antrian masih kosong!");
+            return;
+        }
+        form.id = null;
+        form.name = '';
+    }
+
+    const confirmMsg = isEditMode.value 
+        ? "Simpan perubahan jenis usaha?" 
+        : `Simpan ${form.items.length} jenis usaha baru?`;
+
+    if (confirm(confirmMsg)) {
+        form.post(route('store-types.store'), {
+            onSuccess: () => {
+                showForm.value = false;
+                form.reset();
+                singleEntry.value.name = '';
+            },
+            onError: (err) => {
+                if(err.name) errorMessage.value = err.name;
+                if(err.items) errorMessage.value = "Beberapa data di antrian sudah ada.";
+            }
+        });
+    }
 };
 
-const deleteType = (id) => {
-    if (confirm('Apakah Anda yakin ingin menghapus  Jenis Usaha ini?')) {
-        form.delete(route('store-types.destroy', id));
+const destroy = (row) => {
+    if (confirm(`Hapus jenis usaha "${row.name}"?`)) {
+        router.delete(route('store-types.destroy', row.id));
     }
 };
 </script>
 
 <template>
-    <Head title=" Jenis Usaha  " />
+    <Head title="Jenis Usaha" />
 
     <AuthenticatedLayout>
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="p-8">
+            
+            <div v-if="showForm" :class="isEditMode ? 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm' : 'mb-8 p-6 bg-white rounded-xl border border-gray-200 shadow-md relative animate-in fade-in zoom-in duration-200'">
                 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <button @click="showForm = false" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-red-500 hover:text-white transition-all z-10 shadow-sm">✕</button>
+
+                <div :class="isEditMode ? 'bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-visible border border-gray-100 relative' : 'w-full'">
                     
-                    <div class="bg-white border-4 border-black p-6 h-fit  -[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                        <h3 class="text-xl font-black mb-4 uppercase italic">
-                            {{ isEditing ? 'Edit  Jenis Usaha' : 'Tambah Jenis Usaha' }}
-                        </h3>
-                        <form @submit.prevent="submit">
-                            <div>
-                                <label class="block font-bold mb-2 uppercase text-sm">Jenis Usaha</label>
-                                <input 
-                                    v-model="form.name"
-                                    type="text" 
-                                    class="w-full border-4 border-black p-3 font-bold focus:ring-0 focus:border-yellow-400 uppercase"
-                                    placeholder="Contoh: Konveksi,Konter, dll"
-                                    required
-                                />
-                                <div v-if="form.errors.name" class="text-red-600 mt-2 font-bold italic text-xs uppercase">{{ form.errors.name }}</div>
-                            </div>
-
-                            <button 
-                                type="submit" 
-                                :disabled="form.processing"
-                                class="mt-6 w-full border-4 border-black p-3 font-black uppercase transition-all hover:-translate-x-1 hover:-translate-y-1  -[4px_4px_0px_0px_rgba(0,0,0,1)] active: -none active:translate-x-0 active:translate-y-0 disabled:bg-gray-400"
-                                :class="isEditing ? 'bg-blue-400 hover:bg-blue-500' : 'bg-yellow-400 hover:bg-yellow-500'"
-                            >
-                                {{ isEditing ? 'Update Data' : 'Simpan Data' }}
-                            </button>
-
-                            <button 
-                                v-if="isEditing"
-                                type="button"
-                                @click="cancelEdit"
-                                class="mt-4 w-full bg-gray-200 border-4 border-black p-2 font-black uppercase text-xs hover:bg-gray-300 transition-colors"
-                            >
-                                Batal / Tambah Baru
-                            </button>
-                        </form>
+                    <div v-if="isEditMode" class="p-6 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                        <h2 class="text-xl font-black text-gray-800 uppercase tracking-tighter">Edit Jenis Usaha</h2>
                     </div>
 
-                    <div class="md:col-span-2 bg-white border-4 border-black p-6  -[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                        <h3 class="text-xl font-black mb-4 uppercase italic text-left">Daftar  Jenis Usaha  </h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full border-collapse">
-                                <thead>
-                                    <tr class="bg-black text-white text-left uppercase text-sm italic">
-                                        <th class="p-4 border-2 border-black">  Jenis Usaha</th>
-                                        <th class="p-4 border-2 border-black text-center">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="type in types" :key="type.id" class="border-b-4 border-black font-bold hover:bg-gray-50 transition-colors">
-                                        <td class="p-4 border-2 border-black uppercase text-lg text-left">{{ type.name }}</td>
-                                        <td class="p-4 border-2 border-black text-center">
-                                            <div class="flex justify-center gap-4">
-                                                <button 
-                                                    @click="editType(type)"
-                                                    class="font-black uppercase text-xs text-blue-600 decoration-2 hover:bg-blue-600 hover:text-white px-2 py-1 transition-all"
-                                                >
-                                                    ✏️
-                                                </button>
-                                                <button 
-                                                    @click="deleteType(type.id)"
-                                                    class="font-black uppercase text-xs text-red-500 decoration-2 hover:bg-red-500 hover:text-white px-2 py-1 transition-all"
-                                                >
-                                                    ❌
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr v-if="types.length === 0">
-                                        <td colspan="2" class="p-10 text-center font-bold text-gray-500 uppercase italic">
-                                            Belum ada data  Jenis Usaha  .
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <div class="px-4 pt-4" v-if="errorMessage">
+                        <div class="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-center gap-3">
+                            <span class="text-red-500 font-bold">⚠️</span>
+                            <p class="text-[11px] font-black text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
                         </div>
                     </div>
 
+                    <div :class="isEditMode ? 'p-6' : 'flex flex-col md:flex-row gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200'">
+                        
+                        <div class="flex-1 flex flex-col gap-1">
+                            <label class="font-bold text-gray-400 uppercase text-xs">Nama Jenis Usaha</label>
+                            <input 
+                                v-model="singleEntry.name" 
+                                type="text" 
+                                placeholder="Contoh: Konveksi, Konter, dll"
+                                class="border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-bold uppercase" 
+                                @keyup.enter="!isEditMode ? addToBatch() : submit()"
+                            />
+                        </div>
+
+                        <div v-if="!isEditMode" class="flex flex-col gap-1 text-xs min-w-[120px]">
+                            <label class="font-bold text-gray-400 uppercase tracking-tighter text-center">Tambah</label>
+                            <button @click="addToBatch" class="bg-black text-white rounded-lg py-2.5 font-bold hover:bg-blue-600 transition-all shadow-sm">
+                                + Antrian
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="isEditMode" class="p-6 bg-gray-50 border-t border-gray-100 flex gap-3 rounded-b-2xl">
+                        <button 
+                            @click="submit" 
+                            :disabled="form.processing" 
+                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-lg"
+                        >
+                            {{ form.processing ? 'Menyimpan...' : 'Simpan Perubahan' }}
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            <div v-if="showForm && !isEditMode && form.items.length > 0" class="mb-8 border-2 border-dashed border-blue-200 rounded-xl overflow-hidden shadow-sm bg-white animate-in fade-in slide-in-from-top-4">
+                <div class="bg-blue-50 px-4 py-2 border-b border-blue-100 flex justify-between items-center">
+                    <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Daftar Antrian</span>
+                    <span class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ form.items.length }} Item</span>
+                </div>
+                <div class="p-4 flex flex-wrap gap-2">
+                    <div v-for="(item, idx) in form.items" :key="idx" class="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 group">
+                        <span class="font-bold uppercase text-xs">{{ item.name }}</span>
+                        <button @click="removeFromBatch(idx)" class="text-gray-400 hover:text-red-500">✕</button>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 border-t flex justify-end">
+                    <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-black uppercase tracking-tighter hover:bg-blue-700 shadow-sm">
+                        Simpan Semua Antrian
+                    </button>
+                </div>
+            </div>
+
+            <DataTable 
+                title="Daftar Jenis Usaha"
+                :resource="types" 
+                :columns="[
+                    { label: 'Jenis Usaha', key: 'name' }, 
+                    { label: 'Dibuat Pada', key: 'created_at' },
+                ]"
+                routeName="store-types.index" 
+                :initialSearch="filters?.search || ''"
+                :showAddButton="!showForm"
+                @on-add="openCreate"
+            >
+                <template #name="{ row }">
+                    <span class="font-black text-gray-800 uppercase tracking-tight italic">{{ row.name }}</span>
+                </template>
+                
+                <template #created_at="{ value }">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase">
+                        {{ new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) }}
+                    </span>
+                </template>
+
+                <template #actions="{ row }">
+                    <div class="flex gap-4 justify-end items-center">
+                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
+                        <button @click="destroy(row)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
+                    </div>
+                </template>
+            </DataTable>
         </div>
     </AuthenticatedLayout>
 </template>

@@ -8,31 +8,52 @@ use Inertia\Inertia;
 
 class PaymentMethodController extends Controller
 {
-    
-    public function index()
+    public function index(Request $request)
     {
+        // Mendukung fitur search di DataTable.vue
+        $query = PaymentMethod::query()->latest();
+
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
         return Inertia::render('PaymentMethods/Index', [
-            'methods' => PaymentMethod::latest()->get()
+            // DataTable membutuhkan format paginasi, bukan ->get()
+            'methods' => $query->paginate(10)->withQueryString(),
+            'filters' => $request->only(['search'])
         ]);
     }
 
-   
     public function store(Request $request)
     {
-        $request->validate([
-            'id'   => 'nullable|numeric',
+        // 1. Logic untuk MODE EDIT
+        if ($request->id) {
+            $request->validate([
+                'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
+            ]);
 
-            'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
-        ]);
+            PaymentMethod::where('id', $request->id)->update([
+                'name' => $request->name
+            ]);
+        } 
+        // 2. Logic untuk MODE CREATE (Batch Antrian)
+        else {
+            $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.name' => 'required|string|max:255|unique:payment_methods,name',
+            ], [
+                'items.*.name.unique' => 'Salah satu metode sudah terdaftar.'
+            ]);
 
-        PaymentMethod::updateOrCreate(
-            ['id' => $request->id],
-            ['name' => $request->name]
-        );
+            foreach ($request->items as $item) {
+                PaymentMethod::create([
+                    'name' => $item['name']
+                ]);
+            }
+        }
 
         return redirect()->back()->with('success', 'Data berhasil diproses!');
     }
-
 
     public function destroy($id)
     {
