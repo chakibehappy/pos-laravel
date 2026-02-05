@@ -14,9 +14,9 @@ const isEditMode = ref(false);
 const errorMessage = ref('');
 
 const form = useForm({
-    id: null,   // Digunakan Controller untuk cek mode edit
-    name: '',   // Digunakan Controller untuk mode edit
-    items: []   // Digunakan Controller untuk mode batch create
+    id: null,   
+    name: '',   
+    items: []   
 });
 
 const singleEntry = ref({
@@ -37,7 +37,6 @@ const openEdit = (row) => {
     errorMessage.value = '';
     form.clearErrors();
     
-    // Set data ke form utama untuk dikirim ke Controller
     form.id = row.id;
     singleEntry.value.name = row.name;
     
@@ -72,15 +71,13 @@ const submit = () => {
     errorMessage.value = '';
 
     if (isEditMode.value) {
-        // Logika untuk EDIT (Single)
         if (!singleEntry.value.name) {
             alert("Nama tidak boleh kosong!");
             return;
         }
-        form.name = singleEntry.value.name; // Masukkan ke form.name agar dibaca $request->name
-        form.items = []; // Pastikan items kosong agar controller masuk ke logic edit
+        form.name = singleEntry.value.name; 
+        form.items = []; 
     } else {
-        // Logika untuk CREATE (Batch)
         if (form.items.length === 0) {
             alert("Antrian masih kosong!");
             return;
@@ -139,7 +136,6 @@ const destroy = (row) => {
                     </div>
 
                     <div :class="isEditMode ? 'p-6' : 'flex flex-col md:flex-row gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200'">
-                        
                         <div class="flex-1 flex flex-col gap-1">
                             <label class="font-bold text-gray-400 uppercase text-xs">Nama Jenis Usaha</label>
                             <input 
@@ -163,7 +159,7 @@ const destroy = (row) => {
                         <button 
                             @click="submit" 
                             :disabled="form.processing" 
-                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-lg"
+                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
                         >
                             {{ form.processing ? 'Menyimpan...' : 'Simpan Perubahan' }}
                         </button>
@@ -177,13 +173,13 @@ const destroy = (row) => {
                     <span class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ form.items.length }} Item</span>
                 </div>
                 <div class="p-4 flex flex-wrap gap-2">
-                    <div v-for="(item, idx) in form.items" :key="idx" class="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 group">
+                    <div v-for="(item, idx) in form.items" :key="idx" class="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 group transition-all hover:border-blue-300">
                         <span class="font-bold uppercase text-xs">{{ item.name }}</span>
-                        <button @click="removeFromBatch(idx)" class="text-gray-400 hover:text-red-500">✕</button>
+                        <button @click="removeFromBatch(idx)" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
                     </div>
                 </div>
                 <div class="p-4 bg-gray-50 border-t flex justify-end">
-                    <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-black uppercase tracking-tighter hover:bg-blue-700 shadow-sm">
+                    <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-black uppercase tracking-tighter hover:bg-blue-700 shadow-sm transition-all active:scale-95">
                         Simpan Semua Antrian
                     </button>
                 </div>
@@ -195,6 +191,7 @@ const destroy = (row) => {
                 :columns="[
                     { label: 'Jenis Usaha', key: 'name' }, 
                     { label: 'Dibuat Pada', key: 'created_at' },
+                    { label: 'Dibuat Oleh', key: 'creator' },
                 ]"
                 routeName="store-types.index" 
                 :initialSearch="filters?.search || ''"
@@ -204,11 +201,22 @@ const destroy = (row) => {
                 <template #name="{ row }">
                     <span class="font-black text-gray-800 uppercase tracking-tight italic">{{ row.name }}</span>
                 </template>
-                
+
                 <template #created_at="{ value }">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
                         {{ new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) }}
                     </span>
+                </template>
+
+                <template #creator="{ row }">
+                    <div class="flex items-center gap-2">
+                        <div class="w-5 h-5 rounded bg-blue-600 text-white flex items-center justify-center text-[8px] font-bold uppercase shadow-sm">
+                            {{ row.creator?.name?.charAt(0) || row.user?.name?.charAt(0) || 'U' }}
+                        </div>
+                        <span class="text-[10px] font-bold uppercase text-gray-600 tracking-tight">
+                            {{ row.creator?.name || row.user?.name || 'Admin' }}
+                        </span>
+                    </div>
                 </template>
 
                 <template #actions="{ row }">
