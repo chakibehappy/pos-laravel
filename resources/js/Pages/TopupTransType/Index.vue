@@ -15,7 +15,6 @@ const columns = [
     { label: 'Kategori (Type)', key: 'type' },
     { label: 'Tanggal', key: 'created_at' },
     { label: 'Dibuat Oleh', key: 'creator' },
-    { label: 'Aksi', key: 'actions' }
 ];
 
 const showForm = ref(false); 
