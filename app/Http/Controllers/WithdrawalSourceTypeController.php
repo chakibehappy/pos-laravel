@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers; // Pastikan ini benar
 
 use App\Models\WithdrawalSourceType;
 use Illuminate\Http\Request;
@@ -8,57 +8,53 @@ use Inertia\Inertia;
 
 class WithdrawalSourceTypeController extends Controller
 {
-    /**
-     * Menampilkan daftar semua kategori dengan Paginasi & Search.
-     */
     public function index(Request $request)
     {
-        $data = WithdrawalSourceType::query()
-            ->when($request->search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%");
-            })
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+        $query = WithdrawalSourceType::query();
+
+        if ($request->search) {
+            $query->where('name', 'LIKE', '%' . $request->search . '%');
+        }
 
         return Inertia::render('WithdrawalSourceType/Index', [
-            'data' => $data,
+            'data' => $query->latest()->paginate(10)->withQueryString(),
             'filters' => $request->only(['search']),
         ]);
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-        ]);
+        if ($request->has('items') && is_array($request->items)) {
+            $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.name' => 'required|string|max:255',
+            ]);
 
-        WithdrawalSourceType::create(['name' => $request->name]);
+            foreach ($request->items as $item) {
+                WithdrawalSourceType::create([
+                    'name' => strtoupper($item['name']),
+                ]);
+            }
+            return back();
+        }
 
-        return back()->with('message', 'Sumber penarikan berhasil ditambahkan.');
+        $request->validate(['name' => 'required|string|max:255']);
+        WithdrawalSourceType::create(['name' => strtoupper($request->name)]);
+        return back();
     }
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-        ]);
-
-        $item = WithdrawalSourceType::findOrFail($id);
-        $item->update(['name' => $request->name]);
-
-        return back()->with('message', 'Sumber penarikan berhasil diperbarui.');
+        $request->validate(['name' => 'required|string|max:255']);
+        $sourceType = WithdrawalSourceType::findOrFail($id);
+        $sourceType->update(['name' => strtoupper($request->name)]);
+        return back();
     }
 
     public function destroy($id)
     {
-        try {
-            $item = WithdrawalSourceType::findOrFail($id);
-            $item->delete();
-
-            return back()->with('message', 'Sumber penarikan berhasil dihapus.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Gagal menghapus! Data mungkin masih digunakan oleh transaksi lain.']);
-        }
+        $sourceType = WithdrawalSourceType::findOrFail($id);
+        $sourceType->delete();
+        return back();
     }
 }

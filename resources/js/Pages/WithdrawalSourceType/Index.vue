@@ -1,60 +1,129 @@
 <script setup>
 import { ref, watch } from 'vue';
-import { useForm, Head, router, Link } from '@inertiajs/vue3';
+import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DataTable from '@/Components/DataTable.vue';
 import debounce from 'lodash/debounce';
 
-const props = defineProps({
-    data: Object, // Diubah menjadi Object untuk mendukung pagination (.data, .links)
-    filters: Object
+const props = defineProps({ 
+    data: Object, 
+    filters: Object 
 });
 
+const columns = [
+    { label: 'Nama Sumber Penarikan', key: 'name' }, 
+    { label: 'Tanggal', key: 'created_at' },
+];
+
+const showForm = ref(false); 
+const isEditMode = ref(false);
+const errorMessage = ref('');
 const search = ref(props.filters.search || '');
-const editMode = ref(false);
 
-// Logic Pencarian (Server-side) dengan Debounce 500ms
-watch(search, debounce((value) => {
-    router.get(
-        route('withdrawal-source-types.index'), 
-        { search: value }, 
-        { preserveState: true, replace: true }
-    );
-}, 500));
-
-// Logic Form
+// Form utama untuk pengiriman data
 const form = useForm({
     id: null,
+    name: '',     // Reactive field untuk Edit
+    items: []     // Untuk Batch Store
+});
+
+// Entry sementara untuk input satu per satu ke antrian
+const singleEntry = ref({
     name: '',
 });
 
+// Sync pencarian
+watch(search, debounce((value) => {
+    router.get(route('withdrawal-source-types.index'), { search: value }, { preserveState: true, replace: true });
+}, 500));
+
+const openCreate = () => {
+    isEditMode.value = false;
+    errorMessage.value = '';
+    form.reset();
+    form.items = [];
+    resetSingleEntry();
+    showForm.value = true;
+};
+
+const openEdit = (row) => {
+    isEditMode.value = true;
+    errorMessage.value = '';
+    form.clearErrors();
+    form.id = row.id;
+    // Set data ke singleEntry untuk input v-model
+    singleEntry.value = {
+        name: row.name,
+    };
+    showForm.value = true;
+};
+
+const resetSingleEntry = () => {
+    singleEntry.value = { name: '' };
+};
+
+const addToBatch = () => {
+    errorMessage.value = '';
+    if (!singleEntry.value.name) {
+        errorMessage.value = "Nama sumber dana wajib diisi!";
+        return;
+    }
+
+    // Cek duplikat di antrian
+    const isInQueue = form.items.some(item => item.name.toUpperCase() === singleEntry.value.name.toUpperCase());
+    if (isInQueue) {
+        errorMessage.value = "Nama ini sudah ada di daftar antrian.";
+        return;
+    }
+
+    form.items.push({ ...singleEntry.value });
+    resetSingleEntry();
+};
+
+const removeFromBatch = (index) => {
+    form.items.splice(index, 1);
+};
+
 const submit = () => {
-    if (editMode.value) {
-        form.put(route('withdrawal-source-types.update', form.id), {
-            onSuccess: () => resetForm(),
+    errorMessage.value = '';
+
+    if (isEditMode.value) {
+        // Sinkronisasi ke objek form sebelum PATCH
+        form.name = singleEntry.value.name;
+        
+        // MENGGUNAKAN .patch sesuai Route::patch di web.php
+        form.patch(route('withdrawal-source-types.update', form.id), {
+            onSuccess: () => {
+                showForm.value = false;
+                form.reset();
+            },
         });
     } else {
-        form.post(route('withdrawal-source-types.store'), {
-            onSuccess: () => resetForm(),
-        });
+        if (form.items.length === 0) {
+            errorMessage.value = "Antrian masih kosong!";
+            return;
+        }
+
+        if (confirm(`Simpan ${form.items.length} data dalam antrian ini?`)) {
+            form.post(route('withdrawal-source-types.store'), {
+                onSuccess: () => {
+                    showForm.value = false;
+                    form.reset();
+                    form.items = [];
+                },
+            });
+        }
     }
 };
 
-const editData = (item) => {
-    editMode.value = true;
-    form.id = item.id;
-    form.name = item.name;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-const deleteData = (id) => {
-    if (confirm('Hapus sumber penarikan ini?')) {
+const destroy = (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
         router.delete(route('withdrawal-source-types.destroy', id));
     }
 };
 
-const resetForm = () => {
-    form.reset();
-    editMode.value = false;
+const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 </script>
 
@@ -62,108 +131,100 @@ const resetForm = () => {
     <Head title="Master Sumber Penarikan" />
 
     <AuthenticatedLayout>
-        <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-            <div>
-                <h1 class="text-3xl font-black uppercase italic tracking-tighter text-black">Master Sumber Penarikan</h1>
-                <p class="text-[10px] font-black uppercase text-gray-400 italic">Pengaturan Kategori Penarikan (withdrawal_source_type)</p>
-            </div>
+        <div class="p-8">
+            
+            <div v-if="showForm" :class="isEditMode ? 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm' : 'mb-8 p-6 bg-white rounded-xl border border-gray-200 shadow-md relative animate-in fade-in zoom-in duration-200'">
+                
+                <button @click="showForm = false" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-red-500 hover:text-white transition-all z-10 shadow-sm">✕</button>
 
-            <div class="w-full md:w-64">
-                <div class="border-4 border-black p-1 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center">
-                    <span class="px-2">🔍</span>
-                    <input 
-                        v-model="search" 
-                        type="text" 
-                        placeholder="CARI KATEGORI..." 
-                        class="w-full border-none text-[10px] font-black uppercase outline-none focus:ring-0"
-                    />
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div class="border-4 border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative">
-                <div v-if="form.processing" class="absolute inset-0 bg-white/50 z-10 flex items-center justify-center font-black italic uppercase">Memproses...</div>
-
-                <div class="flex justify-between items-center mb-6 border-b-4 border-black pb-2">
-                    <h3 class="font-black uppercase italic text-black">
-                        {{ editMode ? 'Edit Sumber' : 'Tambah Baru' }}
-                    </h3>
-                    <button v-if="editMode" @click="resetForm" class="text-[10px] font-black uppercase text-red-600 underline">Batal</button>
-                </div>
-
-                <form @submit.prevent="submit" class="space-y-4">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase mb-1 text-black text-xs">Nama Sumber Dana</label>
-                        <input 
-                            v-model="form.name" 
-                            type="text" 
-                            placeholder="CONTOH: KAS TOKO / DANA" 
-                            class="w-full border-4 border-black p-2 font-black outline-none focus:bg-yellow-50 text-sm text-black uppercase" 
-                            required 
-                        />
-                        <p v-if="form.errors.name" class="text-[9px] text-red-600 font-bold uppercase italic mt-1">{{ form.errors.name }}</p>
+                <div :class="isEditMode ? 'bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-100 relative' : 'w-full'">
+                    
+                    <div v-if="isEditMode" class="p-6 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                        <h2 class="text-xl font-black text-gray-800 uppercase tracking-tighter">Edit Sumber Penarikan</h2>
                     </div>
 
-                    <button 
-                        :disabled="form.processing" 
-                        class="w-full bg-black text-white py-4 font-black uppercase border-2 border-black hover:bg-blue-600 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none disabled:bg-gray-400"
-                    >
-                        {{ editMode ? 'Update Data' : 'Simpan Master' }}
+                    <div class="px-4 pt-4" v-if="errorMessage">
+                        <div class="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-center gap-3">
+                            <span class="text-red-500 font-bold">⚠️</span>
+                            <p class="text-[11px] font-black text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
+                        </div>
+                    </div>
+
+                    <div :class="isEditMode ? 'p-8 grid grid-cols-1 md:grid-cols-1 gap-6' : 'grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200'">
+                        
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nama Sumber Dana</label>
+                            <input v-model="singleEntry.name" type="text" placeholder="MASUKKAN NAMA (CONTOH: KAS TOKO)..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase" />
+                        </div>
+
+                        <div v-if="!isEditMode" class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-tighter text-center">Simpan</label>
+                            <button @click="addToBatch" class="bg-black text-white rounded-lg py-2.5 font-bold hover:bg-blue-600 transition-all shadow-sm uppercase text-xs">
+                                + Antrian
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="isEditMode" class="p-6 bg-gray-50 border-t border-gray-100 flex gap-3 rounded-b-2xl">
+                        <button @click="submit" :disabled="form.processing" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">
+                            {{ form.processing ? 'Menyimpan...' : 'Simpan Perubahan' }}
+                        </button>
+                        <button @click="showForm = false" class="px-6 py-3 bg-white border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-all uppercase text-xs">Batal</button>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="showForm && !isEditMode && form.items.length > 0" class="mb-8 border-2 border-dashed border-blue-200 rounded-xl overflow-hidden shadow-sm bg-white animate-in fade-in slide-in-from-top-4">
+                <div class="bg-blue-50 px-4 py-2 border-b border-blue-100 flex justify-between items-center">
+                    <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Daftar Antrian Sumber Dana Baru</span>
+                    <span class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ form.items.length }} Data</span>
+                </div>
+                <table class="w-full text-left text-[11px]">
+                    <thead class="bg-gray-50 border-b border-gray-100 text-[10px] uppercase text-gray-400 font-black">
+                        <tr>
+                            <th class="p-3">Nama Sumber Dana</th>
+                            <th class="p-3 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        <tr v-for="(tr, idx) in form.items" :key="idx" class="hover:bg-blue-50/30 transition-colors">
+                            <td class="p-3 font-bold uppercase italic text-gray-700">{{ tr.name }}</td>
+                            <td class="p-3 text-right">
+                                <button @click="removeFromBatch(idx)" class="w-6 h-6 rounded-full bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[10px]">✕</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="p-4 bg-white border-t flex justify-end">
+                    <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-black uppercase tracking-tighter hover:bg-blue-700 shadow-sm transition-all active:scale-95">
+                        {{ form.processing ? 'Memproses...' : 'Simpan Semua Antrian' }}
                     </button>
-                </form>
+                </div>
             </div>
 
-            <div class="lg:col-span-2">
-                <div class="border-4 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-black text-white">
-                                <tr>
-                                    <th class="p-4 uppercase text-[10px] font-black italic border-r border-gray-800 w-16 text-center">#</th>
-                                    <th class="p-4 uppercase text-[10px] font-black italic">Nama Sumber Penarikan</th>
-                                    <th class="p-4 uppercase text-[10px] font-black italic text-center w-32 border-l border-gray-800">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y-4 divide-black text-sm text-black">
-                                <tr v-for="(item, index) in data.data" :key="item.id" class="hover:bg-blue-50 transition-colors">
-                                    <td class="p-4 border-r-4 border-black text-center font-black italic bg-gray-50">
-                                        {{ (data.current_page - 1) * data.per_page + index + 1 }}
-                                    </td>
-                                    <td class="p-4">
-                                        <div class="font-black uppercase tracking-widest text-sm italic">{{ item.name }}</div>
-                                        <div class="text-[8px] font-bold text-gray-400 uppercase tracking-widest leading-none mt-1">ID_SOURCE: #WS-TYPE-{{ item.id }}</div>
-                                    </td>
-                                    <td class="p-4 text-center border-l-4 border-black">
-                                        <div class="flex justify-center gap-4">
-                                            <button @click="editData(item)" class="text-xl hover:scale-125 transition-transform" title="Edit">✏️</button>
-                                            <button @click="deleteData(item.id)" class="text-xl hover:scale-125 transition-transform" title="Hapus">❌</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr v-if="data.data.length === 0">
-                                    <td colspan="3" class="p-12 text-center font-black uppercase italic text-gray-300 tracking-widest">
-                                        Data tidak ditemukan
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+            <DataTable 
+                title="Master Sumber Penarikan"
+                :resource="data" :columns="columns" :showAddButton="!showForm"
+                routeName="withdrawal-source-types.index" :initialSearch="filters.search" @on-add="openCreate" 
+            >
+                <template #name="{ row }">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-gray-800 uppercase italic">{{ row.name }}</span>
+                        <span class="text-[8px] font-bold text-gray-400 uppercase tracking-widest leading-none mt-1 italic">ID_SOURCE: #WS-TYPE-{{ row.id }}</span>
                     </div>
-                </div>
-
-                <div class="mt-8 flex flex-wrap justify-center gap-2">
-                    <template v-for="(link, k) in data.links" :key="k">
-                        <a 
-                            v-if="link.url" 
-                            :href="link.url" 
-                            class="px-4 py-2 border-2 border-black font-black uppercase text-[10px] transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
-                            :class="{'bg-yellow-400': link.active, 'bg-white': !link.active}"
-                        >
-                        {{ link.label }}
-                        </a>
-                    </template>
-                </div>
-            </div>
+                </template>
+                
+                <template #created_at="{ value }">
+                    <span class="text-[10px] font-medium text-gray-500 uppercase">{{ formatDate(value) }}</span>
+                </template>
+                
+                <template #actions="{ row }">
+                    <div class="flex flex-row gap-4 justify-end items-center">
+                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125" title="Edit">✏️</button>
+                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125" title="Hapus">❌</button>
+                    </div>
+                </template>
+            </DataTable>
         </div>
     </AuthenticatedLayout>
 </template>

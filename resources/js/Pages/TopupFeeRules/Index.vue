@@ -87,31 +87,24 @@ const addToBatch = () => {
         return;
     }
 
-    const isInQueue = form.rules.some(item => 
+    // Tetap menjaga agar tidak ada input yang benar-benar identik dalam satu antrian yang sama
+    const isIdenticalInQueue = form.rules.some(item => 
         item.topup_trans_type_id === singleEntry.value.topup_trans_type_id && 
-        item.wallet_target_id === singleEntry.value.wallet_target_id
+        item.wallet_target_id === singleEntry.value.wallet_target_id &&
+        item.min_limit === singleEntry.value.min_limit &&
+        item.max_limit === singleEntry.value.max_limit
     );
 
-    if (isInQueue) {
-        errorMessage.value = "Item ini sudah ada di daftar antrian di bawah.";
-        return;
-    }
-
-    const isInDatabase = props.data.data.some(item => 
-        item.topup_trans_type_id === singleEntry.value.topup_trans_type_id && 
-        (item.wallet_target_id || '') === (singleEntry.value.wallet_target_id || '')
-    );
-
-    if (isInDatabase) {
-        const type = getName(props.transTypes, singleEntry.value.topup_trans_type_id);
-        const target = getName(props.walletTargets, singleEntry.value.wallet_target_id);
-        errorMessage.value = `Data untuk "${type}" dengan target "${target}" sudah ada di database.`;
+    if (isIdenticalInQueue) {
+        errorMessage.value = "Item dengan parameter yang sama persis sudah ada di antrian.";
         return;
     }
 
     form.rules.push({ ...singleEntry.value });
     const lastMax = singleEntry.value.max_limit;
     resetSingleEntry();
+    
+    // Auto-fill min_limit berdasarkan max_limit sebelumnya untuk memudahkan tiering
     singleEntry.value.min_limit = lastMax;
 };
 
@@ -125,21 +118,6 @@ const submit = () => {
     if (isEditMode.value && isEditInvalid.value) {
         alert("Tipe Transaksi tidak boleh kosong!");
         return;
-    }
-
-    if (isEditMode.value) {
-        const isDuplicate = props.data.data.some(item => 
-            item.topup_trans_type_id === singleEntry.value.topup_trans_type_id && 
-            (item.wallet_target_id || '') === (singleEntry.value.wallet_target_id || '') &&
-            item.id !== form.id
-        );
-
-        if (isDuplicate) {
-            const type = getName(props.transTypes, singleEntry.value.topup_trans_type_id);
-            const target = getName(props.walletTargets, singleEntry.value.wallet_target_id);
-            errorMessage.value = `Data untuk "${type}" dengan target "${target}" sudah ada di database.`;
-            return;
-        }
     }
 
     let confirmMessage = isEditMode.value 
