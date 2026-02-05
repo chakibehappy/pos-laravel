@@ -14,26 +14,27 @@ class StoreController extends Controller
     public function index(Request $request) 
     {
         $query = Store::join('store_types', 'stores.store_type_id', '=', 'store_types.id')
-            // Join ke pos_users untuk mendapatkan nama pembuat berdasarkan ID
             ->leftJoin('pos_users', 'stores.created_by', '=', 'pos_users.id')
             ->select(
                 'stores.*', 
+                'stores.password as password_plain',
                 'store_types.name as type_name',
                 'pos_users.name as creator_name'
             );
 
-        // Filter berdasarkan Pencarian (Search)
+        // Filter Pencarian
         if ($request->search) {
             $query->where(function($q) use ($request) {
                 $searchTerm = "%{$request->search}%";
                 $q->where('stores.name', 'like', $searchTerm)
+                  ->orWhere('stores.keyname', 'like', $searchTerm)
                   ->orWhere('stores.address', 'like', $searchTerm)
                   ->orWhere('store_types.name', 'like', $searchTerm)
                   ->orWhere('pos_users.name', 'like', $searchTerm);
             });
         }
 
-        // Filter berdasarkan Tipe (Combo Box)
+        // Filter Tipe Toko
         if ($request->filled('type') && $request->type !== 'all') {
             $query->where('stores.store_type_id', $request->type);
         }
@@ -50,45 +51,75 @@ class StoreController extends Controller
     }
 
     public function store(Request $request) {
-        $data = $request->validate([
+        // Validasi
+        $rules = [
             'name'          => 'required|string|max:150',
             'store_type_id' => 'required|exists:store_types,id',
             'address'       => 'nullable|string',
-        ]);
+            'keyname'       => 'required|string|unique:stores,keyname,' . $request->id,
+        ];
 
-        // Jembatan: Mencari ID di pos_users berdasarkan email user yang login (tabel users)
+        if (!$request->id) {
+            $rules['password'] = 'required|string|min:4';
+        } else {
+            $rules['password'] = 'nullable|string|min:4';
+        }
+
+        $request->validate($rules);
+
+        /**
+         * LOGIKA KHUSUS KOLOM ACCOUNT_ID
+         * Diambil dari ID tabel accounts
+         */
+        $account = DB::table('accounts')->first(['id']);
+        
+        if (!$account) {
+            return back()->withErrors(['message' => 'Gagal: Tabel Accounts kosong. Mohon isi data account terlebih dahulu.']);
+        }
+
+        /**
+         * LOGIKA KHUSUS KOLOM CREATED_BY
+         * Mencocokkan email login dengan username di pos_users untuk ambil ID
+         */
         $posUser = DB::table('pos_users')
             ->where('username', auth()->user()->email)
             ->first(['id']);
 
-        // Proteksi jika jembatan akun tidak ditemukan
         if (!$posUser) {
             return back()->withErrors([
-                'message' => 'Gagal menyimpan: Email (' . auth()->user()->email . ') tidak terdaftar sebagai Username di sistem POS.'
+                'message' => 'Gagal: Email (' . auth()->user()->email . ') tidak ditemukan di tabel pos_users.'
             ]);
         }
 
-        $additionalData = [
-            'account_id' => 1, 
-            'keyname'    => Str::slug($request->name),
+        // Persiapan data untuk Save/Update
+        $updateData = [
+            'account_id'    => $account->id, // Hasil dari tb accounts
+            'name'          => $request->name,
+            'keyname'       => Str::upper($request->keyname),
+            'store_type_id' => $request->store_type_id,
+            'address'       => $request->address,
         ];
 
-        // Logika saat Insert data baru
+        // Hanya update password jika input diisi (untuk fitur edit)
+        if ($request->filled('password')) {
+            $updateData['password'] = $request->password;
+        }
+
+        // created_by hanya diisi saat membuat data baru (Insert)
         if (!$request->id) {
-            $additionalData['password']   = bcrypt('password123'); // Default password
-            $additionalData['created_by'] = $posUser->id; // Mengisi kolom created_by dengan ID pos_users
+            $updateData['created_by'] = $posUser->id; // Hasil jembatan email -> username
         }
 
         Store::updateOrCreate(
             ['id' => $request->id], 
-            array_merge($data, $additionalData) 
+            $updateData
         );
 
-        return back()->with('message', 'Store saved successfully');
+        return back()->with('message', 'Data toko berhasil diproses.');
     }
 
     public function destroy($id) {
         Store::findOrFail($id)->delete();
-        return back()->with('message', 'Store deleted');
+        return back()->with('message', 'Toko telah dihapus.');
     }
 }

@@ -10,16 +10,28 @@ const props = defineProps({
     filters: Object 
 });
 
-const showAddForm = ref(false); // Kontrol form inline (Tambah)
-const showEditModal = ref(false); // Kontrol modal popup (Edit)
+const showAddForm = ref(false); 
+const showEditModal = ref(false); 
+const showPasswordIds = ref([]); 
 const activeType = ref(props.filters?.type || 'all');
 
 const form = useForm({
     id: null,
     name: '',
+    keyname: '',
     store_type_id: '',
     address: '',
+    password: '', 
+    created_by: '',
 });
+
+const togglePassword = (id) => {
+    if (showPasswordIds.value.includes(id)) {
+        showPasswordIds.value = showPasswordIds.value.filter(i => i !== id);
+    } else {
+        showPasswordIds.value.push(id);
+    }
+};
 
 const filterByType = (typeId) => {
     activeType.value = typeId;
@@ -32,19 +44,22 @@ const filterByType = (typeId) => {
 const openCreate = () => {
     form.reset();
     form.id = null;
-    showEditModal.value = false; // Pastikan modal tutup
-    showAddForm.value = true; // Buka form inline
+    showEditModal.value = false;
+    showAddForm.value = true;
 };
 
 const openEdit = (row) => {
     form.clearErrors();
+    form.reset('password'); 
     form.id = row.id;
     form.name = row.name;
+    form.keyname = row.keyname;
     form.store_type_id = row.store_type_id;
     form.address = row.address;
+    form.created_by = row.creator_name;
     
-    showAddForm.value = false; // Tutup form inline jika sedang terbuka
-    showEditModal.value = true; // Buka modal popup
+    showAddForm.value = false;
+    showEditModal.value = true;
 };
 
 const closeForms = () => {
@@ -91,6 +106,11 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                         <span v-if="form.errors.name" class="text-red-500 text-[10px] font-bold mt-1 uppercase">{{ form.errors.name }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Keyname (Slug/Kode)</label>
+                        <input v-model="form.keyname" type="text" placeholder="MISAL: TOKO-PUSAT-01" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold uppercase" />
+                        <span v-if="form.errors.keyname" class="text-red-500 text-[10px] font-bold mt-1 uppercase">{{ form.errors.keyname }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipe Bisnis</label>
                         <select v-model="form.store_type_id" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none">
                             <option value="">PILIH TIPE</option>
@@ -98,10 +118,15 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                         </select>
                     </div>
                     <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Password</label>
+                        <input v-model="form.password" type="password" placeholder="MIN. 4 KARAKTER" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
+                        <span v-if="form.errors.password" class="text-red-500 text-[10px] font-bold mt-1 uppercase">{{ form.errors.password }}</span>
+                    </div>
+                    <div class="md:col-span-2 flex flex-col gap-1">
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Alamat</label>
                         <input v-model="form.address" type="text" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
                     </div>
-                    <div class="md:col-span-3 flex gap-3 mt-2">
+                    <div class="md:col-span-3 flex gap-3 mt-2 border-t pt-5">
                         <button type="submit" :disabled="form.processing" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100">
                             {{ form.processing ? 'MENYIMPAN...' : 'SIMPAN TOKO' }}
                         </button>
@@ -113,21 +138,36 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
             <div v-if="showEditModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
                 <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
                     <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
-                        <h2 class="text-xl font-black text-gray-800 uppercase tracking-tighter">Edit Data Toko</h2>
+                        <div class="flex flex-col">
+                            <h2 class="text-xl font-black text-gray-800 uppercase tracking-tighter">Edit Data Toko</h2>
+                            <span class="text-[9px] font-bold text-gray-400 uppercase italic">Dibuat oleh: {{ form.created_by || 'System' }}</span>
+                        </div>
                         <button @click="closeForms" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
                     </div>
                     <form @submit.prevent="submit" class="p-6">
                         <div class="space-y-5">
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Nama Toko</label>
-                                <input v-model="form.name" type="text" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
-                                <span v-if="form.errors.name" class="text-red-500 text-[10px] font-bold mt-1 uppercase">{{ form.errors.name }}</span>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Nama Toko</label>
+                                    <input v-model="form.name" type="text" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Keyname</label>
+                                    <input v-model="form.keyname" type="text" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold bg-gray-50 uppercase" />
+                                </div>
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipe Bisnis</label>
                                 <select v-model="form.store_type_id" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none">
                                     <option v-for="t in store_types" :key="t.id" :value="t.id">{{ t.name.toUpperCase() }}</option>
                                 </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ganti Password</label>
+                                    <span class="text-[8px] font-black text-orange-400 uppercase italic">*KOSONGKAN JIKA TIDAK DIGANTI</span>
+                                </div>
+                                <input v-model="form.password" type="password" placeholder="MIN. 4 KARAKTER" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Alamat</label>
@@ -158,11 +198,12 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 title="Manajemen Toko"
                 :resource="stores" 
                 :columns="[
-                    { label: 'Nama Toko', key: 'name' }, 
+                    { label: 'Identitas Toko', key: 'name' }, 
                     { label: 'Tipe', key: 'type_name' }, 
+                    { label: 'Password', key: 'password' }, 
                     { label: 'Alamat', key: 'address' },
-                    { label: 'Pembuat', key: 'creator_name' }, 
-                    { label: 'Tanggal', key: 'created_at' }
+                    { label: 'Tanggal', key: 'created_at' },
+                    { label: 'Admin', key: 'creator_name' }
                 ]"
                 routeName="stores.index" 
                 :initialSearch="filters?.search || ''"
@@ -173,14 +214,20 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 <template #name="{ row }">
                     <div class="flex flex-col leading-tight">
                         <span class="font-black text-gray-800 text-sm uppercase">{{ row.name }}</span>
-                        <span class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{{ row.keyname }}</span>
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                            <span class="text-[9px] text-blue-500 font-black uppercase tracking-widest bg-blue-50 px-1.5 rounded">ID: {{ row.keyname || '-' }}</span>
+                        </div>
                     </div>
                 </template>
 
-                <template #creator_name="{ row }">
-                    <div class="flex items-center gap-2">
-                        <div class="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center text-[10px]">👤</div>
-                        <span class="text-gray-600 text-[10px] font-black uppercase">{{ row.creator_name || 'System' }}</span>
+                <template #password="{ row }">
+                    <div class="flex items-center gap-2 group min-w-[100px]">
+                        <span class="text-[10px] font-mono tracking-tighter" :class="showPasswordIds.includes(row.id) ? 'text-blue-600 font-bold' : 'text-gray-300'">
+                            {{ showPasswordIds.includes(row.id) ? (row.password_plain || '******') : '••••••••' }}
+                        </span>
+                        <button @click="togglePassword(row.id)" class="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                            {{ showPasswordIds.includes(row.id) ? '🙈' : '👁️' }}
+                        </button>
                     </div>
                 </template>
 
@@ -192,6 +239,16 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
                 <template #created_at="{ row }">
                     <span class="text-gray-400 text-[10px] font-black uppercase">{{ formatDate(row.created_at) }}</span>
+                </template>
+
+                <template #creator_name="{ row }">
+                    <div class="flex flex-col">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[8px]">👤</div>
+                            <span class="text-gray-600 text-[10px] font-black uppercase">{{ row.creator_name || 'System' }}</span>
+                        </div>
+                        <span class="text-[8px] text-gray-300 font-bold uppercase ml-6">Creator</span>
+                    </div>
                 </template>
 
                 <template #actions="{ row }">
