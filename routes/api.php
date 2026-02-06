@@ -21,6 +21,7 @@ use App\Models\WithdrawalSourceType;
 use App\Models\CashStore;
 use App\Models\CashWithdrawal;
 use App\Models\TopupFeeRule;
+use App\Models\WithdrawalFeeRule;
 
 use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
@@ -166,15 +167,29 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             // --- Handle Withdrawal Logic ---
             if (!empty($item['cash_withdrawal'])) {
                 $wdData = $item['cash_withdrawal'];
+                $amount = $wdData['withdrawal_count'];
+
+                // Calculate admin fee from backend rules
+                $feeRule = WithdrawalFeeRule::where('min_limit', '<=', $amount)
+                    ->where(function ($q) use ($amount) {
+                        $q->where('max_limit', '>=', $amount)
+                        ->orWhere('max_limit', '<', 0); // unlimited
+                    })
+                    ->orderBy('min_limit', 'desc')
+                    ->first();
+
+                $adminFee = $feeRule?->fee ?? 0;
+                
                 $withdrawal = CashWithdrawal::create([
                     'store_id'             => $request->store_id,
                     'customer_name'        => $wdData['customer_name'],
                     'withdrawal_source_id' => $wdData['withdrawal_source_id'],
                     'withdrawal_count'     => $wdData['withdrawal_count'],
-                    'admin_fee'            => $wdData['admin_fee'] ?? 0,
+                    // 'admin_fee'            => $wdData['admin_fee'] ?? 0,
+                    'admin_fee'            => $adminFee,
                 ]);
                 $withdrawalId = $withdrawal->id;
-                $nominal = $wdData['withdrawal_count'] - $wdData['admin_fee'];
+                $nominal = $amount - $adminFee;
                 // Decrement the physical store cash balance
                 CashStore::where('store_id', $request->store_id)
                     ->decrement('cash', $nominal);
