@@ -174,10 +174,10 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     'admin_fee'            => $wdData['admin_fee'] ?? 0,
                 ]);
                 $withdrawalId = $withdrawal->id;
-
+                $nominal = $wdData['withdrawal_count'] - $wdData['admin_fee'];
                 // Decrement the physical store cash balance
                 CashStore::where('store_id', $request->store_id)
-                    ->decrement('cash', $wdData['withdrawal_count']);
+                    ->decrement('cash', $nominal);
             }
 
             $lineSubtotal = $item['quantity'] * $item['price'];
