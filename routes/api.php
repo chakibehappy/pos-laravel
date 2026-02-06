@@ -254,7 +254,9 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     $transactions = Transaction::with([
             'posUser',
             'details.product',
-            'details.topupTransaction',
+            // 'details.topupTransaction',
+            'details.topupTransaction.transType',
+            'details.topupTransaction.digitalWalletStore',
             'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
