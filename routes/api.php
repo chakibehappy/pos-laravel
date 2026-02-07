@@ -281,7 +281,7 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
             'transaction_id' => 'required|integer|exists:stores,id',
         ]);
 
-        $transaction = Transaction::findOrFail($request->$transaction_id);
+        $transaction = Transaction::findOrFail($request->transaction_id);
         // Ensure only ACTIVE transactions can be requested
         if ($transaction->status !== 0) {
             return response()->json([
@@ -290,7 +290,7 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
         }
 
         $posUser = $request->user();
-        
+
         $transaction->update([
             'status' => Transaction::STATUS_PENDING_DELETE,
             'delete_requested_by' => $request->user()->id,
