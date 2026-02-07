@@ -21,7 +21,6 @@ class Transaction extends Model
         'subtotal',
         'tax',
         'total',
-        'created_by',
         // new deletion-related fields
         'status',
         'delete_requested_by',
@@ -50,7 +49,7 @@ class Transaction extends Model
     {
         return $query->where('status', self::STATUS_DELETED);
     }
-    
+
     /**
      * Relasi ke Metode Pembayaran (Master Data)
      */
