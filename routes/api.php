@@ -260,7 +260,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
             'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
-        ->active()
+        ->where('status', 0)
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
@@ -275,14 +275,15 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
 });
 
 
-Route::middleware('auth:sanctum')->post('/transactions/{transaction}/request-delete',
-    function (Request $request, Transaction $transaction) {
+Route::middleware('auth:sanctum')->post('/request-delete', function (Request $request) {
         $request->validate([
             'reason' => 'required|string|max:255',
+            'transaction_id' => 'required|integer|exists:stores,id',
         ]);
 
+        $transaction = Transaction::findOrFail($request->$transaction_id);
         // Ensure only ACTIVE transactions can be requested
-        if ($transaction->status !== Transaction::STATUS_ACTIVE) {
+        if ($transaction->status !== 0) {
             return response()->json([
                 'message' => 'Transaction cannot be requested for deletion.',
             ], 422);
@@ -290,7 +291,6 @@ Route::middleware('auth:sanctum')->post('/transactions/{transaction}/request-del
 
         $posUser = $request->user();
         
-
         $transaction->update([
             'status' => Transaction::STATUS_PENDING_DELETE,
             'delete_requested_by' => $request->user()->id,

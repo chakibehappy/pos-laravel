@@ -49,7 +49,7 @@ class Transaction extends Model
     {
         return $query->where('status', self::STATUS_DELETED);
     }
-
+    
     /**
      * Relasi ke Metode Pembayaran (Master Data)
      */
