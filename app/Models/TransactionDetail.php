@@ -12,23 +12,18 @@ class TransactionDetail extends Model
         'product_id',
         'topup_transaction_id',
         'cash_withdrawal_id',
-        'buying_prices',   // Tambahkan ini
+        'buying_prices',
         'selling_prices',
         'quantity',
-        'subtotal'
+        'subtotal',
+        'created_by'
     ];
 
-    /**
-     * Relasi ke Header Transaksi
-     */
     public function transaction(): BelongsTo
     {
         return $this->belongsTo(Transaction::class);
     }
 
-    /**
-     * Relasi ke Produk
-     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -42,5 +37,10 @@ class TransactionDetail extends Model
     public function cashWithdrawal(): BelongsTo
     {
         return $this->belongsTo(CashWithdrawal::class, 'cash_withdrawal_id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 }

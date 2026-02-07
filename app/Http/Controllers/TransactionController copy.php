@@ -18,8 +18,7 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
-        // Menambahkan 'details.cashWithdrawal' agar nominal tarik tunai terdeteksi di Vue
-        $query = Transaction::with(['details.product', 'details.cashWithdrawal'])
+        $query = Transaction::with(['details.product'])
             ->join('stores', 'transactions.store_id', '=', 'stores.id')
             ->join('pos_users', 'transactions.pos_user_id', '=', 'pos_users.id')
             ->leftJoin('payment_methods', 'transactions.payment_id', '=', 'payment_methods.id')
@@ -80,26 +79,13 @@ class TransactionController extends Controller
         $matchPosUser = PosUser::where('username', $adminEmail)->first();
         $automatedCreatedBy = $matchPosUser ? $matchPosUser->id : $request->pos_user_id;
 
-        // --- HITUNG ULANG SUB-TOTAL (Tarik Tunai tetap 0 untuk transaksi nota) ---
-        $calcSubtotal = 0;
-        foreach ($request->details as $item) {
-            if ($item['type'] !== 'tarik_tunai') {
-                $calcSubtotal += $item['subtotal'];
-            }
-        }
-        $calcTotal = $calcSubtotal + ($request->tax ?? 0);
-
         try {
-            DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal) {
+            DB::transaction(function () use ($request, $id, $automatedCreatedBy) {
                 $storeId = $request->store_id;
 
                 if ($id) {
                     $old = Transaction::with('details')->findOrFail($id);
                     $this->rollbackAssets($old);
-                    
-                    // Rollback saldo kas (decrement subtotal lama)
-                    DB::table('cash_store')->where('store_id', $old->store_id)->decrement('cash', $old->subtotal);
-                    
                     $old->details()->delete();
                 }
 
@@ -110,33 +96,42 @@ class TransactionController extends Controller
                         'pos_user_id'    => $request->pos_user_id,
                         'payment_id'     => $request->payment_id,
                         'transaction_at' => $request->transaction_at,
-                        'subtotal'       => $calcSubtotal,
+                        'subtotal'       => $request->subtotal,
                         'tax'            => $request->tax ?? 0,
-                        'total'          => $calcTotal,
+                        'total'          => $request->total,
                     ]
                 );
-
-                // 1. TAMBAH KAS dari Produk & Topup (Masuk)
-                DB::table('cash_store')->where('store_id', $storeId)->increment('cash', $calcSubtotal);
 
                 foreach ($request->details as $item) {
                     $topupTransId = null;
                     $cashWithId = null;
                     $productId = ($item['type'] === 'produk') ? $item['product_id'] : null;
-                    $buyingPrice = 0;
-                    $itemSubtotal = ($item['type'] === 'tarik_tunai') ? 0 : $item['subtotal'];
+                    $buyingPrice = 0; // Inisialisasi buying price
 
-                    // Logika Produk
+                    // 1. Penentuan quantity secara dinamis (Topup & Tarik Tunai)
+                    if ($item['type'] === 'topup') {
+                        $quantity = $item['meta']['nominal_topup'] ?? $item['quantity'];
+                    } elseif ($item['type'] === 'tarik_tunai') {
+                        $quantity = $item['meta']['amount'] ?? $item['quantity'];
+                    } else {
+                        $quantity = $item['quantity'];
+                    }
+
+                    // 2. LOGIKA PRODUK (Ambil Buying Price dari Master Produk)
                     if ($item['type'] === 'produk') {
                         $productMaster = Product::find($item['product_id']);
-                        if ($productMaster) $buyingPrice = $productMaster->buying_price;
+                        if ($productMaster) {
+                            $buyingPrice = $productMaster->buying_price;
+                        }
 
                         $sp = StoreProduct::where('store_id', $storeId)->where('product_id', $item['product_id'])->first();
-                        if (!$sp || $sp->stock < $item['quantity']) throw new \Exception("Stok {$item['name']} tidak cukup!");
+                        if (!$sp || $sp->stock < $item['quantity']) {
+                            throw new \Exception("Stok {$item['name']} tidak cukup!");
+                        }
                         $sp->decrement('stock', $item['quantity']);
                     }
 
-                    // Logika Topup
+                    // 3. LOGIKA TOP UP
                     if ($item['type'] === 'topup') {
                         $topupTransId = DB::table('topup_transactions')->insertGetId([
                             'store_id'                => $storeId,
@@ -149,10 +144,12 @@ class TransactionController extends Controller
                             'created_at'              => $request->transaction_at,
                             'updated_at'              => now(),
                         ]);
-                        DigitalWalletStore::where('id', $item['meta']['digital_wallet_store_id'])->decrement('balance', $item['meta']['nominal_topup']);
+
+                        DigitalWalletStore::where('id', $item['meta']['digital_wallet_store_id'])
+                            ->decrement('balance', $item['meta']['nominal_topup']);
                     }
 
-                    // Logika Tarik Tunai
+                    // 4. LOGIKA TARIK TUNAI
                     if ($item['type'] === 'tarik_tunai') {
                         $cashWithId = DB::table('cash_withdrawals')->insertGetId([
                             'store_id'             => $storeId,
@@ -164,19 +161,17 @@ class TransactionController extends Controller
                             'created_at'           => $request->transaction_at,
                             'updated_at'           => now(),
                         ]);
-
-                        // 2. KURANGI KAS TOKO (Keluar)
-                        DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $item['meta']['amount']);
                     }
 
+                    // SIMPAN DETAIL
                     $transaction->details()->create([
                         'product_id'           => $productId,
                         'topup_transaction_id' => $topupTransId,
                         'cash_withdrawal_id'   => $cashWithId,
-                        'buying_prices'        => $buyingPrice,
+                        'buying_prices'        => $buyingPrice, // Disimpan ke kolom buying_prices
                         'selling_prices'       => $item['price'],
-                        'quantity'             => ($item['type'] === 'produk') ? $item['quantity'] : 1,
-                        'subtotal'             => $itemSubtotal,
+                        'quantity'             => $quantity,
+                        'subtotal'             => $item['subtotal'],
                         'created_by'           => $automatedCreatedBy
                     ]);
                 }
@@ -191,14 +186,12 @@ class TransactionController extends Controller
     private function rollbackAssets($transaction)
     {
         foreach ($transaction->details as $detail) {
-            // Rollback Stok Produk
             if ($detail->product_id) {
                 StoreProduct::where('store_id', $transaction->store_id)
                     ->where('product_id', $detail->product_id)
                     ->increment('stock', $detail->quantity);
             }
 
-            // Rollback Saldo Dompet Digital & Hapus Transaksi Topup
             if ($detail->topup_transaction_id) {
                 $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
                 if ($topup) {
@@ -208,14 +201,8 @@ class TransactionController extends Controller
                 }
             }
 
-            // Rollback Saldo Kas (Jika Tarik Tunai dihapus/update, kembalikan uang ke kas)
             if ($detail->cash_withdrawal_id) {
-                $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
-                if ($withdraw) {
-                    DB::table('cash_store')->where('store_id', $transaction->store_id)
-                        ->increment('cash', $withdraw->withdrawal_count);
-                    DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
-                }
+                DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->delete();
             }
         }
     }

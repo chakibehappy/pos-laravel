@@ -1,20 +1,45 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { ref, watch, computed } from 'vue';
+import { useForm, Head, usePage } from '@inertiajs/vue3'; 
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
+import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({ 
-    transactions: Object, 
+    transactions: Object,
     stores: Array, 
     pos_users: Array, 
     products: Array, 
+    topup_trans_types: Array,
     store_products: Array, 
-    paymentMethods: Array 
+    paymentMethods: Array,
+    digital_wallet_stores: Array, 
+    withdrawal_source_type: Array, 
+    filters: Object 
 });
 
-// --- 1. DEKLARASI FORM (WAJIB PALING ATAS) ---
-// Agar variabel 'form' sudah ada saat dipanggil oleh computed/watch di bawahnya
+const page = usePage();
+
+const columns = [
+    { label: 'Tanggal', key: 'transaction_at' },
+    { label: 'Toko', key: 'store_name' }, 
+    { label: 'Kasir', key: 'cashier_name' },
+    { label: 'Metode', key: 'payment_name' }, 
+    { label: 'Total (Rp)', key: 'total' }
+];
+
+const showForm = ref(false); 
+const isEditMode = ref(false);
+const errorMessage = ref('');
+const productOptions = ref([]); 
+
+const withdrawalTypeOptions = computed(() => {
+    return (props.withdrawal_source_type || []).map(item => ({
+        id: item.id,
+        name: item.name
+    }));
+});
+
 const form = useForm({
     id: null,
     store_id: '',
@@ -27,317 +52,331 @@ const form = useForm({
     total: 0
 });
 
-// --- 2. STATE REAKTIF ---
-const showForm = ref(false);
-const showDetail = ref(false); 
-const selectedTransaction = ref(null); 
-const selectedProductId = ref(''); 
-const qtyInput = ref(1);
-
-// --- 3. LOGIKA FILTER STOK (FIXED ORDER) ---
-const filteredProducts = computed(() => {
-    if (!form.store_id) return [];
-
-    return props.products.map(product => {
-        // Menggunakan == agar tipe data string/number tetap cocok
-        const stockData = (props.store_products || []).find(sp => 
-            sp.product_id == product.id && 
-            sp.store_id == form.store_id
-        );
-
-        return {
-            ...product,
-            stock: stockData ? stockData.stock : 0
-        };
-    });
+const singleEntry = ref({
+    type: '', 
+    product_id: '', 
+    quantity: 1, 
+    account_number: '',
+    nominal: 0, 
+    price: 0, 
+    customer_name: '', 
+    withdrawal_amount: 0, 
+    admin_fee: 0,
+    digital_wallet_store_id: '',
+    withdrawal_source_id: '' 
 });
 
-// Reset dropdown produk jika toko diganti
+// --- LOGIKA FILTER & REAKTIVITAS ---
+
 watch(() => form.store_id, () => {
-    selectedProductId.value = '';
+    form.details = [];
+    singleEntry.value.digital_wallet_store_id = '';
+    calculateAll();
+    refreshProductList();
 });
 
-// --- 4. KONFIGURASI TABEL ---
-const columns = [
-    { label: 'Tanggal', key: 'transaction_at' },
-    { label: 'Toko', key: 'store_name' }, 
-    { label: 'Kasir', key: 'cashier_name' },
-    { label: 'Metode', key: 'payment_name' }, 
-    { label: 'Total (Rp)', key: 'total' }
-];
+const filteredWallets = computed(() => {
+    if (!props.digital_wallet_stores || !form.store_id) return [];
+    return props.digital_wallet_stores
+        .filter(w => String(w.store_id) === String(form.store_id))
+        .map(w => ({
+            id: w.id,
+            name: w.wallet?.name || w.name || 'Dompet Toko',
+            balance: w.balance || 0
+        }));
+});
 
-// --- 5. FUNGSI LOGIKA (ACTIONS) ---
-const addItem = () => {
-    const product = filteredProducts.value.find(p => p.id == selectedProductId.value);
-    
-    if (!product) {
-        alert("Pilih produk terlebih dahulu!");
-        return;
-    }
-
-    const qty = Number(qtyInput.value);
-    const existingIndex = form.details.findIndex(d => d.product_id == product.id);
-    const currentQtyInCart = existingIndex > -1 ? form.details[existingIndex].quantity : 0;
-
-    if ((currentQtyInCart + qty) > product.stock) {
-        alert(`STOK TOKO TIDAK CUKUP!\nSisa stok ${product.name} di toko ini: ${product.stock}`);
-        return;
-    }
-
-    const price = Number(product.price || 0);
-    
-    if (existingIndex > -1) {
-        form.details[existingIndex].quantity += qty;
-        form.details[existingIndex].subtotal = form.details[existingIndex].quantity * price;
-    } else {
-        form.details.push({
-            product_id: product.id,
-            name: product.name,
-            price: price,
-            quantity: qty,
-            subtotal: price * qty
+const refreshProductList = () => {
+    productOptions.value = []; 
+    if (singleEntry.value.type === 'produk') {
+        const stockLookup = {};
+        (props.store_products || []).forEach(sp => {
+            if (String(sp.store_id) === String(form.store_id)) stockLookup[sp.product_id] = sp.stock;
         });
+        productOptions.value = props.products
+            .filter(p => (stockLookup[p.id] || 0) > 0)
+            .map(p => ({
+                id: p.id, 
+                name: `${p.name} (Stok: ${stockLookup[p.id]})`, 
+                raw_name: p.name, 
+                price: p.price, 
+                stock: stockLookup[p.id]
+            }));
+    } else if (singleEntry.value.type === 'topup') {
+        productOptions.value = props.topup_trans_types.map(t => ({ 
+            id: t.id, name: t.name, raw_name: t.name, price: 0, stock: 999 
+        }));
     }
-    selectedProductId.value = '';
-    qtyInput.value = 1;
-    calculateAll();
 };
 
-const removeItem = (index) => {
-    form.details.splice(index, 1);
-    calculateAll();
-};
+watch(() => singleEntry.value.type, (newType) => {
+    if(!newType) return;
+    Object.assign(singleEntry.value, { 
+        product_id: '', account_number: '', nominal: 0, price: 0, 
+        customer_name: '', withdrawal_amount: 0, admin_fee: 0, 
+        digital_wallet_store_id: '', withdrawal_source_id: '' 
+    });
+    singleEntry.value.type = newType;
+    refreshProductList();
+});
 
 const calculateAll = () => {
     form.subtotal = form.details.reduce((acc, item) => acc + Number(item.subtotal), 0);
-    form.tax = form.subtotal * 0.1;
-    form.total = form.subtotal + form.tax;
+    form.total = form.subtotal + Number(form.tax);
 };
 
-const openCreate = () => {
-    form.reset();
-    form.clearErrors();
-    form.id = null;
-    form.payment_id = ''; 
-    form.details = [];
-    form.transaction_at = new Date().toISOString().slice(0, 16);
-    showForm.value = true;
-};
+const addToBatch = () => {
+    errorMessage.value = '';
+    if (!form.store_id) { errorMessage.value = "Pilih toko terlebih dahulu!"; return; }
 
-const openEdit = (row) => {
-    form.clearErrors();
-    form.id = row.id;
-    form.store_id = row.store_id;
-    form.pos_user_id = row.pos_user_id;
-    form.payment_id = row.payment_id || ''; 
-    form.transaction_at = row.transaction_at.replace(' ', 'T').slice(0, 16);
-    
-    form.details = row.details.map(d => {
-        return {
-            product_id: d.product_id,
-            name: d.product ? d.product.name : 'Unknown Product',
-            price: Number(d.selling_prices), 
-            quantity: Number(d.quantity),
-            subtotal: Number(d.subtotal)
-        };
-    });
+    if (singleEntry.value.type === 'produk') {
+        const p = productOptions.value.find(x => x.id == singleEntry.value.product_id);
+        if (!p) { errorMessage.value = "Pilih produk!"; return; }
+        form.details.push({
+            type: 'produk', product_id: p.id, name: p.raw_name, price: p.price,
+            quantity: singleEntry.value.quantity, subtotal: p.price * singleEntry.value.quantity, meta: null
+        });
+    } else if (singleEntry.value.type === 'topup') {
+        const s = productOptions.value.find(x => x.id == singleEntry.value.product_id);
+        const w = filteredWallets.value.find(x => String(x.id) === String(singleEntry.value.digital_wallet_store_id));
+        if (!s || !singleEntry.value.account_number || !w) { errorMessage.value = "Lengkapi data Top Up & Pilih Sumber Saldo!"; return; }
+        
+        form.details.push({
+            type: 'topup', 
+            product_id: s.id, 
+            name: `${s.raw_name} (${singleEntry.value.account_number})`,
+            price: singleEntry.value.price, 
+            quantity: 1, 
+            subtotal: singleEntry.value.price,
+            meta: { 
+                target: singleEntry.value.account_number, 
+                nominal_topup: singleEntry.value.nominal, 
+                digital_wallet_store_id: w.id, 
+                wallet_name: w.name 
+            }
+        });
+    } else if (singleEntry.value.type === 'tarik_tunai') {
+        const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
+
+        if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
+            errorMessage.value = "Lengkapi data Tarik Tunai!";
+            return;
+        }
+
+        // PERUBAHAN DISINI: subtotal diset 0 agar tidak menambah Grand Total
+        // Namun nominal & fee tetap masuk ke meta untuk dikirim ke Controller
+        form.details.push({
+            type: 'tarik_tunai', 
+            product_id: null, 
+            name: `TARIK TUNAI [${wType.name}]`,
+            price: Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee), 
+            quantity: 1, 
+            subtotal: 0, 
+            meta: { 
+                customer_name: singleEntry.value.customer_name, 
+                amount: singleEntry.value.withdrawal_amount, 
+                fee: singleEntry.value.admin_fee,           
+                withdrawal_source_id: wType.id, 
+                store_id: form.store_id 
+            }
+        });
+    }
     calculateAll();
-    showForm.value = true;
-};
-
-const openDetail = (row) => {
-    selectedTransaction.value = row;
-    showDetail.value = true;
+    singleEntry.value.product_id = '';
+    singleEntry.value.customer_name = '';
+    singleEntry.value.withdrawal_amount = 0;
+    singleEntry.value.admin_fee = 0;
 };
 
 const submit = () => {
-    if (form.details.length === 0) {
-        alert("Tambahkan minimal satu produk!");
-        return;
-    }
+    errorMessage.value = '';
+    if (form.details.length === 0) { errorMessage.value = "Keranjang masih kosong!"; return; }
+    if (!form.payment_id) { errorMessage.value = "Pilih metode pembayaran!"; return; }
 
-    const url = form.id 
-        ? route('transactions.update', form.id) 
-        : route('transactions.store');
-
-    form.transform((data) => ({
-        ...data,
-        _method: form.id ? 'PUT' : 'POST',
-    })).post(url, {
-        onSuccess: () => {
-            showForm.value = false;
-            form.reset();
-            alert("Berhasil disimpan!");
+    const url = isEditMode.value ? route('transactions.update', form.id) : route('transactions.store');
+    form[isEditMode.value ? 'put' : 'post'](url, {
+        onSuccess: () => { 
+            showForm.value = false; 
+            form.reset(); 
+            form.details = [];
         },
-        onError: (errors) => {
-            if (errors.message) alert("ERROR: " + errors.message);
-        },
-        preserveScroll: true
+        onError: (err) => { 
+            errorMessage.value = err.message || Object.values(err)[0] || "Gagal menyimpan transaksi."; 
+        }
     });
 };
 
-const deleteTransaction = (id) => {
-    if (confirm('Hapus transaksi ini? Stok akan dikembalikan otomatis.')) {
-        router.delete(route('transactions.destroy', id), { preserveScroll: true });
+const openCreate = () => {
+    isEditMode.value = false;
+    form.reset();
+    form.details = [];
+    
+    const adminEmail = page.props.auth.user.email;
+    const matchedUser = props.pos_users.find(u => u.username === adminEmail);
+    if (matchedUser) {
+        form.pos_user_id = matchedUser.id;
     }
+
+    showForm.value = true;
 };
+
+const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 </script>
 
 <template>
+    <Head title="Master Transaksi" />
     <AuthenticatedLayout>
-        <div v-if="showForm" class="mb-8 p-6 border-4 border-black bg-white  -[8px_8px_0px_0px_rgba(0,0,0,1)]">
-            <h2 class="font-black uppercase mb-6 italic text-2xl   decoration-yellow-400">
-                {{ form.id ? 'Edit Transaksi' : 'Transaksi Baru' }}
-            </h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="flex flex-col gap-2">
-                    <label class="font-black text-xs uppercase text-blue-600">1. Pilih Toko</label>
-                    <select v-model="form.store_id" class="border-2 border-black p-3 font-bold bg-white outline-none focus:ring-4 ring-yellow-400">
-                        <option value="" disabled>Pilih Toko</option>
-                        <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
-                    </select>
+        <div class="p-8">
+            <div v-if="showForm" class="mb-8 p-6 bg-white rounded-xl border border-gray-200 shadow-md relative">
+                <button @click="showForm = false" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold">✕</button>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <SearchableSelect label="Toko" v-model="form.store_id" :options="stores" />
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Waktu Transaksi</label>
+                        <input v-model="form.transaction_at" type="datetime-local" class="border border-gray-300 rounded-lg p-2 text-sm h-[38px] outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <SearchableSelect label="Kasir (Nota)" v-model="form.pos_user_id" :options="pos_users" />
+                    <SearchableSelect label="Metode Bayar" v-model="form.payment_id" :options="paymentMethods" />
                 </div>
-                <div class="flex flex-col gap-2">
-                    <label class="font-black text-xs uppercase text-gray-400">Waktu</label>
-                    <input v-model="form.transaction_at" type="datetime-local" class="border-2 border-black p-3 font-bold outline-none" />
-                </div>
-                <div class="flex flex-col gap-2">
-                    <label class="font-black text-xs uppercase text-gray-400">Staff</label>
-                    <select v-model="form.pos_user_id" class="border-2 border-black p-3 font-bold bg-white outline-none">
-                        <option value="" disabled>Pilih Staff</option>
-                        <option v-for="u in pos_users" :key="u.id" :value="u.id">{{ u.name }}</option>
-                    </select>
-                </div>
-                <div class="flex flex-col gap-2">
-                    <label class="font-black text-xs uppercase text-blue-600 italic">Metode Bayar</label>
-                    <select v-model="form.payment_id" class="border-2 border-black p-3 font-bold bg-yellow-50 outline-none">
-                        <option value="">Pilih Metode</option>
-                        <option v-for="m in paymentMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
-                    </select>
-                </div>
-            </div>
 
-            <div class="mb-6 p-4 bg-gray-50 border-2 border-dashed border-black flex flex-col md:flex-row gap-4 items-end">
-                <div class="flex-1 flex flex-col gap-1">
-                    <label class="font-black text-[10px] uppercase text-gray-400">2. Pilih Produk (Stok Toko)</label>
-                    <select v-model="selectedProductId" :disabled="!form.store_id" class="w-full border-2 border-black p-2 font-bold outline-none disabled:bg-gray-200">
-                        <option value="">{{ !form.store_id ? 'PILIH TOKO DULU' : '--- CARI PRODUK ---' }}</option>
-                        <option v-for="p in filteredProducts" :key="p.id" :value="p.id" :disabled="p.stock <= 0">
-                            {{ p.name }} — Rp {{ Number(p.price).toLocaleString('id-ID') }} (Stok Cabang: {{ p.stock }})
-                        </option>
-                    </select>
-                </div>
-                <div class="w-24 flex flex-col gap-1">
-                    <label class="font-black text-[10px] uppercase text-gray-400 text-center">Jumlah</label>
-                    <input v-model.number="qtyInput" type="number" min="1" class="w-full border-2 border-black p-2 font-bold text-center outline-none" />
-                </div>
-                <button @click="addItem" type="button" :disabled="!form.store_id" class="bg-blue-500 text-white px-8 py-2 font-black border-2 border-black uppercase hover:bg-blue-600  -[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all disabled:bg-gray-400">Tambah</button>
-            </div>
+                <div class="p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6 border border-dashed border-gray-300">
+                    <div class="md:col-span-2 flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Jenis Transaksi</label>
+                        <select v-model="singleEntry.type" class="border border-gray-300 rounded-lg p-2 text-xs h-[38px] bg-white outline-none">
+                            <option value="">PILIH...</option>
+                            <option value="produk">📦 PRODUK</option>
+                            <option value="topup">📱 TOP UP</option>
+                            <option value="tarik_tunai">💸 TARIK TUNAI</option>
+                        </select>
+                    </div>
+                    
+                    <template v-if="singleEntry.type === 'produk'">
+                        <div class="md:col-span-6">
+                            <SearchableSelect label="Pilih Produk" v-model="singleEntry.product_id" :options="productOptions" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Qty</label>
+                            <input v-model.number="singleEntry.quantity" type="number" min="1" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
+                        </div>
+                    </template>
 
-            <div class="overflow-x-auto mb-8">
-                <table class="w-full border-collapse border-2 border-black">
-                    <thead class="bg-black text-white italic uppercase text-xs">
-                        <tr>
-                            <th class="p-3 text-left">Produk</th>
-                            <th class="p-3 text-right">Harga (Rp)</th>
-                            <th class="p-3 text-center">Qty</th>
-                            <th class="p-3 text-right">Subtotal (Rp)</th>
-                            <th class="p-3 text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="font-bold">
-                        <tr v-for="(item, index) in form.details" :key="index" class="border-b-2 border-black hover:bg-gray-50">
-                            <td class="p-3 uppercase">{{ item.name }}</td>
-                            <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
-                            <td class="p-3 text-center">{{ item.quantity }}</td>
-                            <td class="p-3 text-right text-blue-600">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
-                            <td class="p-3 text-center">
-                                <button @click="removeItem(index)" class="bg-red-100 text-red-600 px-3 py-1 border border-red-600 font-black hover:bg-red-600 hover:text-white transition-colors">❌</button>
-                            </td>
-                        </tr>
-                        <tr v-if="form.details.length === 0">
-                            <td colspan="5" class="p-8 text-center text-gray-300 italic uppercase">Keranjang Kosong</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                    <template v-if="singleEntry.type === 'topup'">
+                        <div class="md:col-span-2"><SearchableSelect label="Layanan" v-model="singleEntry.product_id" :options="productOptions" /></div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">No. Tujuan</label>
+                            <input v-model="singleEntry.account_number" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" placeholder="08xx..." />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Nominal</label>
+                            <input v-model.number="singleEntry.nominal" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-blue-600 uppercase">Sumber Saldo</label>
+                            <select v-model="singleEntry.digital_wallet_store_id" class="border-2 border-blue-200 rounded-lg p-2 text-xs h-[38px] w-full bg-white outline-none">
+                                <option value="">PILIH DOMPET...</option>
+                                <option v-for="wallet in filteredWallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Harga Jual</label>
+                            <input v-model.number="singleEntry.price" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
+                        </div>
+                    </template>
 
-            <div class="flex flex-col items-end gap-2 mb-8">
-                <div class="text-right font-bold uppercase text-xs text-gray-400 space-y-1">
-                    <div>Subtotal: Rp {{ Number(form.subtotal).toLocaleString('id-ID') }}</div>
-                    <div class="text-red-500 font-black">Pajak (10%): Rp {{ Number(form.tax).toLocaleString('id-ID') }}</div>
-                </div>
-                <div class="text-3xl font-black bg-yellow-300 border-4 border-black p-4  -[6px_6px_0px_0px_rgba(0,0,0,1)] italic">
-                    TOTAL: Rp {{ Number(form.total).toLocaleString('id-ID') }}
-                </div>
-            </div>
+                    <template v-if="singleEntry.type === 'tarik_tunai'">
+                        <div class="md:col-span-3">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Pelanggan</label>
+                            <input v-model="singleEntry.customer_name" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" placeholder="Masukkan Nama..." />
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase"></label>
+                            <SearchableSelect label="Jenis Tarik" v-model="singleEntry.withdrawal_source_id" :options="withdrawalTypeOptions" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Nominal Tarik</label>
+                            <input v-model.number="singleEntry.withdrawal_amount" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Biaya Admin</label>
+                            <input v-model.number="singleEntry.admin_fee" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
+                        </div>
+                    </template>
 
-            <div class="flex gap-x-4">
-                <button @click.prevent="submit" :disabled="form.processing" class="bg-black text-white px-10 py-4 font-black uppercase hover:bg-gray-800 disabled:bg-gray-400 border-2 border-black  -[4px_4px_0px_0px_rgba(0,0,0,0.3)] transition-all">
-                    {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
-                </button>
-                <button @click="showForm = false" type="button" class="border-2 border-black px-10 py-4 font-black uppercase hover:bg-gray-100 transition-colors">Batal</button>
-            </div>
-        </div>
-
-        <div v-if="showDetail" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div class="bg-white border-4 border-black w-full max-w-4xl  -[12px_12px_0px_0px_rgba(0,0,0,1)]">
-                <div class="p-4 border-b-4 border-black flex justify-between items-center bg-yellow-400 font-black uppercase italic">
-                    <span>Detail Transaksi</span>
-                    <button @click="showDetail = false" class="text-2xl hover:scale-125 transition-transform">×</button>
+                    <div v-if="singleEntry.type" class="md:col-span-2">
+                        <button @click="addToBatch" class="w-full bg-blue-600 text-white rounded-lg h-[38px] font-bold text-xs uppercase hover:bg-blue-700 transition-colors shadow-sm active:scale-95">+ Tambah</button>
+                    </div>
                 </div>
-                <div class="p-6">
-                    <table class="w-full border-2 border-black mb-6">
-                        <thead class="bg-black text-white text-[10px] uppercase italic">
+
+                <div v-if="form.details.length > 0" class="border rounded-lg overflow-hidden mb-6 shadow-sm bg-white">
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-100 uppercase font-bold text-gray-500 border-b">
                             <tr>
-                                <th class="p-2 text-left">Items</th>
-                                <th class="p-2 text-right">Harga Jual (Rp)</th>
-                                <th class="p-2 text-center">Qty</th>
-                                <th class="p-2 text-right">Subtotal (Rp)</th>
+                                <th class="p-3 text-left w-20">Jenis</th>
+                                <th class="p-3 text-left">Item / Detail</th>
+                                <th class="p-3 text-right">Harga</th>
+                                <th class="p-3 text-center">Qty</th>
+                                <th class="p-3 text-right">Total</th>
+                                <th class="p-3 w-10"></th>
                             </tr>
                         </thead>
-                        <tbody class="font-bold text-sm">
-                            <tr v-for="d in selectedTransaction?.details" :key="d.id" class="border-b-2 border-black">
-                                <td class="p-2 uppercase">{{ d.product?.name }}</td>
-                                <td class="p-2 text-right text-gray-500">{{ Number(d.selling_prices).toLocaleString('id-ID') }}</td>
-                                <td class="p-2 text-center">{{ d.quantity }}</td>
-                                <td class="p-2 text-right text-blue-600 font-black">{{ Number(d.subtotal).toLocaleString('id-ID') }}</td>
+                        <tbody>
+                            <tr v-for="(item, idx) in form.details" :key="idx" class="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                                <td class="p-3 text-center">
+                                    <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[9px] uppercase font-bold text-gray-600">
+                                        {{ item.type.replace('_', ' ') }}
+                                    </span>
+                                </td>
+                                <td class="p-3 font-bold">
+                                    {{ item.name }}
+                                    <div v-if="item.meta?.wallet_name" class="text-[9px] text-blue-500 uppercase flex items-center gap-1 mt-0.5 font-medium">
+                                        💳 Dompet: {{ item.meta.wallet_name }}
+                                    </div>
+                                    <div v-if="item.type === 'tarik_tunai'" class="text-[9px] text-orange-500 uppercase flex flex-col gap-0.5 mt-0.5 font-medium">
+                                        <span>👤 Pelanggan: {{ item.meta.customer_name }}</span>
+                                        <span class="bg-orange-100 px-1 py-0.5 rounded w-fit">💸 Transfer Saldo + Admin: Rp {{ Number(item.price).toLocaleString('id-ID') }}</span>
+                                    </div>
+                                </td>
+                                <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
+                                <td class="p-3 text-center">{{ item.quantity }}</td>
+                                <td class="p-3 text-right font-bold text-gray-800">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
+                                <td class="p-3 text-center">
+                                    <button @click="form.details.splice(idx,1); calculateAll()" class="text-red-400 hover:text-red-600 font-bold transition-colors">✕</button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div class="flex border-t-4 border-black font-black uppercase italic">
-                    <button @click="() => { showDetail = false; openEdit(selectedTransaction); }" class="flex-1 p-4 bg-blue-500 text-white border-r-4 border-black hover:bg-blue-600">Edit</button>
-                    <button @click="showDetail = false" class="flex-1 p-4 bg-black text-white">Tutup</button>
+
+                <div class="flex justify-between items-center pt-6 border-t border-gray-100">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grand Total Belanja</span>
+                        <div class="text-3xl font-black italic text-gray-900">Rp {{ form.total.toLocaleString('id-ID') }}</div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span v-if="errorMessage" class="text-red-500 font-bold text-xs uppercase animate-pulse">{{ errorMessage }}</span>
+                        <button @click="submit" :disabled="form.processing" class="px-10 py-3 bg-black text-white rounded-xl font-bold uppercase hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 shadow-lg">
+                            {{ form.processing ? 'Sedang Menyimpan...' : 'Simpan Transaksi' }}
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="mb-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-5xl font-black uppercase italic tracking-tighter leading-none">Transaksi</h1>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">Log penjualan dan arus kas</p>
-            </div>
-            <button v-if="!showForm" @click="openCreate" class="bg-yellow-400 border-4 border-black px-10 py-4 font-black uppercase  -[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 transition-all">
-                Tambahkan
-            </button>
+            <DataTable 
+                title="Riwayat Transaksi" 
+                :resource="transactions" 
+                :columns="columns" 
+                :showAddButton="true" 
+                routeName="transactions.index" 
+                @on-add="openCreate"
+            >
+                <template #transaction_at="{ value }"> 
+                    <span class="text-gray-500 font-medium">{{ formatDate(value) }}</span> 
+                </template>
+                <template #total="{ value }"> 
+                    <span class="font-bold text-blue-600">Rp {{ Number(value).toLocaleString('id-ID') }}</span> 
+                </template>
+            </DataTable>
         </div>
-
-        <DataTable :resource="transactions" :columns="columns">
-            <template #payment_name="{ value }">
-                <span class="bg-blue-600 text-white border-2 border-black px-3 py-1 text-[9px] font-black uppercase italic">{{ value || 'Tunai' }}</span>
-            </template>
-            <template #total="{ value }">
-                <span class="font-mono font-black text-xl">{{ Number(value).toLocaleString('id-ID') }}</span>
-            </template>
-            <template #actions="{ row }">
-                <div class="flex flex-row gap-x-5 justify-end items-center">
-                    <button @click="openDetail(row)" class="hover:scale-150 transition-transform">🔎</button>
-                    <button @click="openEdit(row)" class="hover:scale-150 transition-transform">✏️</button>
-                    <button @click="deleteTransaction(row.id)" class="hover:scale-150 transition-transform">❌</button>
-                </div>
-            </template>
-        </DataTable>
     </AuthenticatedLayout>
 </template>
