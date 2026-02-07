@@ -23,7 +23,7 @@ use App\Http\Controllers\TopupTransactionController;
 use App\Http\Controllers\TopupFeeRuleController;
 use App\Http\Controllers\PosUserStoreController;
 use App\Http\Controllers\WithdrawalFeeRuleController;
-
+use App\Http\Controllers\TransactionDetailController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -92,10 +92,10 @@ Route::middleware(['auth'])->group(function () {
     // Pos Transactions
     Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
-    Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update');
+    // Ubah PUT menjadi POST
+    Route::post('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update'); 
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
-
-    // Store Types
+        // Store Types
     Route::get('/store-types', [StoreTypeController::class, 'index'])->name('store-types.index');
     Route::post('/store-types', [StoreTypeController::class, 'store'])->name('store-types.store');
     Route::delete('/store-types/{id}', [StoreTypeController::class, 'destroy'])->name('store-types.destroy');
@@ -172,4 +172,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/withdrawal-fee-rules', [WithdrawalFeeRuleController::class, 'index'])->name('withdrawal-fee-rules.index');
     Route::post('/withdrawal-fee-rules', [WithdrawalFeeRuleController::class, 'store'])->name('withdrawal-fee-rules.store');
     Route::delete('/withdrawal-fee-rules/{id}', [WithdrawalFeeRuleController::class, 'destroy'])->name('withdrawal-fee-rules.destroy');
+
+    Route::get('/transaction-details/{id}', [TransactionDetailController::class, 'show'])->name('transaction-details.show');
+
 });

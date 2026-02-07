@@ -11,7 +11,7 @@ class Transaction extends Model
     protected $fillable = [
         'store_id',
         'pos_user_id',
-        'payment_id', // 1. Tambahkan ini agar metode bayar tersimpan
+        'payment_id',
         'transaction_at',
         'subtotal',
         'tax',
@@ -19,32 +19,29 @@ class Transaction extends Model
     ];
 
     /**
-     * Relasi ke Metode Pembayaran (Master Data)
+     * Relasi ke pembuat transaksi (TAMBAHKAN INI UNTUK MEMPERBAIKI ERROR 500)
      */
+    public function creator(): BelongsTo
+    {
+        // Biasanya creator merujuk ke pos_user_id atau user yang sedang login
+        return $this->belongsTo(PosUser::class, 'pos_user_id');
+    }
+
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class, 'payment_id');
     }
 
-    /**
-     * Relasi ke Detail Transaksi (Item yang dibeli)
-     */
     public function details(): HasMany
     {
         return $this->hasMany(TransactionDetail::class);
     }
 
-    /**
-     * Relasi ke Toko
-     */
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
     }
 
-    /**
-     * Relasi ke Staff/Kasir yang melayani
-     */
     public function posUser(): BelongsTo
     {
         return $this->belongsTo(PosUser::class, 'pos_user_id');

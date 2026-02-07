@@ -39,13 +39,15 @@ const menuItems = [
             { label: '💵 Metode Pembayaran', name: 'payment-methods.*', route: route('payment-methods.index') },
         ]
     },
+
+    { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') },
     
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
 
     
   
  
-    { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') },
+    
     
     // DROPDOWN TRANSAKSI DIGITAL
     { 

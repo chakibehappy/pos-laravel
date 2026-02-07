@@ -1,9 +1,12 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { useForm, Head, usePage } from '@inertiajs/vue3'; 
+import { useForm, Head, usePage, router } from '@inertiajs/vue3'; 
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+
+// IMPORT VIEW DETAIL
+import TransactionDetailView from '@/Pages/TransactionsDetails/Index.vue';
 
 const props = defineProps({ 
     transactions: Object,
@@ -32,6 +35,11 @@ const showForm = ref(false);
 const isEditMode = ref(false);
 const errorMessage = ref('');
 const productOptions = ref([]); 
+
+// STATE DETAIL MODAL
+const isDetailModalOpen = ref(false);
+const selectedTransactionId = ref(null);
+const detailRef = ref(null);
 
 const withdrawalTypeOptions = computed(() => {
     return (props.withdrawal_source_type || []).map(item => ({
@@ -66,10 +74,12 @@ const singleEntry = ref({
     withdrawal_source_id: '' 
 });
 
-// --- LOGIKA FILTER & REAKTIVITAS ---
+// --- LOGIKA ---
 
-watch(() => form.store_id, () => {
-    form.details = [];
+watch(() => form.store_id, (newStore, oldStore) => {
+    if (oldStore && !isEditMode.value) {
+        form.details = [];
+    }
     singleEntry.value.digital_wallet_store_id = '';
     calculateAll();
     refreshProductList();
@@ -93,15 +103,17 @@ const refreshProductList = () => {
         (props.store_products || []).forEach(sp => {
             if (String(sp.store_id) === String(form.store_id)) stockLookup[sp.product_id] = sp.stock;
         });
+
         productOptions.value = props.products
-            .filter(p => (stockLookup[p.id] || 0) > 0)
             .map(p => ({
                 id: p.id, 
-                name: `${p.name} (Stok: ${stockLookup[p.id]})`, 
+                name: `${p.name} (Stok: ${stockLookup[p.id] || 0})`, 
                 raw_name: p.name, 
                 price: p.price, 
-                stock: stockLookup[p.id]
-            }));
+                stock: stockLookup[p.id] || 0
+            }))
+            .filter(p => isEditMode.value ? true : p.stock > 0);
+
     } else if (singleEntry.value.type === 'topup') {
         productOptions.value = props.topup_trans_types.map(t => ({ 
             id: t.id, name: t.name, raw_name: t.name, price: 0, stock: 999 
@@ -132,6 +144,10 @@ const addToBatch = () => {
     if (singleEntry.value.type === 'produk') {
         const p = productOptions.value.find(x => x.id == singleEntry.value.product_id);
         if (!p) { errorMessage.value = "Pilih produk!"; return; }
+        if (!isEditMode.value && singleEntry.value.quantity > p.stock) {
+            errorMessage.value = `Stok tidak mencukupi! (Sisa: ${p.stock})`;
+            return;
+        }
         form.details.push({
             type: 'produk', product_id: p.id, name: p.raw_name, price: p.price,
             quantity: singleEntry.value.quantity, subtotal: p.price * singleEntry.value.quantity, meta: null
@@ -142,82 +158,110 @@ const addToBatch = () => {
         if (!s || !singleEntry.value.account_number || !w) { errorMessage.value = "Lengkapi data Top Up & Pilih Sumber Saldo!"; return; }
         
         form.details.push({
-            type: 'topup', 
-            product_id: s.id, 
-            name: `${s.raw_name} (${singleEntry.value.account_number})`,
-            price: singleEntry.value.price, 
-            quantity: 1, 
-            subtotal: singleEntry.value.price,
-            meta: { 
-                target: singleEntry.value.account_number, 
-                nominal_topup: singleEntry.value.nominal, 
-                digital_wallet_store_id: w.id, 
-                wallet_name: w.name 
-            }
+            type: 'topup', product_id: s.id, name: `${s.raw_name} (${singleEntry.value.account_number})`,
+            price: singleEntry.value.price, quantity: 1, subtotal: singleEntry.value.price,
+            meta: { target: singleEntry.value.account_number, nominal_topup: singleEntry.value.nominal, digital_wallet_store_id: w.id }
         });
     } else if (singleEntry.value.type === 'tarik_tunai') {
         const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
-
         if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
-            errorMessage.value = "Lengkapi data Tarik Tunai!";
-            return;
+            errorMessage.value = "Lengkapi data Tarik Tunai!"; return;
         }
-
-        // PERUBAHAN DISINI: subtotal diset 0 agar tidak menambah Grand Total
-        // Namun nominal & fee tetap masuk ke meta untuk dikirim ke Controller
+        const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
         form.details.push({
-            type: 'tarik_tunai', 
-            product_id: null, 
-            name: `TARIK TUNAI [${wType.name}]`,
-            price: Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee), 
-            quantity: 1, 
-            subtotal: 0, 
-            meta: { 
-                customer_name: singleEntry.value.customer_name, 
-                amount: singleEntry.value.withdrawal_amount, 
-                fee: singleEntry.value.admin_fee,           
-                withdrawal_source_id: wType.id, 
-                store_id: form.store_id 
-            }
+            type: 'tarik_tunai', product_id: null, name: `TARIK TUNAI [${wType.name}]: ${singleEntry.value.customer_name}`,
+            price: combinedPrice, quantity: 1, subtotal: combinedPrice, 
+            meta: { customer_name: singleEntry.value.customer_name, amount: singleEntry.value.withdrawal_amount, fee: singleEntry.value.admin_fee, withdrawal_source_id: wType.id }
         });
     }
     calculateAll();
     singleEntry.value.product_id = '';
     singleEntry.value.customer_name = '';
-    singleEntry.value.withdrawal_amount = 0;
-    singleEntry.value.admin_fee = 0;
 };
 
+/**
+ * SUBMIT: Menggunakan route POST sesuai permintaan
+ */
 const submit = () => {
     errorMessage.value = '';
     if (form.details.length === 0) { errorMessage.value = "Keranjang masih kosong!"; return; }
     if (!form.payment_id) { errorMessage.value = "Pilih metode pembayaran!"; return; }
 
-    const url = isEditMode.value ? route('transactions.update', form.id) : route('transactions.store');
-    form[isEditMode.value ? 'put' : 'post'](url, {
-        onSuccess: () => { 
-            showForm.value = false; 
-            form.reset(); 
+    const options = {
+        onSuccess: () => {
+            showForm.value = false;
+            isEditMode.value = false;
+            form.reset();
             form.details = [];
         },
-        onError: (err) => { 
-            errorMessage.value = err.message || Object.values(err)[0] || "Gagal menyimpan transaksi."; 
+        preserveScroll: true,
+        onError: (errors) => {
+            errorMessage.value = errors.message || "Terjadi kesalahan saat menyimpan.";
         }
-    });
+    };
+
+    if (isEditMode.value) {
+        // Route: Route::post('/transactions/{id}', ...)->name('transactions.update');
+        form.post(route('transactions.update', form.id), options);
+    } else {
+        // Route: Route::post('/transactions', ...)->name('transactions.store');
+        form.post(route('transactions.store'), options);
+    }
 };
 
 const openCreate = () => {
     isEditMode.value = false;
     form.reset();
+    form.id = null; 
     form.details = [];
-    
-    const adminEmail = page.props.auth.user.email;
-    const matchedUser = props.pos_users.find(u => u.username === adminEmail);
-    if (matchedUser) {
-        form.pos_user_id = matchedUser.id;
-    }
-
+    form.transaction_at = new Date().toISOString().slice(0, 16);
+    const matchedUser = props.pos_users.find(u => u.username === page.props.auth.user.email);
+    if (matchedUser) form.pos_user_id = matchedUser.id;
     showForm.value = true;
+};
+
+const openEdit = (row) => {
+    isEditMode.value = true;
+    form.id = row.id;
+    form.store_id = row.store_id;
+    form.pos_user_id = row.pos_user_id;
+    form.payment_id = row.payment_id;
+    form.transaction_at = row.transaction_at.replace(' ', 'T').slice(0, 16);
+    form.tax = row.tax || 0;
+    
+    form.details = row.details.map(d => ({
+        type: d.topup_transaction_id ? 'topup' : (d.cash_withdrawal_id ? 'tarik_tunai' : 'produk'),
+        product_id: d.product_id,
+        name: d.product?.name || (d.topup_transaction_id ? 'TOPUP' : (d.cash_withdrawal_id ? 'TARIK TUNAI' : 'PRODUK')),
+        price: d.selling_prices,
+        quantity: d.quantity,
+        subtotal: d.subtotal,
+        meta: d.topup_transaction_id ? { 
+            target: d.topup_transaction?.cust_account_number || '', 
+            nominal_topup: d.topup_transaction?.nominal_request || 0,
+            digital_wallet_store_id: d.topup_transaction?.digital_wallet_store_id
+        } : (d.cash_withdrawal_id ? { 
+            customer_name: d.cash_withdrawal?.customer_name || '',
+            amount: d.cash_withdrawal?.withdrawal_count || 0,
+            fee: d.cash_withdrawal?.admin_fee || 0,
+            withdrawal_source_id: d.cash_withdrawal?.withdrawal_source_id
+        } : null)
+    }));
+
+    calculateAll();
+    showForm.value = true;
+};
+
+const handleOpenDetail = (id) => {
+    selectedTransactionId.value = id;
+    isDetailModalOpen.value = true;
+    setTimeout(() => { detailRef.value?.fetchDetails(); }, 50);
+};
+
+const confirmDelete = (row) => {
+    if (confirm(`Apakah Anda yakin ingin membatalkan transaksi #${row.id}?`)) {
+        router.delete(route('transactions.destroy', row.id));
+    }
 };
 
 const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -227,137 +271,112 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
     <Head title="Master Transaksi" />
     <AuthenticatedLayout>
         <div class="p-8">
-            <div v-if="showForm" class="mb-8 p-6 bg-white rounded-xl border border-gray-200 shadow-md relative">
-                <button @click="showForm = false" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold">✕</button>
-                
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <SearchableSelect label="Toko" v-model="form.store_id" :options="stores" />
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Waktu Transaksi</label>
-                        <input v-model="form.transaction_at" type="datetime-local" class="border border-gray-300 rounded-lg p-2 text-sm h-[38px] outline-none focus:ring-1 focus:ring-blue-500" />
-                    </div>
-                    <SearchableSelect label="Kasir (Nota)" v-model="form.pos_user_id" :options="pos_users" />
-                    <SearchableSelect label="Metode Bayar" v-model="form.payment_id" :options="paymentMethods" />
-                </div>
-
-                <div class="p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6 border border-dashed border-gray-300">
-                    <div class="md:col-span-2 flex flex-col gap-1">
-                        <label class="text-[10px] font-bold text-gray-400 uppercase">Jenis Transaksi</label>
-                        <select v-model="singleEntry.type" class="border border-gray-300 rounded-lg p-2 text-xs h-[38px] bg-white outline-none">
-                            <option value="">PILIH...</option>
-                            <option value="produk">📦 PRODUK</option>
-                            <option value="topup">📱 TOP UP</option>
-                            <option value="tarik_tunai">💸 TARIK TUNAI</option>
-                        </select>
-                    </div>
+            
+            <div v-if="showForm" :class="isEditMode ? 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4' : ''">
+                <div class="p-6 bg-white rounded-xl border border-gray-200 shadow-md relative" :class="isEditMode ? 'w-full max-w-6xl max-h-[90vh] overflow-y-auto' : 'mb-8'">
                     
-                    <template v-if="singleEntry.type === 'produk'">
-                        <div class="md:col-span-6">
-                            <SearchableSelect label="Pilih Produk" v-model="singleEntry.product_id" :options="productOptions" />
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">Qty</label>
-                            <input v-model.number="singleEntry.quantity" type="number" min="1" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
-                        </div>
-                    </template>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-black uppercase tracking-tighter text-gray-800">
+                            {{ isEditMode ? 'Edit Transaksi #' + form.id : 'Input Transaksi Baru' }}
+                        </h2>
+                        <button @click="showForm = false" class="text-gray-400 hover:text-red-500 font-bold">✕ Close</button>
+                    </div>
 
-                    <template v-if="singleEntry.type === 'topup'">
-                        <div class="md:col-span-2"><SearchableSelect label="Layanan" v-model="singleEntry.product_id" :options="productOptions" /></div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">No. Tujuan</label>
-                            <input v-model="singleEntry.account_number" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" placeholder="08xx..." />
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <SearchableSelect label="Toko" v-model="form.store_id" :options="stores" :disabled="isEditMode" />
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Waktu Transaksi</label>
+                            <input v-model="form.transaction_at" type="datetime-local" class="border border-gray-300 rounded-lg p-2 text-sm h-[38px] outline-none" />
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">Nominal</label>
-                            <input v-model.number="singleEntry.nominal" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] font-bold text-blue-600 uppercase">Sumber Saldo</label>
-                            <select v-model="singleEntry.digital_wallet_store_id" class="border-2 border-blue-200 rounded-lg p-2 text-xs h-[38px] w-full bg-white outline-none">
-                                <option value="">PILIH DOMPET...</option>
-                                <option v-for="wallet in filteredWallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
+                        <SearchableSelect label="Kasir (Nota)" v-model="form.pos_user_id" :options="pos_users" />
+                        <SearchableSelect label="Metode Bayar" v-model="form.payment_id" :options="paymentMethods" />
+                    </div>
+
+                    <div class="p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6 border border-dashed border-gray-300">
+                        <div class="md:col-span-2 flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Jenis</label>
+                            <select v-model="singleEntry.type" class="border border-gray-300 rounded-lg p-2 text-xs h-[38px] bg-white outline-none">
+                                <option value="">PILIH...</option>
+                                <option value="produk">📦 PRODUK</option>
+                                <option value="topup">📱 TOP UP</option>
+                                <option value="tarik_tunai">💸 TARIK TUNAI</option>
                             </select>
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">Harga Jual</label>
-                            <input v-model.number="singleEntry.price" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
-                        </div>
-                    </template>
+                        
+                        <template v-if="singleEntry.type === 'produk'">
+                            <div class="md:col-span-6"><SearchableSelect label="Pilih Produk" v-model="singleEntry.product_id" :options="productOptions" /></div>
+                            <div class="md:col-span-2">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Qty</label>
+                                <input v-model.number="singleEntry.quantity" type="number" min="1" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" />
+                            </div>
+                        </template>
 
-                    <template v-if="singleEntry.type === 'tarik_tunai'">
-                        <div class="md:col-span-3">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Pelanggan</label>
-                            <input v-model="singleEntry.customer_name" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" placeholder="Masukkan Nama..." />
-                        </div>
-                        <div class="md:col-span-3">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase"></label>
-                            <SearchableSelect label="Jenis Tarik" v-model="singleEntry.withdrawal_source_id" :options="withdrawalTypeOptions" />
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">Nominal Tarik</label>
-                            <input v-model.number="singleEntry.withdrawal_amount" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase">Biaya Admin</label>
-                            <input v-model.number="singleEntry.admin_fee" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm outline-none" />
-                        </div>
-                    </template>
+                        <template v-if="singleEntry.type === 'topup'">
+                            <div class="md:col-span-2"><SearchableSelect label="Layanan" v-model="singleEntry.product_id" :options="productOptions" /></div>
+                            <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">No. Tujuan</label><input v-model="singleEntry.account_number" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
+                            <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Nominal</label><input v-model.number="singleEntry.nominal" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
+                            <div class="md:col-span-2">
+                                <label class="text-[10px] font-bold text-blue-600 uppercase">Sumber Saldo</label>
+                                <select v-model="singleEntry.digital_wallet_store_id" class="border-2 border-blue-200 rounded-lg p-2 text-xs h-[38px] w-full bg-white">
+                                    <option value="">PILIH DOMPET...</option>
+                                    <option v-for="wallet in filteredWallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Harga Jual</label><input v-model.number="singleEntry.price" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
+                        </template>
 
-                    <div v-if="singleEntry.type" class="md:col-span-2">
-                        <button @click="addToBatch" class="w-full bg-blue-600 text-white rounded-lg h-[38px] font-bold text-xs uppercase hover:bg-blue-700 transition-colors shadow-sm active:scale-95">+ Tambah</button>
+                        <template v-if="singleEntry.type === 'tarik_tunai'">
+                            <div class="md:col-span-3"><label class="text-[10px] font-bold text-gray-400 uppercase">Nama Pelanggan</label><input v-model="singleEntry.customer_name" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
+                            <div class="md:col-span-3"><SearchableSelect label="Jenis Tarik" v-model="singleEntry.withdrawal_source_id" :options="withdrawalTypeOptions" /></div>
+                            <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Nominal</label><input v-model.number="singleEntry.withdrawal_amount" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
+                            <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Biaya Admin</label><input v-model.number="singleEntry.admin_fee" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
+                        </template>
+
+                        <div v-if="singleEntry.type" class="md:col-span-2">
+                            <button @click="addToBatch" class="w-full bg-blue-600 text-white rounded-lg h-[38px] font-bold text-xs uppercase hover:bg-blue-700 shadow-sm">+ Tambah</button>
+                        </div>
                     </div>
-                </div>
 
-                <div v-if="form.details.length > 0" class="border rounded-lg overflow-hidden mb-6 shadow-sm bg-white">
-                    <table class="w-full text-xs">
-                        <thead class="bg-gray-100 uppercase font-bold text-gray-500 border-b">
-                            <tr>
-                                <th class="p-3 text-left w-20">Jenis</th>
-                                <th class="p-3 text-left">Item / Detail</th>
-                                <th class="p-3 text-right">Harga</th>
-                                <th class="p-3 text-center">Qty</th>
-                                <th class="p-3 text-right">Total</th>
-                                <th class="p-3 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(item, idx) in form.details" :key="idx" class="border-b last:border-0 hover:bg-gray-50 transition-colors">
-                                <td class="p-3 text-center">
-                                    <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[9px] uppercase font-bold text-gray-600">
-                                        {{ item.type.replace('_', ' ') }}
-                                    </span>
-                                </td>
-                                <td class="p-3 font-bold">
-                                    {{ item.name }}
-                                    <div v-if="item.meta?.wallet_name" class="text-[9px] text-blue-500 uppercase flex items-center gap-1 mt-0.5 font-medium">
-                                        💳 Dompet: {{ item.meta.wallet_name }}
-                                    </div>
-                                    <div v-if="item.type === 'tarik_tunai'" class="text-[9px] text-orange-500 uppercase flex flex-col gap-0.5 mt-0.5 font-medium">
-                                        <span>👤 Pelanggan: {{ item.meta.customer_name }}</span>
-                                        <span class="bg-orange-100 px-1 py-0.5 rounded w-fit">💸 Transfer Saldo + Admin: Rp {{ Number(item.price).toLocaleString('id-ID') }}</span>
-                                    </div>
-                                </td>
-                                <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
-                                <td class="p-3 text-center">{{ item.quantity }}</td>
-                                <td class="p-3 text-right font-bold text-gray-800">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
-                                <td class="p-3 text-center">
-                                    <button @click="form.details.splice(idx,1); calculateAll()" class="text-red-400 hover:text-red-600 font-bold transition-colors">✕</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="flex justify-between items-center pt-6 border-t border-gray-100">
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grand Total Belanja</span>
-                        <div class="text-3xl font-black italic text-gray-900">Rp {{ form.total.toLocaleString('id-ID') }}</div>
+                    <div v-if="form.details.length > 0" class="border rounded-lg overflow-hidden mb-6 bg-white shadow-sm">
+                        <table class="w-full text-xs">
+                            <thead class="bg-gray-100 uppercase font-bold text-gray-500 border-b">
+                                <tr>
+                                    <th class="p-3 text-left w-20">Jenis</th>
+                                    <th class="p-3 text-left">Item / Detail</th>
+                                    <th class="p-3 text-right">Harga</th>
+                                    <th class="p-3 text-center">Qty</th>
+                                    <th class="p-3 text-right">Total</th>
+                                    <th class="p-3 w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, idx) in form.details" :key="idx" class="border-b last:border-0 hover:bg-gray-50">
+                                    <td class="p-3">
+                                        <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[9px] uppercase font-bold text-gray-600">{{ item.type.replace('_', ' ') }}</span>
+                                    </td>
+                                    <td class="p-3 font-bold uppercase">{{ item.name }}</td>
+                                    <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
+                                    <td class="p-3 text-center">{{ item.quantity }}</td>
+                                    <td class="p-3 text-right font-bold text-gray-800">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
+                                    <td class="p-3 text-center">
+                                        <button @click="form.details.splice(idx,1); calculateAll()" class="text-red-400 hover:text-red-600 font-bold">✕</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <span v-if="errorMessage" class="text-red-500 font-bold text-xs uppercase animate-pulse">{{ errorMessage }}</span>
-                        <button @click="submit" :disabled="form.processing" class="px-10 py-3 bg-black text-white rounded-xl font-bold uppercase hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 shadow-lg">
-                            {{ form.processing ? 'Sedang Menyimpan...' : 'Simpan Transaksi' }}
-                        </button>
+
+                    <div class="flex justify-between items-center pt-6 border-t border-gray-100">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grand Total</span>
+                            <div class="text-3xl font-black italic text-gray-900">Rp {{ form.total.toLocaleString('id-ID') }}</div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span v-if="errorMessage" class="text-red-500 font-bold text-xs uppercase">{{ errorMessage }}</span>
+                            <button @click="submit" :disabled="form.processing" class="px-10 py-3 bg-black text-white rounded-xl font-bold uppercase hover:bg-gray-800 shadow-lg transition-all active:scale-95">
+                                {{ form.processing ? 'Menyimpan...' : (isEditMode ? 'Update Transaksi' : 'Simpan Transaksi') }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -374,9 +393,24 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                     <span class="text-gray-500 font-medium">{{ formatDate(value) }}</span> 
                 </template>
                 <template #total="{ value }"> 
-                    <span class="font-bold text-blue-600">Rp {{ Number(value).toLocaleString('id-ID') }}</span> 
+                    <span class="font-black text-gray-900 italic">Rp {{ Number(value).toLocaleString('id-ID') }}</span> 
+                </template>
+
+                <template #actions="{ row }">
+                    <div class="flex items-center gap-2 justify-end">
+                        <button @click="handleOpenDetail(row.id)" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100">🔎</button>
+                        <button @click="openEdit(row)" class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg font-black text-[10px] uppercase hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-100">✏️</button>
+                        <button @click="confirmDelete(row)" class="px-3 py-1 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100">❌</button>
+                    </div>
                 </template>
             </DataTable>
         </div>
+
+        <TransactionDetailView 
+            ref="detailRef"
+            :show="isDetailModalOpen" 
+            :transactionId="selectedTransactionId" 
+            @close="isDetailModalOpen = false" 
+        />
     </AuthenticatedLayout>
 </template>
