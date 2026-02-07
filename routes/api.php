@@ -289,16 +289,7 @@ Route::middleware('auth:sanctum')->post('/transactions/{transaction}/request-del
         }
 
         $posUser = $request->user();
-        // Ensure POS user belongs to the transaction's store
-        $hasAccess = $posUser->stores()
-            ->where('stores.id', $transaction->store_id)
-            ->exists();
-
-        if (! $hasAccess) {
-            return response()->json([
-                'message' => 'You do not have access to this store.',
-            ], 403);
-        }
+        
 
         $transaction->update([
             'status' => Transaction::STATUS_PENDING_DELETE,
