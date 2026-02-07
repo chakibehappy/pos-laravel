@@ -278,7 +278,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
 Route::middleware('auth:sanctum')->post('/request-delete', function (Request $request) {
         $request->validate([
             'reason' => 'required|string|max:255',
-            'transaction_id' => 'required|integer|exists:stores,id',
+            'transaction_id' => 'required|integer|exists:transactions,id',
         ]);
 
         $transaction = Transaction::findOrFail($request->transaction_id);
