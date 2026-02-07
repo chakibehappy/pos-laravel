@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Transaction extends Model
 {
+    
+    const STATUS_ACTIVE = 0;
+    const STATUS_PENDING_DELETE = 1;
+    const STATUS_DELETED = 2;
+
     protected $fillable = [
         'store_id',
         'pos_user_id',
@@ -15,9 +20,37 @@ class Transaction extends Model
         'transaction_at',
         'subtotal',
         'tax',
-        'total'
+        'total',
+        'created_by',
+        // new deletion-related fields
+        'status',
+        'delete_requested_by',
+        'delete_reason',
+        'admin_approved_by',
+        'deleted_at',
     ];
 
+    protected $casts = [
+        'transaction_at' => 'datetime',
+        'deleted_at' => 'datetime',
+        'status' => 'integer',
+    ];
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', self::STATUS_ACTIVE);
+    }
+
+    public function scopePendingDelete($query)
+    {
+        return $query->where('status', self::STATUS_PENDING_DELETE);
+    }
+
+    public function scopeDeleted($query)
+    {
+        return $query->where('status', self::STATUS_DELETED);
+    }
+    
     /**
      * Relasi ke Metode Pembayaran (Master Data)
      */

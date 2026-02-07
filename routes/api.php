@@ -260,6 +260,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
             'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
+        ->active()
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
@@ -272,3 +273,43 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
         'transactions' => $transactions,
     ]);
 });
+
+
+Route::middleware('auth:sanctum')->post('/transactions/{transaction}/request-delete',
+    function (Request $request, Transaction $transaction) {
+        $request->validate([
+            'reason' => 'required|string|max:255',
+        ]);
+
+        // Ensure only ACTIVE transactions can be requested
+        if ($transaction->status !== Transaction::STATUS_ACTIVE) {
+            return response()->json([
+                'message' => 'Transaction cannot be requested for deletion.',
+            ], 422);
+        }
+
+        $posUser = $request->user();
+        // Ensure POS user belongs to the transaction's store
+        $hasAccess = $posUser->stores()
+            ->where('stores.id', $transaction->store_id)
+            ->exists();
+
+        if (! $hasAccess) {
+            return response()->json([
+                'message' => 'You do not have access to this store.',
+            ], 403);
+        }
+
+        $transaction->update([
+            'status' => Transaction::STATUS_PENDING_DELETE,
+            'delete_requested_by' => $request->user()->id,
+            'delete_reason' => $request->reason,
+        ]);
+
+        return response()->json([
+            'message' => 'Delete request submitted successfully.',
+            'transaction_id' => $transaction->id,
+            'status' => $transaction->status,
+        ]);
+    }
+);
