@@ -158,9 +158,18 @@ const addToBatch = () => {
         if (!s || !singleEntry.value.account_number || !w) { errorMessage.value = "Lengkapi data Top Up & Pilih Sumber Saldo!"; return; }
         
         form.details.push({
-            type: 'topup', product_id: s.id, name: `${s.raw_name} (${singleEntry.value.account_number})`,
-            price: singleEntry.value.price, quantity: 1, subtotal: singleEntry.value.price,
-            meta: { target: singleEntry.value.account_number, nominal_topup: singleEntry.value.nominal, digital_wallet_store_id: w.id }
+            type: 'topup', 
+            product_id: null,
+            name: `${s.raw_name} (${singleEntry.value.account_number})`,
+            price: singleEntry.value.price, 
+            quantity: 1, 
+            subtotal: singleEntry.value.price,
+            meta: { 
+                target: singleEntry.value.account_number, 
+                nominal_topup: singleEntry.value.nominal, 
+                digital_wallet_store_id: w.id,
+                topup_trans_type_id: s.id 
+            }
         });
     } else if (singleEntry.value.type === 'tarik_tunai') {
         const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
@@ -174,14 +183,48 @@ const addToBatch = () => {
             meta: { customer_name: singleEntry.value.customer_name, amount: singleEntry.value.withdrawal_amount, fee: singleEntry.value.admin_fee, withdrawal_source_id: wType.id }
         });
     }
+    
     calculateAll();
-    singleEntry.value.product_id = '';
-    singleEntry.value.customer_name = '';
+
+    // RESET FORM INPUT SETELAH DITAMBAHKAN KE KERANJANG
+    const savedType = singleEntry.value.type;
+    Object.assign(singleEntry.value, { 
+        product_id: '', 
+        quantity: 1, 
+        account_number: '',
+        nominal: 0, 
+        price: 0, 
+        customer_name: '', 
+        withdrawal_amount: 0, 
+        admin_fee: 0,
+        digital_wallet_store_id: '',
+        withdrawal_source_id: '' 
+    });
+    singleEntry.value.type = savedType;
 };
 
-/**
- * SUBMIT: Menggunakan route POST sesuai permintaan
- */
+// FUNGSI RESET & TUTUP
+const closeForm = () => {
+    showForm.value = false;
+    isEditMode.value = false;
+    errorMessage.value = '';
+    form.reset();
+    form.details = [];
+    Object.assign(singleEntry.value, { 
+        type: '', 
+        product_id: '', 
+        quantity: 1, 
+        account_number: '',
+        nominal: 0, 
+        price: 0, 
+        customer_name: '', 
+        withdrawal_amount: 0, 
+        admin_fee: 0,
+        digital_wallet_store_id: '',
+        withdrawal_source_id: '' 
+    });
+};
+
 const submit = () => {
     errorMessage.value = '';
     if (form.details.length === 0) { errorMessage.value = "Keranjang masih kosong!"; return; }
@@ -189,10 +232,7 @@ const submit = () => {
 
     const options = {
         onSuccess: () => {
-            showForm.value = false;
-            isEditMode.value = false;
-            form.reset();
-            form.details = [];
+            closeForm();
         },
         preserveScroll: true,
         onError: (errors) => {
@@ -201,10 +241,8 @@ const submit = () => {
     };
 
     if (isEditMode.value) {
-        // Route: Route::post('/transactions/{id}', ...)->name('transactions.update');
         form.post(route('transactions.update', form.id), options);
     } else {
-        // Route: Route::post('/transactions', ...)->name('transactions.store');
         form.post(route('transactions.store'), options);
     }
 };
@@ -239,7 +277,8 @@ const openEdit = (row) => {
         meta: d.topup_transaction_id ? { 
             target: d.topup_transaction?.cust_account_number || '', 
             nominal_topup: d.topup_transaction?.nominal_request || 0,
-            digital_wallet_store_id: d.topup_transaction?.digital_wallet_store_id
+            digital_wallet_store_id: d.topup_transaction?.digital_wallet_store_id,
+            topup_trans_type_id: d.topup_transaction?.topup_trans_type_id
         } : (d.cash_withdrawal_id ? { 
             customer_name: d.cash_withdrawal?.customer_name || '',
             amount: d.cash_withdrawal?.withdrawal_count || 0,
@@ -271,15 +310,13 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
     <Head title="Master Transaksi" />
     <AuthenticatedLayout>
         <div class="p-8">
-            
             <div v-if="showForm" :class="isEditMode ? 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4' : ''">
                 <div class="p-6 bg-white rounded-xl border border-gray-200 shadow-md relative" :class="isEditMode ? 'w-full max-w-6xl max-h-[90vh] overflow-y-auto' : 'mb-8'">
-                    
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-lg font-black uppercase tracking-tighter text-gray-800">
                             {{ isEditMode ? 'Edit Transaksi #' + form.id : 'Input Transaksi Baru' }}
                         </h2>
-                        <button @click="showForm = false" class="text-gray-400 hover:text-red-500 font-bold">✕ Close</button>
+                        <button @click="closeForm" class="text-gray-400 hover:text-red-500 font-bold">✕ Close</button>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

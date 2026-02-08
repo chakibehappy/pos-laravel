@@ -51,17 +51,11 @@ class TransactionController extends Controller
         ]);
     }
 
-    /**
-     * Store menggunakan POST /transactions
-     */
     public function store(Request $request)
     {
         return $this->processTransaction($request);
     }
 
-    /**
-     * Update menggunakan POST /transactions/{id}
-     */
     public function update(Request $request, $id)
     {
         return $this->processTransaction($request, $id);
@@ -73,10 +67,10 @@ class TransactionController extends Controller
             DB::transaction(function () use ($id) {
                 $transaction = Transaction::with('details')->findOrFail($id);
 
-                // 1. Rollback Stok, Saldo Wallet, dan Kas (Tarik Tunai)
+                // 1. Rollback Stok, Saldo Wallet, dan Kas
                 $this->rollbackAssets($transaction);
 
-                // 2. Rollback saldo kas utama (uang masuk dari subtotal transaksi)
+                // 2. Rollback saldo kas utama toko
                 DB::table('cash_store')
                     ->where('store_id', $transaction->store_id)
                     ->decrement('cash', $transaction->subtotal);
@@ -109,9 +103,9 @@ class TransactionController extends Controller
         $matchPosUser = PosUser::where('username', $adminEmail)->first();
         $automatedCreatedBy = $matchPosUser ? $matchPosUser->id : $request->pos_user_id;
 
+        // Hitung ulang subtotal untuk keamanan (hanya produk & topup yang menambah kas masuk)
         $calcSubtotal = 0;
         foreach ($request->details as $item) {
-            // Hanya produk dan topup yang menambah subtotal (kas masuk)
             if ($item['type'] !== 'tarik_tunai') {
                 $calcSubtotal += $item['subtotal'];
             }
@@ -122,13 +116,10 @@ class TransactionController extends Controller
             DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal) {
                 $storeId = $request->store_id;
 
-                // LOGIKA EDIT: Rollback data lama sebelum ditimpa data baru
                 if ($id) {
                     $old = Transaction::with('details')->findOrFail($id);
                     $this->rollbackAssets($old);
-                    // Kembalikan saldo kas toko dari subtotal lama
                     DB::table('cash_store')->where('store_id', $old->store_id)->decrement('cash', $old->subtotal);
-                    // Hapus detail lama
                     $old->details()->delete();
                 }
 
@@ -145,7 +136,6 @@ class TransactionController extends Controller
                     ]
                 );
 
-                // Tambahkan kas masuk ke toko
                 DB::table('cash_store')->where('store_id', $storeId)->increment('cash', $calcSubtotal);
 
                 foreach ($request->details as $item) {
@@ -155,6 +145,7 @@ class TransactionController extends Controller
                     $buyingPrice = 0;
                     $itemSubtotal = ($item['type'] === 'tarik_tunai') ? 0 : $item['subtotal'];
 
+                    // LOGIKA PRODUK
                     if ($item['type'] === 'produk') {
                         $productMaster = Product::find($item['product_id']);
                         if ($productMaster) $buyingPrice = $productMaster->buying_price;
@@ -164,14 +155,18 @@ class TransactionController extends Controller
                         $sp->decrement('stock', $item['quantity']);
                     }
 
+                    // LOGIKA TOPUP (PERBAIKAN DI SINI)
                     if ($item['type'] === 'topup') {
+                        // Ambil ID tipe dari meta (sesuai saran perbaikan Vue sebelumnya) atau fallback ke product_id
+                        $typeId = isset($item['meta']['topup_trans_type_id']) ? $item['meta']['topup_trans_type_id'] : $item['product_id'];
+
                         $topupTransId = DB::table('topup_transactions')->insertGetId([
                             'store_id'                => $storeId,
                             'digital_wallet_store_id' => $item['meta']['digital_wallet_store_id'],
                             'cust_account_number'     => $item['meta']['target'],
                             'nominal_request'         => $item['meta']['nominal_topup'],
                             'nominal_pay'             => $item['price'],
-                            'topup_trans_type_id'     => $item['product_id'],
+                            'topup_trans_type_id'     => $typeId, // Menggunakan ID yang benar
                             'created_by'              => $automatedCreatedBy,
                             'created_at'              => $request->transaction_at,
                             'updated_at'              => now(),
@@ -179,6 +174,7 @@ class TransactionController extends Controller
                         DigitalWalletStore::where('id', $item['meta']['digital_wallet_store_id'])->decrement('balance', $item['meta']['nominal_topup']);
                     }
 
+                    // LOGIKA TARIK TUNAI
                     if ($item['type'] === 'tarik_tunai') {
                         $cashWithId = DB::table('cash_withdrawals')->insertGetId([
                             'store_id'             => $storeId,
@@ -190,7 +186,6 @@ class TransactionController extends Controller
                             'created_at'           => $request->transaction_at,
                             'updated_at'           => now(),
                         ]);
-                        // Tarik tunai mengurangi kas toko
                         DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $item['meta']['amount']);
                     }
 
@@ -216,7 +211,7 @@ class TransactionController extends Controller
     private function rollbackAssets($transaction)
     {
         foreach ($transaction->details as $detail) {
-            // 1. Rollback Stok Produk
+            // 1. Rollback Stok
             if ($detail->product_id) {
                 StoreProduct::where('store_id', $transaction->store_id)
                     ->where('product_id', $detail->product_id)
@@ -237,7 +232,6 @@ class TransactionController extends Controller
             if ($detail->cash_withdrawal_id) {
                 $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
                 if ($withdraw) {
-                    // Jika dibatalkan, uang yang tadinya keluar dikembalikan ke kas toko
                     DB::table('cash_store')->where('store_id', $transaction->store_id)
                         ->increment('cash', $withdraw->withdrawal_count);
                     DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
