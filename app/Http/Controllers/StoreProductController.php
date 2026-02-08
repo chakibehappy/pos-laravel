@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\Product;
 use App\Models\StoreProduct;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class StoreProductController extends Controller
@@ -15,11 +16,14 @@ class StoreProductController extends Controller
         $query = StoreProduct::with(['store', 'product.unitType'])
             ->join('stores', 'store_products.store_id', '=', 'stores.id')
             ->join('products', 'store_products.product_id', '=', 'products.id')
+            // Join ke pos_users untuk mengambil nama berdasarkan ID di created_by
+            ->leftJoin('pos_users', 'store_products.created_by', '=', 'pos_users.id')
             ->select(
                 'store_products.*', 
                 'stores.name as store_name', 
                 'products.name as product_name',
-                'products.sku as product_sku'
+                'products.sku as product_sku',
+                'pos_users.name as creator_name' // Kolom nama dari pos_users
             );
 
         if ($request->search) {
@@ -33,13 +37,14 @@ class StoreProductController extends Controller
         return Inertia::render('StoreProducts/Index', [
             'stocks' => $query->latest('store_products.updated_at')->paginate(10)->withQueryString(),
             'stores' => Store::all(['id', 'name']),
-            'products' => Product::all(['id', 'name', 'sku']), // Tidak perlu ambil data stock gudang lagi
+            'products' => Product::all(['id', 'name', 'sku']),
             'filters' => $request->only(['search']),
         ]);
     }
 
     /**
-     * Menyimpan atau Update stok toko tanpa mempedulikan stok gudang.
+     * Menyimpan atau Update stok toko secara mandiri
+     * Serta mencatat siapa yang melakukan aksi berdasarkan mapping email -> pos_users
      */
     public function store(Request $request)
     {
@@ -49,17 +54,34 @@ class StoreProductController extends Controller
             'stock'      => 'required|integer|min:0',
         ]);
 
-        // Langsung update atau create tanpa mengecek dan memotong stok gudang
+        /** * LOGIKA MAPPING USER:
+         * 1. Ambil email dari user yang login di sistem Admin.
+         * 2. Cari di tabel 'pos_users' yang username-nya sama dengan email tersebut.
+         */
+        $adminEmail = auth()->user()->email;
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+        
+        // Ambil ID-nya jika ketemu, jika tidak set null
+        $createdBy = $posUser ? $posUser->id : null;
+
+        // Proses Update atau Create (Mandiri tanpa memotong stok gudang)
         StoreProduct::updateOrCreate(
-            ['store_id' => $request->store_id, 'product_id' => $request->product_id],
-            ['stock' => $request->stock]
+            [
+                'store_id' => $request->store_id, 
+                'product_id' => $request->product_id
+            ],
+            [
+                'stock' => $request->stock,
+                'created_by' => $createdBy
+            ]
         );
 
-        return back()->with('message', 'Stok toko berhasil diperbarui (Mandiri).');
+        return back()->with('message', 'Data stok cabang berhasil diperbarui!');
     }
 
     public function update(Request $request, $id)
     {
+        // Mengarahkan ke store untuk konsistensi logic
         return $this->store($request);
     }
 
@@ -71,6 +93,6 @@ class StoreProductController extends Controller
         $sp = StoreProduct::findOrFail($id);
         $sp->delete();
 
-        return back()->with('message', 'Data stok toko telah dihapus.');
+        return back()->with('message', 'Data stok cabang berhasil dihapus.');
     }
 }

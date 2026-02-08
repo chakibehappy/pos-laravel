@@ -52,12 +52,7 @@ const menuItems = [
             { label: '🏧 Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
         ]
     },
-    
-    { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
-
-   
-    
-    { 
+     { 
         label: 'Master Produk', 
         icon: '📦', 
         isDropdown: true,
@@ -70,6 +65,7 @@ const menuItems = [
         ]
     },
     
+    { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { label: 'Akun', icon: '⚙️', name: 'accounts.*', route: route('accounts.index') }
     
 ];

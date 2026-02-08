@@ -10,11 +10,19 @@ class UnitTypeController extends Controller
 {
     /**
      * Menampilkan daftar satuan.
+     * Disesuaikan untuk mendukung Pagination & Search.
      */
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('UnitTypes/Index', [
-            'units' => UnitType::latest()->get()
+            'units' => UnitType::query()
+                ->when($request->search, function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%");
+                })
+                ->latest()
+                ->paginate(10) // WAJIB paginate agar DataTable tidak error
+                ->withQueryString(),
+            'filters' => $request->only(['search'])
         ]);
     }
 
@@ -36,7 +44,7 @@ class UnitTypeController extends Controller
             ['name' => $request->name]
         );
 
-        return back()->with('message', 'satuan berhasil disimpan!');
+        return back()->with('message', 'Satuan berhasil disimpan!');
     }
 
     /**
@@ -46,13 +54,10 @@ class UnitTypeController extends Controller
     {
         $unit = UnitType::findOrFail($id);
         
-        // Cek jika satuan masih dipakai produk (opsional tapi disarankan)
-        // if ($unit->products()->count() > 0) {
-        //     return back()->with('error', 'Gagal! satuan masih digunakan oleh produk.');
-        // }
-
+        // Cek jika satuan masih dipakai produk bisa ditambahkan di sini
+        
         $unit->delete();
 
-        return back()->with('message', 'satuan berhasil dihapus!');
+        return back()->with('message', 'Satuan berhasil dihapus!');
     }
 }
