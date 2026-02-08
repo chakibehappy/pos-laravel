@@ -6,7 +6,6 @@ use App\Models\Store;
 use App\Models\Product;
 use App\Models\StoreProduct;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class StoreProductController extends Controller
@@ -32,15 +31,16 @@ class StoreProductController extends Controller
         }
 
         return Inertia::render('StoreProducts/Index', [
-            // Gunakan alias updated_at agar tidak ambigu saat ordering
             'stocks' => $query->latest('store_products.updated_at')->paginate(10)->withQueryString(),
             'stores' => Store::all(['id', 'name']),
-            'products' => Product::all(['id', 'name', 'sku', 'stock']),
-            // Flash message menggunakan key 'message' agar sesuai dengan Index.vue Anda
-            'flash' => ['message' => session('message')]
+            'products' => Product::all(['id', 'name', 'sku']), // Tidak perlu ambil data stock gudang lagi
+            'filters' => $request->only(['search']),
         ]);
     }
 
+    /**
+     * Menyimpan atau Update stok toko tanpa mempedulikan stok gudang.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -49,59 +49,28 @@ class StoreProductController extends Controller
             'stock'      => 'required|integer|min:0',
         ]);
 
-        try {
-            DB::transaction(function () use ($request) {
-                // Lock data produk di gudang agar tidak ada tabrakan stok
-                $product = Product::lockForUpdate()->findOrFail($request->product_id);
-                
-                $storeProduct = StoreProduct::where('store_id', $request->store_id)
-                    ->where('product_id', $request->product_id)
-                    ->first();
+        // Langsung update atau create tanpa mengecek dan memotong stok gudang
+        StoreProduct::updateOrCreate(
+            ['store_id' => $request->store_id, 'product_id' => $request->product_id],
+            ['stock' => $request->stock]
+        );
 
-                $oldStock = $storeProduct ? $storeProduct->stock : 0;
-                $diff = $request->stock - $oldStock;
-
-                // Jika stok ditambah, cek apakah stok gudang cukup
-                if ($diff > 0 && $product->stock < $diff) {
-                    throw new \Exception("Stok gudang tidak cukup! Sisa: {$product->stock}");
-                }
-
-                // Update jika ada, Create jika belum ada
-                StoreProduct::updateOrCreate(
-                    ['store_id' => $request->store_id, 'product_id' => $request->product_id],
-                    ['stock' => $request->stock]
-                );
-
-                // Kurangi (atau tambah jika diff negatif) stok gudang utama
-                $product->decrement('stock', $diff);
-            });
-
-            return back()->with('message', 'Data stok cabang berhasil diperbarui!');
-        } catch (\Exception $e) {
-            // Mengirim error ke form.errors.message di Vue
-            return back()->withErrors(['message' => $e->getMessage()]);
-        }
+        return back()->with('message', 'Stok toko berhasil diperbarui (Mandiri).');
     }
 
     public function update(Request $request, $id)
     {
-        // Mengarahkan fungsi update ke store untuk efisiensi code
         return $this->store($request);
     }
 
+    /**
+     * Menghapus stok di toko tanpa mengembalikan ke gudang.
+     */
     public function destroy($id)
     {
-        try {
-            DB::transaction(function () use ($id) {
-                $sp = StoreProduct::findOrFail($id);
-                // Kembalikan stok cabang ke gudang utama sebelum dihapus
-                Product::where('id', $sp->product_id)->increment('stock', $sp->stock);
-                $sp->delete();
-            });
+        $sp = StoreProduct::findOrFail($id);
+        $sp->delete();
 
-            return back()->with('message', 'Stok ditarik kembali ke gudang pusat.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['message' => 'Gagal menarik stok.']);
-        }
+        return back()->with('message', 'Data stok toko telah dihapus.');
     }
 }

@@ -41,14 +41,6 @@ const menuItems = [
     },
 
     { label: 'Transaksi', icon: '🛒', name: 'transactions.*', route: route('transactions.index') },
-    
-    { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
-
-    
-  
- 
-    
-    
     // DROPDOWN TRANSAKSI DIGITAL
     { 
         label: 'Transaksi Digital', 
@@ -61,6 +53,8 @@ const menuItems = [
         ]
     },
     
+    { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
+
    
     
     { 
