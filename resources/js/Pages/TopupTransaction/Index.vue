@@ -194,12 +194,7 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
                     <span class="text-green-600 font-bold">{{ formatIDR(value) }}</span>
                 </template>
 
-                <template #actions="{ row }">
-                    <div class="flex flex-row gap-4 justify-end items-center">
-                        <button @click="openEdit(row)" class="text-lg hover:scale-125 transition-transform" title="Edit Data">✏️</button>
-                        <button @click="destroy(row.id)" class="text-lg hover:scale-125 transition-transform" title="Hapus Data">❌</button>
-                    </div>
-                </template>
+           
             </DataTable>
 
         </div>
