@@ -19,7 +19,7 @@ const columns = [
     { label: 'Toko / Pelanggan', key: 'store' }, 
     { label: 'Layanan', key: 'trans_type' },
     { label: 'Potong Saldo', key: 'nominal_request' },
-    { label: 'Bayar (Kas)', key: 'nominal_pay' }
+    { label: 'Harga (Rp)', key: 'nominal_pay' }
 ];
 
 const form = useForm({
