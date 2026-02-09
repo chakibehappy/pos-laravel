@@ -1,51 +1,56 @@
 <script setup>
 import { ref } from 'vue';
-import { useForm, Head } from '@inertiajs/vue3';
+import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
-    categories: Array
+    categories: Object, // Harus berupa LengthAwarePaginator dari Controller
+    filters: Object
 });
 
-// State untuk Form Toggle
-const showForm = ref(false);
+const columns = [
+    { label: 'ID', key: 'id' },
+    { label: 'Nama Kategori', key: 'name' }
+];
 
-// Inisialisasi Form menggunakan Inertia useForm
+const showInlineForm = ref(false); // Untuk Tambah
+const showModalForm = ref(false);  // Untuk Edit
+
 const form = useForm({
     id: null,
     name: ''
 });
 
-// Fungsi buka form untuk Tambah
 const openCreate = () => {
     form.reset();
     form.clearErrors();
     form.id = null;
-    showForm.value = true;
+    showModalForm.value = false;
+    showInlineForm.value = true;
 };
 
-// Fungsi buka form untuk Edit
-const openEdit = (item) => {
+const openEdit = (row) => {
     form.clearErrors();
-    form.id = item.id;
-    form.name = item.name;
-    showForm.value = true;
+    form.id = row.id;
+    form.name = row.name;
+    showInlineForm.value = false;
+    showModalForm.value = true;
 };
 
-// Eksekusi Simpan (Tambah/Edit)
 const submit = () => {
     form.post(route('product-categories.store'), {
         onSuccess: () => {
-            showForm.value = false;
+            showInlineForm.value = false;
+            showModalForm.value = false;
             form.reset();
         },
     });
 };
 
-// Eksekusi Hapus
 const deleteCategory = (id) => {
     if (confirm('Hapus kategori ini? Semua produk terkait mungkin akan kehilangan kategorinya.')) {
-        form.delete(route('product-categories.destroy', id));
+        router.delete(route('product-categories.destroy', id));
     }
 };
 </script>
@@ -54,94 +59,90 @@ const deleteCategory = (id) => {
     <Head title="Kategori Produk" />
 
     <AuthenticatedLayout>
-        <div class="max-w-4xl mx-auto">
-            <div class="mb-8 flex justify-between items-center">
-                <div>
-                    <h1 class="text-4xl font-black uppercase italic tracking-tighter">Kategori</h1>
-                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Pengaturan Jenis Barang</p>
+        <div class="p-8">
+            
+            <div v-if="showInlineForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                    <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider">➕ Tambah Kategori Baru</h2>
+                    <button @click="showInlineForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
                 </div>
-                <button 
-                    v-if="!showForm"
-                    @click="openCreate" 
-                    class="bg-yellow-400 text-black px-8 py-3 font-black uppercase border-4 border-black  hover:translate-x-1 hover:translate-y-1 hover: -none transition-all"
-                >
-                    + Kategori Baru
-                </button>
+
+                <div class="p-6">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nama Kategori</label>
+                            <input v-model="form.name" type="text" placeholder="CONTOH: MAKANAN, MINUMAN, ELEKTRONIK..." 
+                                class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase"
+                                @keyup.enter="submit" />
+                            <span v-if="form.errors.name" class="text-[10px] font-bold text-red-500 uppercase mt-1">{{ form.errors.name }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex gap-3 border-t border-gray-100 pt-6">
+                        <button @click="submit" :disabled="form.processing" 
+                            class="bg-blue-600 text-white px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm active:scale-95 disabled:opacity-50">
+                            Simpan Kategori
+                        </button>
+                        <button @click="showInlineForm = false" 
+                            class="bg-white border border-gray-300 text-gray-600 px-8 py-2.5 rounded-lg text-xs font-bold uppercase hover:bg-gray-50 transition-all">
+                            Batal
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <div v-if="showForm" class="mb-10 p-6 border-4 border-black bg-white ">
-                <h2 class="font-black uppercase mb-6 italic text-xl   decoration-yellow-400">
-                    {{ form.id ? 'Edit Kategori' : 'Tambah Kategori' }}
-                </h2>
-                
-                <div class="flex flex-col gap-2">
-                    <label class="text-xs font-black uppercase text-gray-400">Nama Kategori</label>
-                    <div class="flex flex-col md:flex-row gap-4">
-                        <input 
-                            v-model="form.name" 
-                            type="text" 
-                            placeholder="Contoh: Makanan, Minuman, Elektronik..." 
-                            class="flex-1 border-4 border-black p-4 font-black uppercase focus:bg-yellow-50 outline-none transition-colors"
-                            @keyup.enter="submit"
-                        />
-                        <div class="flex gap-2">
-                            <button 
-                                @click="submit" 
-                                :disabled="form.processing"
-                                class="bg-black text-white px-8 py-4 font-black uppercase border-2 border-black hover:bg-gray-800  active: -none transition-all disabled:bg-gray-400"
-                            >
-                                {{ form.processing ? '...' : 'Simpan' }}
+            <div v-if="showModalForm" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                <div class="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+                        <h2 class="text-sm font-black text-gray-700 uppercase">✏️ Edit Kategori</h2>
+                        <button @click="showModalForm = false" class="text-gray-400 hover:text-red-500">✕</button>
+                    </div>
+                    <div class="p-8 space-y-5">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Nama Kategori</label>
+                            <input v-model="form.name" type="text" 
+                                class="w-full border-2 border-blue-200 rounded-lg p-3 text-lg font-black text-blue-700 focus:ring-4 focus:ring-blue-100 outline-none transition-all uppercase" 
+                                @keyup.enter="submit" />
+                            <span v-if="form.errors.name" class="text-[10px] font-bold text-red-500 uppercase mt-1">{{ form.errors.name }}</span>
+                        </div>
+                        <div class="flex gap-3 pt-4">
+                            <button @click="submit" :disabled="form.processing" 
+                                class="flex-1 bg-blue-600 text-white py-3 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95">
+                                Simpan Perubahan
                             </button>
-                            <button 
-                                @click="showForm = false" 
-                                class="border-4 border-black px-6 py-4 font-black uppercase hover:bg-gray-100 transition-colors"
-                            >
-                                Batal
+                            <button @click="showModalForm = false" 
+                                class="px-6 py-3 border border-gray-300 rounded-lg text-xs font-bold uppercase text-gray-500 hover:bg-gray-50">
+                                Tutup
                             </button>
                         </div>
                     </div>
-                    <span v-if="form.errors.name" class="text-red-600 font-black text-[10px] uppercase italic">{{ form.errors.name }}</span>
                 </div>
             </div>
 
-            <div class="bg-white border-4 border-black  overflow-hidden">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-black text-white border-b-4 border-black font-black uppercase text-xs italic">
-                            <th class="p-4 w-20 text-center">ID</th>
-                            <th class="p-4">Nama Kategori</th>
-                            <th class="p-4 text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y-2 divide-black">
-                        <tr v-for="(cat, index) in categories" :key="cat.id" class="hover:bg-yellow-50 transition-colors">
-                            <td class="p-4 text-center font-mono text-xs text-gray-400">#{{ cat.id }}</td>
-                            <td class="p-4 font-black uppercase tracking-tight text-lg">{{ cat.name }}</td>
-                            <td class="p-4 text-right">
-                                <div class="flex justify-end gap-2">
-                                    <button 
-                                        @click="openEdit(cat)"
-                                        class="bg-blue-400 p-2 border-2 border-black hover: -none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
-                                    >
-                                        ✏️
-                                    </button>
-                                    <button 
-                                        @click="deleteCategory(cat.id)"
-                                        class="bg-red-500 p-2 border-2 border-black  hover: -none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
-                                    >
-                                        ❌
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="categories.length === 0">
-                            <td colspan="3" class="p-12 text-center">
-                                <p class="text-gray-300 font-black italic uppercase text-2xl">Belum ada kategori</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+            <DataTable 
+                title="Kategori Produk"
+                :resource="categories" 
+                :columns="columns"
+                :showAddButton="!showInlineForm"
+                routeName="product-categories.index" 
+                :initialSearch="filters?.search"
+                @on-add="openCreate" 
+            >
+                <template #id="{ value }">
+                    <span class="font-mono text-xs text-gray-400 font-bold">#{{ value }}</span>
+                </template>
+
+                <template #name="{ value }">
+                    <span class="font-bold text-gray-800 uppercase tracking-tight">{{ value }}</span>
+                </template>
+
+                <template #actions="{ row }">
+                    <div class="flex flex-row gap-4 justify-end">
+                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors" title="Edit">✏️</button>
+                        <button @click="deleteCategory(row.id)" class="text-gray-300 hover:text-red-600 transition-colors" title="Hapus">❌</button>
+                    </div>
+                </template>
+            </DataTable>
         </div>
     </AuthenticatedLayout>
 </template>

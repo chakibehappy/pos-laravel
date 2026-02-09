@@ -81,56 +81,20 @@ class CashWithdrawalController extends Controller
     }
 
     /**
-     * Update data transaksi (Semua Item & Penyesuaian Saldo).
+     * Update data transaksi (Hanya Nama Customer).
      */
     public function update(Request $request, $id)
     {
         $request->validate([
-            'store_id'             => 'required|exists:stores,id',
-            'customer_name'        => 'required|string|max:255',
-            'withdrawal_source_id' => 'required|integer',
-            'withdrawal_count'     => 'required|numeric|min:1',
-            'admin_fee'            => 'required|numeric|min:0',
+            'customer_name' => 'required|string|max:255',
         ]);
 
-        try {
-            DB::beginTransaction();
+        $withdrawal = CashWithdrawal::findOrFail($id);
+        $withdrawal->update([
+            'customer_name' => $request->customer_name
+        ]);
 
-            $withdrawal = CashWithdrawal::findOrFail($id);
-            
-            // 1. KEMBALIKAN saldo lama ke toko asal terlebih dahulu (Reset State)
-            $oldCashStore = CashStore::where('store_id', $withdrawal->store_id)->first();
-            if ($oldCashStore) {
-                $oldCashStore->increment('cash', $withdrawal->withdrawal_count);
-            }
-
-            // 2. CEK ketersediaan kas di toko yang baru (atau toko yang sama setelah di-reset)
-            $newCashStore = CashStore::where('store_id', $request->store_id)->lockForUpdate()->first();
-
-            if (!$newCashStore || $newCashStore->cash < $request->withdrawal_count) {
-                DB::rollBack();
-                return back()->withErrors(['error' => 'Gagal! Saldo kas di toko tujuan tidak mencukupi untuk perubahan ini.']);
-            }
-
-            // 3. UPDATE record transaksi
-            $withdrawal->update([
-                'store_id'             => $request->store_id,
-                'customer_name'        => $request->customer_name,
-                'withdrawal_source_id' => $request->withdrawal_source_id,
-                'withdrawal_count'     => $request->withdrawal_count,
-                'admin_fee'            => $request->admin_fee,
-            ]);
-
-            // 4. POTONG saldo kas di toko yang baru sesuai nominal baru
-            $newCashStore->decrement('cash', $request->withdrawal_count);
-
-            DB::commit();
-            return back()->with('message', 'Data transaksi berhasil diperbarui dan saldo kas telah disesuaikan.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat update: ' . $e->getMessage()]);
-        }
+        return back()->with('message', 'Data transaksi berhasil diperbarui.');
     }
 
     /**

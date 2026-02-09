@@ -9,12 +9,19 @@ use Inertia\Inertia;
 class ProductCategoryController extends Controller
 {
     /**
-     * Menampilkan daftar kategori.
+     * Menampilkan daftar kategori dengan Pagination & Search.
      */
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('ProductCategories/Index', [
-            'categories' => ProductCategory::latest()->get()
+            'categories' => ProductCategory::query()
+                ->when($request->search, function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%");
+                })
+                ->latest()
+                ->paginate(10) // Wajib paginate untuk DataTable.vue
+                ->withQueryString(),
+            'filters' => $request->only(['search'])
         ]);
     }
 
@@ -46,10 +53,10 @@ class ProductCategoryController extends Controller
     {
         $category = ProductCategory::findOrFail($id);
         
-        // Cek jika kategori masih dipakai produk (opsional tapi disarankan)
-        // if ($category->products()->count() > 0) {
-        //     return back()->with('error', 'Gagal! Kategori masih digunakan oleh produk.');
-        // }
+        // Cek jika kategori masih dipakai produk
+        if ($category->products()->exists()) {
+            return back()->with('error', 'Gagal! Kategori masih digunakan oleh produk.');
+        }
 
         $category->delete();
 
