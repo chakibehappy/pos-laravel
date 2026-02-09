@@ -102,7 +102,8 @@ class StoreController extends Controller
 
         // Hanya update password jika input diisi (untuk fitur edit)
         if ($request->filled('password')) {
-            $updateData['password'] = $request->password;
+            // $updateData['password'] = $request->password;
+            $updateData['password'] = Hash::make($request->password);
         }
 
         // created_by hanya diisi saat membuat data baru (Insert)
