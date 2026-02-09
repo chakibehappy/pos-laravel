@@ -91,7 +91,7 @@ const filteredWallets = computed(() => {
         .filter(w => String(w.store_id) === String(form.store_id))
         .map(w => ({
             id: w.id,
-            name: w.wallet?.name || w.name || 'Dompet Toko',
+            name: `${w.wallet?.name || w.name || 'Dompet Toko'} (Sisa: Rp ${Number(w.balance || 0).toLocaleString('id-ID')})`,
             balance: w.balance || 0
         }));
 });
@@ -149,7 +149,7 @@ const addToBatch = () => {
             return;
         }
         form.details.push({
-            type: 'produk', product_id: p.id, name: p.raw_name, price: p.price,
+            type: 'produk', product_id: p.id, name: p.raw_name, note: '-', price: p.price,
             quantity: singleEntry.value.quantity, subtotal: p.price * singleEntry.value.quantity, meta: null
         });
     } else if (singleEntry.value.type === 'topup') {
@@ -157,10 +157,17 @@ const addToBatch = () => {
         const w = filteredWallets.value.find(x => String(x.id) === String(singleEntry.value.digital_wallet_store_id));
         if (!s || !singleEntry.value.account_number || !w) { errorMessage.value = "Lengkapi data Top Up & Pilih Sumber Saldo!"; return; }
         
+        if (!isEditMode.value && singleEntry.value.nominal > w.balance) {
+            errorMessage.value = `Saldo dompet tidak mencukupi! (Sisa: Rp ${Number(w.balance).toLocaleString('id-ID')})`;
+            return;
+        }
+
         form.details.push({
             type: 'topup', 
             product_id: null,
-            name: `${s.raw_name} (${singleEntry.value.account_number})`,
+            name: s.raw_name,
+            // Nomor tujuan dimasukkan langsung ke kolom keterangan
+            note: singleEntry.value.account_number,
             price: singleEntry.value.price, 
             quantity: 1, 
             subtotal: singleEntry.value.price,
@@ -178,7 +185,8 @@ const addToBatch = () => {
         }
         const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
         form.details.push({
-            type: 'tarik_tunai', product_id: null, name: `TARIK TUNAI [${wType.name}]: ${singleEntry.value.customer_name}`,
+            type: 'tarik_tunai', product_id: null, name: `TARIK TUNAI [${wType.name}]`,
+            note: singleEntry.value.customer_name,
             price: combinedPrice, quantity: 1, subtotal: combinedPrice, 
             meta: { customer_name: singleEntry.value.customer_name, amount: singleEntry.value.withdrawal_amount, fee: singleEntry.value.admin_fee, withdrawal_source_id: wType.id }
         });
@@ -186,7 +194,6 @@ const addToBatch = () => {
     
     calculateAll();
 
-    // RESET FORM INPUT SETELAH DITAMBAHKAN KE KERANJANG
     const savedType = singleEntry.value.type;
     Object.assign(singleEntry.value, { 
         product_id: '', 
@@ -203,7 +210,6 @@ const addToBatch = () => {
     singleEntry.value.type = savedType;
 };
 
-// FUNGSI RESET & TUTUP
 const closeForm = () => {
     showForm.value = false;
     isEditMode.value = false;
@@ -271,6 +277,7 @@ const openEdit = (row) => {
         type: d.topup_transaction_id ? 'topup' : (d.cash_withdrawal_id ? 'tarik_tunai' : 'produk'),
         product_id: d.product_id,
         name: d.product?.name || (d.topup_transaction_id ? 'TOPUP' : (d.cash_withdrawal_id ? 'TARIK TUNAI' : 'PRODUK')),
+        note: d.topup_transaction?.cust_account_number ? d.topup_transaction.cust_account_number : (d.cash_withdrawal?.customer_name ? d.cash_withdrawal.customer_name : '-'),
         price: d.selling_prices,
         quantity: d.quantity,
         subtotal: d.subtotal,
@@ -380,6 +387,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                                 <tr>
                                     <th class="p-3 text-left w-20">Jenis</th>
                                     <th class="p-3 text-left">Item / Detail</th>
+                                    <th class="p-3 text-left">Keterangan</th>
                                     <th class="p-3 text-right">Harga</th>
                                     <th class="p-3 text-center">Qty</th>
                                     <th class="p-3 text-right">Total</th>
@@ -392,6 +400,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                                         <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[9px] uppercase font-bold text-gray-600">{{ item.type.replace('_', ' ') }}</span>
                                     </td>
                                     <td class="p-3 font-bold uppercase">{{ item.name }}</td>
+                                    <td class="p-3 text-gray-500 italic">{{ item.note }}</td>
                                     <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
                                     <td class="p-3 text-center">{{ item.quantity }}</td>
                                     <td class="p-3 text-right font-bold text-gray-800">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
