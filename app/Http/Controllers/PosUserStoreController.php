@@ -45,13 +45,13 @@ class PosUserStoreController extends Controller
         ]);
 
         // FILTER: Cek apakah user sudah terdaftar di tabel (toko mana saja)
-        $exists = PosUserStore::where('pos_user_id', $request->pos_user_id)->exists();
+        // $exists = PosUserStore::where('pos_user_id', $request->pos_user_id)->exists();
 
-        if ($exists) {
-            return back()->withErrors([
-                'pos_user_id' => 'USER INI SUDAH TERDAFTAR DI SEBUAH TOKO. TIDAK BOLEH DOUBLE AKSES!'
-            ]);
-        }
+        // if ($exists) {
+        //     return back()->withErrors([
+        //         'pos_user_id' => 'USER INI SUDAH TERDAFTAR DI SEBUAH TOKO. TIDAK BOLEH DOUBLE AKSES!'
+        //     ]);
+        // }
 
         $creator = PosUser::where('username', Auth::user()->email)->first();
         $creatorId = $creator ? $creator->id : null;
