@@ -40,10 +40,10 @@ class TransactionDetailController extends Controller
                     'is_edited' => $isEdited,
                     
                     // Data Tambahan untuk kolom Keterangan di Vue (Tanpa Nominal)
-                    // 'type' => $item->topup_transaction_id ? 'topup' : ($item->cash_withdrawal_id ? 'withdrawal' : 'produk'),
-                    // 'target_number' => $item->topupTransaction->cust_account_number ?? null,
-                    // 'customer_name' => $item->cashWithdrawal->customer_name ?? null,
-                    // 'note' => $item->note // Tetap menyertakan note umum jika ada
+                    'type' => $item->topup_transaction_id ? 'topup' : ($item->cash_withdrawal_id ? 'withdrawal' : 'produk'),
+                    'target_number' => $item->topupTransaction->cust_account_number ?? null,
+                    'customer_name' => $item->cashWithdrawal->customer_name ?? null,
+                    'note' => $item->note // Tetap menyertakan note umum jika ada
                 ];
             });
 
