@@ -46,7 +46,7 @@ const openEdit = (row) => {
 const addToBatch = () => {
     errorMessage.value = ''; 
     if (!singleEntry.value.name) {
-        errorMessage.value = "Nama jenis usaha tidak boleh kosong!";
+        errorMessage.value = "Nama Master usaha tidak boleh kosong!";
         return;
     }
 
@@ -87,7 +87,7 @@ const submit = () => {
     }
 
     const confirmMsg = isEditMode.value 
-        ? "Simpan perubahan jenis usaha?" 
+        ? "Simpan perubahan Master usaha?" 
         : `Simpan ${form.items.length} jenis usaha baru?`;
 
     if (confirm(confirmMsg)) {
@@ -186,7 +186,7 @@ const destroy = (row) => {
             </div>
 
             <DataTable 
-                title="Daftar Jenis Usaha"
+                title="Master Jenis Usaha"
                 :resource="types" 
                 :columns="[
                     { label: 'Jenis Usaha', key: 'name' }, 

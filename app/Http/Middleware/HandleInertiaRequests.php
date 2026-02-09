@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Transaction; // Pastikan Model Transaction diimport
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -49,6 +50,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'message' => $request->session()->get('message'),
             ],
+            // Tambahkan data ini agar bisa diakses di semua komponen Vue
+            'pendingApprovalsCount' => fn () => Transaction::where('status', 1)->count(),
         ]);
     }
 }

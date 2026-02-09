@@ -80,7 +80,7 @@ const submit = () => {
                 
                 <div class="mb-4 flex justify-between items-end">
                     <div>
-                        <h1 class="text-2xl font-black uppercase tracking-tighter text-black">Ringkasan Saldo Toko</h1>
+                        <h1 class="text-2xl font-black uppercase tracking-tighter text-black">Saldo Toko</h1>
                         <p class="text-[10px] font-black uppercase text-gray-400 italic">Akumulasi Saldo E-Wallet Per Unit</p>
                     </div>
                 </div>

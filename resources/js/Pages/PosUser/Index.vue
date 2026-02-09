@@ -217,7 +217,7 @@ const destroy = (id) => {
             </div>
 
             <DataTable 
-                title="Daftar Pengguna Sistem POS"
+                title="Daftar Staff"
                 :resource="resource" 
                 :columns="columns"
                 :showAddButton="!showForm"

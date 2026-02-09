@@ -81,7 +81,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
 </script>
 
 <template>
-    <Head title="Withdrawal Fee Rules" />
+    <Head title="Aturan Biaya Tarik Tunai" />
 
     <AuthenticatedLayout>
         <div class="p-8">
@@ -132,7 +132,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
             </div>
 
             <DataTable 
-                title="Withdrawal Fee Rules"
+                title="Aturan Biaya Tarik Tunai"
                 :resource="resource" 
                 :columns="columns"
                 :showAddButton="!showForm"

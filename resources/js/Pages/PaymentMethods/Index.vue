@@ -176,7 +176,7 @@ const destroy = (row) => {
             </div>
 
             <DataTable 
-                title="Daftar Metode Pembayaran"
+                title="Master Metode Pembayaran"
                 :resource="methods" 
                 :columns="[
                     { label: 'Metode Pembayaran', key: 'name' }, 

@@ -70,14 +70,14 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Monitoring Kas Unit" />
+    <Head title="Kas Toko" />
 
     <AuthenticatedLayout>
         <div class="p-8 text-left text-black">
             <div class="w-full flex flex-col">
                 
                 <div class="mb-4">
-                    <h1 class="text-2xl font-black uppercase tracking-tighter text-black">Monitoring Kas Unit</h1>
+                    <h1 class="text-2xl font-black uppercase tracking-tighter text-black">Kas Toko</h1>
                     <p class="text-[10px] font-black uppercase text-gray-400 italic">Pengelolaan Saldo Tunai Per Unit Toko</p>
                 </div>
 

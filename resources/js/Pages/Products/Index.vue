@@ -189,7 +189,7 @@ const submit = () => {
             </div>
 
             <DataTable 
-                title="Produk"
+                title="Daftar Produk"
                 :resource="products" 
                 :columns="columns"
                 :showAddButton="!showInlineForm"
