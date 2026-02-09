@@ -57,19 +57,20 @@ defineExpose({ fetchDetails });
 
                 <div v-else-if="details.length > 0">
                     <div class="grid grid-cols-12 pb-3 mb-6 border-b border-gray-50 text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                        <div class="col-span-6">Deskripsi Produk</div>
+                        <div class="col-span-4">Deskripsi Produk</div>
+                        <div class="col-span-3">Keterangan</div>
                         <div class="col-span-2 text-center">Qty</div>
-                        <div class="col-span-4 text-right">Subtotal</div>
+                        <div class="col-span-3 text-right">Subtotal</div>
                     </div>
 
                     <div class="space-y-6">
                         <div v-for="item in details" :key="item.id" class="grid grid-cols-12 items-start group">
-                            <div class="col-span-6">
+                            <div class="col-span-4">
                                 <h4 class="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors uppercase leading-tight">
                                     {{ item.product_name }}
                                 </h4>
                                 <div class="mt-1 space-y-0.5">
-                                    <p class="text-[12px] text-gray-400 font-medium italic">dibuat oleh: {{ item.admin_name }}</p>
+                                    <p class="text-[10px] text-gray-400 font-medium italic">dibuat oleh: {{ item.admin_name }}</p>
                                     
                                     <p v-if="item.is_edited" class="text-[9px] text-blue-500 font-bold uppercase tracking-tight flex items-center gap-1">
                                         <span class="w-1 h-1 bg-blue-500 rounded-full"></span>
@@ -77,10 +78,28 @@ defineExpose({ fetchDetails });
                                     </p>
                                 </div>
                             </div>
+
+                            <div class="col-span-3 pr-2 pt-0.5">
+                                <div class="text-[11px] leading-tight">
+                                    <template v-if="item.type === 'topup'">
+                                        <span class="block text-gray-900 font-bold tracking-tight">{{ item.target_number }}</span>
+                                        <span class="text-[8px] text-gray-300 uppercase font-black tracking-widest">No. Tujuan</span>
+                                    </template>
+                                    <template v-else-if="item.type === 'withdrawal'">
+                                        <span class="block text-gray-900 font-bold uppercase tracking-tight">{{ item.customer_name }}</span>
+                                        <span class="text-[8px] text-gray-300 uppercase font-black tracking-widest">Nama Pelanggan</span>
+                                    </template>
+                                    <template v-else>
+                                        <span class="text-gray-400 font-medium">{{ item.note || '-' }}</span>
+                                    </template>
+                                </div>
+                            </div>
+
                             <div class="col-span-2 text-center text-xs font-medium text-gray-500 pt-1">
                                 {{ item.quantity }}<span class="text-[10px] ml-0.5 text-gray-300 uppercase">x</span>
                             </div>
-                            <div class="col-span-4 text-right font-bold text-gray-900 text-sm tracking-tight pt-1">
+
+                            <div class="col-span-3 text-right font-bold text-gray-900 text-sm tracking-tight pt-1">
                                 Rp {{ Number(item.subtotal).toLocaleString('id-ID') }}
                             </div>
                         </div>
