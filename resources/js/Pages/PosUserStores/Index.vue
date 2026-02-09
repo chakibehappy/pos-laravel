@@ -47,16 +47,16 @@ const submit = () => {
     }
 
     // 2. Filter Duplikasi User (Hanya satu user per satu akses toko)
-    const userAlreadyExists = props.resource.data.some(item => 
-        item.pos_user_id === form.pos_user_id && 
-        item.id !== form.id
-    );
+    // const userAlreadyExists = props.resource.data.some(item => 
+    //     item.pos_user_id === form.pos_user_id && 
+    //     item.id !== form.id
+    // );
 
-    if (userAlreadyExists) {
-        const userData = props.posUsers.find(u => u.id === form.pos_user_id);
-        errorMessage.value = `TOLAK: ${userData?.name || 'USER'} SUDAH MEMILIKI AKSES DI TOKO LAIN!`;
-        return; 
-    }
+    // if (userAlreadyExists) {
+    //     const userData = props.posUsers.find(u => u.id === form.pos_user_id);
+    //     errorMessage.value = `TOLAK: ${userData?.name || 'USER'} SUDAH MEMILIKI AKSES DI TOKO LAIN!`;
+    //     return; 
+    // }
 
     // 3. Eksekusi Kirim
     const action = form.id ? 'put' : 'post';
