@@ -282,7 +282,7 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
         ]);
 
         $transaction = Transaction::findOrFail($request->transaction_id);
-        // Ensure only ACTIVE transactions can be requested
+        
         if ($transaction->status !== 0) {
             return response()->json([
                 'message' => 'Transaction cannot be requested for deletion.',
