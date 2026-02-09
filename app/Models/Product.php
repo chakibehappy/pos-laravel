@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany; // Tambahkan ini
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Product extends Model
@@ -17,18 +17,26 @@ class Product extends Model
 
     protected $fillable = [
         'product_category_id',
-        'unit_type_id',
         'name',
         'image',
-        'sku',
         'buying_price',
+        'sku',
         'selling_price',
         'stock',
+        'unit_type_id',
+        'created_by', // Sesuai kolom di gambar
     ];
 
     /**
+     * Relasi ke User yang membuat produk.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
      * Relasi ke Model StoreProduct (Stok di Cabang-cabang).
-     * Memungkinkan kita melihat produk ini ada di toko mana saja dan berapa stoknya.
      */
     public function storeStocks(): HasMany
     {
@@ -52,7 +60,8 @@ class Product extends Model
     }
 
     /**
-     * Relasi ke Model Store (Gudang/Toko Utama pemilik produk).
+     * Relasi ke Model Store (Gudang/Toko Utama).
+     * Catatan: Pastikan kolom store_id ada di database jika ingin menggunakan relasi ini.
      */
     public function store(): BelongsTo
     {

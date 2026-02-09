@@ -16,15 +16,32 @@ class StoreProduct extends Model
         'store_id',
         'product_id',
         'stock',
+        'created_by', // Ditambahkan sesuai struktur tabel di gambar
     ];
 
+    /**
+     * Relasi ke Cabang/Store
+     */
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
     }
 
+    /**
+     * Relasi ke Produk Pusat
+     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Relasi ke User POS yang menginput data ini.
+     * Mengarah ke tabel pos_users melalui kolom created_by.
+     */
+    public function creator(): BelongsTo
+    {
+        // Pastikan model PosUser sudah ada, jika nama modelnya berbeda silakan sesuaikan
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 }

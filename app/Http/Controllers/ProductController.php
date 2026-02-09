@@ -8,16 +8,16 @@ use App\Models\ProductCategory;
 use App\Models\UnitType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-
-// Perbaikan Import: Menggunakan ImageManager v3 secara langsung
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
 
 class ProductController extends Controller
 {
-    public function index(Request $request) {
-        // 1. Query dengan Filter & Search
+    public function index(Request $request)
+    {
+        // Query standar tanpa join berat atau sinkronisasi massal
         $products = Product::with(['category', 'store', 'unitType'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -25,15 +25,13 @@ class ProductController extends Controller
                       ->orWhere('sku', 'like', "%{$search}%");
                 });
             })
-            ->when($request->category, function ($query, $category) {
-                $query->where('product_category_id', $category);
-            })
-            ->latest()
+            ->latest('updated_at')
             ->paginate(10)
             ->withQueryString();
 
-        // 2. Transformasi Data
         $products->getCollection()->transform(function ($product) {
+            $posUser = DB::table('pos_users')->where('id', $product->created_by)->first();
+
             return [
                 'id' => $product->id,
                 'store_name' => $product->store->name ?? 'N/A',
@@ -45,9 +43,10 @@ class ProductController extends Controller
                 'sku' => $product->sku,
                 'buying_price' => $product->buying_price,
                 'selling_price' => $product->selling_price,
-                'stock' => $product->stock,
-                'image' => $product->image,
+                'stock' => $product->stock, // Menampilkan nilai apa adanya dari database
                 'image_url' => $product->image ? asset('storage/' . $product->image) : null,
+                'created_at' => $product->updated_at->format('d/m/Y H:i'),
+                'created_by' => $posUser->name ?? 'System',
             ];
         });
 
@@ -60,69 +59,76 @@ class ProductController extends Controller
         ]);
     }
 
-    public function store(Request $request) {
-        $request->validate([
-            'id'                  => 'nullable|numeric',
-            'product_category_id' => 'required|exists:product_categories,id',
-            'unit_type_id'        => 'required|exists:unit_types,id',
-            'name'                => 'required|string|max:150',
-            'sku'                 => 'nullable|string|max:50',
-            'buying_price'        => 'required|numeric|min:0',
-            'selling_price'       => 'required|numeric|min:0',
-            'stock'               => 'required|integer',
-            'image'               => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-        ]);
+    public function store(Request $request)
+    {
+        try {
+            $request->validate([
+                'id'                  => 'nullable|numeric',
+                'product_category_id' => 'required|exists:product_categories,id',
+                'unit_type_id'        => 'required|exists:unit_types,id',
+                'name'                => 'required|string|max:150',
+                'sku'                 => 'nullable|string|max:50',
+                'buying_price'        => 'required|numeric|min:0',
+                'selling_price'       => 'required|numeric|min:0',
+                'image'               => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            ]);
 
-        $data = $request->only([
-            'product_category_id', 
-            'unit_type_id',
-            'name', 
-            'sku', 
-            'buying_price', 
-            'selling_price', 
-            'stock'
-        ]);
+            $data = $request->only([
+                'product_category_id', 
+                'unit_type_id',
+                'name', 
+                'sku', 
+                'buying_price', 
+                'selling_price',
+            ]);
 
-        $product = $request->id ? Product::find($request->id) : null;
+            $product = $request->id ? Product::find($request->id) : null;
 
-        if ($request->hasFile('image')) {
-            // Hapus gambar lama jika ada
-            if ($product && $product->image) {
-                Storage::disk('public')->delete($product->image);
+            // Jika TAMBAH BARU
+            if (!$product) {
+                $userEmail = auth()->user()->email;
+                $posUser = DB::table('pos_users')->where('username', $userEmail)->first();
+                if ($posUser) {
+                    $data['created_by'] = $posUser->id;
+                }
+                // Set stok ke nilai default 0 agar tidak error database
+                $data['stock'] = 0; 
             }
 
-            // --- PROSES KOMPRESI GAMBAR V3 ---
-            $file = $request->file('image');
-            $filename = time() . '_' . uniqid() . '.webp';
-            
-            // Inisialisasi Manager dengan Driver GD
-            $manager = new ImageManager(new Driver());
-            
-            // Baca, Resize ke 800px, dan simpan sebagai WebP (Kualitas 70%)
-            $image = $manager->read($file);
-            $image->scale(width: 800);
-            $encoded = $image->toWebp(70);
+            // Upload Gambar
+            if ($request->hasFile('image')) {
+                if ($product && $product->image) {
+                    Storage::disk('public')->delete($product->image);
+                }
 
-            $path = 'products/' . $filename;
-            Storage::disk('public')->put($path, (string) $encoded);
-            
-            $data['image'] = $path;
+                $file = $request->file('image');
+                $filename = time() . '_' . uniqid() . '.webp';
+                $manager = new ImageManager(new Driver());
+                $image = $manager->read($file);
+                $image->scale(width: 800);
+                $encoded = $image->toWebp(70);
+
+                $path = 'products/' . $filename;
+                Storage::disk('public')->put($path, (string) $encoded);
+                $data['image'] = $path;
+            }
+
+            Product::updateOrCreate(['id' => $request->id], $data);
+
+            return back()->with('message', 'Data berhasil diproses!');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal simpan: ' . $e->getMessage()]);
         }
-
-        Product::updateOrCreate(['id' => $request->id], $data);
-
-        return back()->with('message', 'Product saved successfully!');
     }
 
-    public function destroy($id) {
+    public function destroy($id)
+    {
         $product = Product::findOrFail($id);
-        
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
-
         $product->delete();
-        
         return back()->with('message', 'Product deleted!');
     }
 }
