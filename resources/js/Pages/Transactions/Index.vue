@@ -74,7 +74,68 @@ const singleEntry = ref({
     withdrawal_source_id: '' 
 });
 
-// --- LOGIKA ---
+// --- LOGIKA STOK & SALDO VIRTUAL (VIEW ONLY) ---
+
+const refreshProductList = () => {
+    productOptions.value = []; 
+    if (singleEntry.value.type === 'produk') {
+        const stockLookup = {};
+        
+        (props.store_products || []).forEach(sp => {
+            if (String(sp.store_id) === String(form.store_id)) {
+                stockLookup[sp.product_id] = sp.stock;
+            }
+        });
+
+        form.details.forEach(item => {
+            if (item.type === 'produk' && stockLookup[item.product_id] !== undefined) {
+                stockLookup[item.product_id] -= item.quantity;
+            }
+        });
+
+        productOptions.value = props.products
+            .map(p => {
+                const currentStock = stockLookup[p.id] || 0;
+                return {
+                    id: p.id, 
+                    name: `${p.name} (Stok: ${currentStock})`, 
+                    raw_name: p.name, 
+                    price: p.price, 
+                    stock: currentStock 
+                };
+            })
+            .filter(p => isEditMode.value ? true : p.stock > 0);
+
+    } else if (singleEntry.value.type === 'topup') {
+        productOptions.value = props.topup_trans_types.map(t => ({ 
+            id: t.id, name: t.name, raw_name: t.name, price: 0, stock: 999 
+        }));
+    }
+};
+
+const filteredWallets = computed(() => {
+    if (!props.digital_wallet_stores || !form.store_id) return [];
+    
+    return props.digital_wallet_stores
+        .filter(w => String(w.store_id) === String(form.store_id))
+        .map(w => {
+            const usedInCart = form.details
+                .filter(item => item.type === 'topup' && item.meta?.digital_wallet_store_id === w.id)
+                .reduce((sum, item) => sum + Number(item.meta.nominal_topup), 0);
+
+            const virtualBalance = (w.balance || 0) - usedInCart;
+
+            return {
+                id: w.id,
+                name: `${w.wallet?.name || w.name || 'Dompet Toko'} (Sisa: Rp ${Number(virtualBalance).toLocaleString('id-ID')})`,
+                balance: virtualBalance
+            };
+        });
+});
+
+watch(() => form.details, () => {
+    refreshProductList();
+}, { deep: true });
 
 watch(() => form.store_id, (newStore, oldStore) => {
     if (oldStore && !isEditMode.value) {
@@ -84,42 +145,6 @@ watch(() => form.store_id, (newStore, oldStore) => {
     calculateAll();
     refreshProductList();
 });
-
-const filteredWallets = computed(() => {
-    if (!props.digital_wallet_stores || !form.store_id) return [];
-    return props.digital_wallet_stores
-        .filter(w => String(w.store_id) === String(form.store_id))
-        .map(w => ({
-            id: w.id,
-            name: `${w.wallet?.name || w.name || 'Dompet Toko'} (Sisa: Rp ${Number(w.balance || 0).toLocaleString('id-ID')})`,
-            balance: w.balance || 0
-        }));
-});
-
-const refreshProductList = () => {
-    productOptions.value = []; 
-    if (singleEntry.value.type === 'produk') {
-        const stockLookup = {};
-        (props.store_products || []).forEach(sp => {
-            if (String(sp.store_id) === String(form.store_id)) stockLookup[sp.product_id] = sp.stock;
-        });
-
-        productOptions.value = props.products
-            .map(p => ({
-                id: p.id, 
-                name: `${p.name} (Stok: ${stockLookup[p.id] || 0})`, 
-                raw_name: p.name, 
-                price: p.price, 
-                stock: stockLookup[p.id] || 0
-            }))
-            .filter(p => isEditMode.value ? true : p.stock > 0);
-
-    } else if (singleEntry.value.type === 'topup') {
-        productOptions.value = props.topup_trans_types.map(t => ({ 
-            id: t.id, name: t.name, raw_name: t.name, price: 0, stock: 999 
-        }));
-    }
-};
 
 watch(() => singleEntry.value.type, (newType) => {
     if(!newType) return;
@@ -144,10 +169,12 @@ const addToBatch = () => {
     if (singleEntry.value.type === 'produk') {
         const p = productOptions.value.find(x => x.id == singleEntry.value.product_id);
         if (!p) { errorMessage.value = "Pilih produk!"; return; }
-        if (!isEditMode.value && singleEntry.value.quantity > p.stock) {
-            errorMessage.value = `Stok tidak mencukupi! (Sisa: ${p.stock})`;
+        
+        if (singleEntry.value.quantity > p.stock) {
+            errorMessage.value = `Stok tidak mencukupi! (Tersedia secara view: ${p.stock})`;
             return;
         }
+
         form.details.push({
             type: 'produk', product_id: p.id, name: p.raw_name, note: '-', price: p.price,
             quantity: singleEntry.value.quantity, subtotal: p.price * singleEntry.value.quantity, meta: null
@@ -157,8 +184,8 @@ const addToBatch = () => {
         const w = filteredWallets.value.find(x => String(x.id) === String(singleEntry.value.digital_wallet_store_id));
         if (!s || !singleEntry.value.account_number || !w) { errorMessage.value = "Lengkapi data Top Up & Pilih Sumber Saldo!"; return; }
         
-        if (!isEditMode.value && singleEntry.value.nominal > w.balance) {
-            errorMessage.value = `Saldo dompet tidak mencukupi! (Sisa: Rp ${Number(w.balance).toLocaleString('id-ID')})`;
+        if (singleEntry.value.nominal > w.balance) {
+            errorMessage.value = `Saldo dompet tidak mencukupi! (Sisa secara view: Rp ${Number(w.balance).toLocaleString('id-ID')})`;
             return;
         }
 
@@ -166,8 +193,8 @@ const addToBatch = () => {
             type: 'topup', 
             product_id: null,
             name: s.raw_name,
-            // Nomor tujuan dimasukkan langsung ke kolom keterangan
-            note: singleEntry.value.account_number,
+            // MENYESUAIKAN KETERANGAN DENGAN NOMINAL
+            note: `${Number(singleEntry.value.nominal).toLocaleString('id-ID')} - ${singleEntry.value.account_number}`,
             price: singleEntry.value.price, 
             quantity: 1, 
             subtotal: singleEntry.value.price,
@@ -186,7 +213,8 @@ const addToBatch = () => {
         const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
         form.details.push({
             type: 'tarik_tunai', product_id: null, name: `TARIK TUNAI [${wType.name}]`,
-            note: singleEntry.value.customer_name,
+            // MENYESUAIKAN KETERANGAN DENGAN NOMINAL
+            note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
             price: combinedPrice, quantity: 1, subtotal: combinedPrice, 
             meta: { customer_name: singleEntry.value.customer_name, amount: singleEntry.value.withdrawal_amount, fee: singleEntry.value.admin_fee, withdrawal_source_id: wType.id }
         });
@@ -196,16 +224,8 @@ const addToBatch = () => {
 
     const savedType = singleEntry.value.type;
     Object.assign(singleEntry.value, { 
-        product_id: '', 
-        quantity: 1, 
-        account_number: '',
-        nominal: 0, 
-        price: 0, 
-        customer_name: '', 
-        withdrawal_amount: 0, 
-        admin_fee: 0,
-        digital_wallet_store_id: '',
-        withdrawal_source_id: '' 
+        product_id: '', quantity: 1, account_number: '', nominal: 0, price: 0, 
+        customer_name: '', withdrawal_amount: 0, admin_fee: 0, digital_wallet_store_id: '', withdrawal_source_id: '' 
     });
     singleEntry.value.type = savedType;
 };
@@ -217,17 +237,8 @@ const closeForm = () => {
     form.reset();
     form.details = [];
     Object.assign(singleEntry.value, { 
-        type: '', 
-        product_id: '', 
-        quantity: 1, 
-        account_number: '',
-        nominal: 0, 
-        price: 0, 
-        customer_name: '', 
-        withdrawal_amount: 0, 
-        admin_fee: 0,
-        digital_wallet_store_id: '',
-        withdrawal_source_id: '' 
+        type: '', product_id: '', quantity: 1, account_number: '', nominal: 0, price: 0, 
+        customer_name: '', withdrawal_amount: 0, admin_fee: 0, digital_wallet_store_id: '', withdrawal_source_id: '' 
     });
 };
 
@@ -237,13 +248,9 @@ const submit = () => {
     if (!form.payment_id) { errorMessage.value = "Pilih metode pembayaran!"; return; }
 
     const options = {
-        onSuccess: () => {
-            closeForm();
-        },
+        onSuccess: () => { closeForm(); },
         preserveScroll: true,
-        onError: (errors) => {
-            errorMessage.value = errors.message || "Terjadi kesalahan saat menyimpan.";
-        }
+        onError: (errors) => { errorMessage.value = errors.message || "Terjadi kesalahan saat menyimpan."; }
     };
 
     if (isEditMode.value) {
@@ -277,7 +284,8 @@ const openEdit = (row) => {
         type: d.topup_transaction_id ? 'topup' : (d.cash_withdrawal_id ? 'tarik_tunai' : 'produk'),
         product_id: d.product_id,
         name: d.product?.name || (d.topup_transaction_id ? 'TOPUP' : (d.cash_withdrawal_id ? 'TARIK TUNAI' : 'PRODUK')),
-        note: d.topup_transaction?.cust_account_number ? d.topup_transaction.cust_account_number : (d.cash_withdrawal?.customer_name ? d.cash_withdrawal.customer_name : '-'),
+        // MENYESUAIKAN KETERANGAN PADA MODE EDIT
+        note: d.topup_transaction_id ? `${Number(d.topup_transaction.nominal_request).toLocaleString('id-ID')} - ${d.topup_transaction.cust_account_number}` : (d.cash_withdrawal_id ? `${Number(d.cash_withdrawal.withdrawal_count).toLocaleString('id-ID')} - ${d.cash_withdrawal.customer_name}` : '-'),
         price: d.selling_prices,
         quantity: d.quantity,
         subtotal: d.subtotal,
@@ -361,7 +369,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                             <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Nominal</label><input v-model.number="singleEntry.nominal" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
                             <div class="md:col-span-2">
                                 <label class="text-[10px] font-bold text-blue-600 uppercase">Sumber Saldo</label>
-                                <select v-model="singleEntry.digital_wallet_store_id" class="border-2 border-blue-200 rounded-lg p-2 text-xs h-[38px] w-full bg-white">
+                                <select v-model="singleEntry.digital_wallet_store_id" class="border-2 border-blue-200 rounded-lg p-2 text-xs h-[38px] w-full bg-white outline-none">
                                     <option value="">PILIH DOMPET...</option>
                                     <option v-for="wallet in filteredWallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
                                 </select>
