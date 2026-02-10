@@ -178,5 +178,5 @@ Route::middleware(['auth'])->group(function () {
 
     // Letakkan di dalam group middleware auth
     Route::get('/transactions/approval', [TransactionApprovalController::class, 'index'])->name('transactions.approval');
-    Route::post('/api/transactions-approval/{id}', [TransactionApprovalController::class, 'handleAction']);
+    Route::post('/transactions-approve-request/{id}', [TransactionApprovalController::class, 'handleAction'])->name('transactions.approve-request');
 });

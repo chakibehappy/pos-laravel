@@ -32,7 +32,8 @@ const handleAction = (id, action) => {
         : 'Apakah Anda yakin ingin MENOLAK permintaan hapus ini?';
 
     if (confirm(message)) {
-        router.post(`/api/transactions-approval/${id}`, {
+        var url = route('transactions.approve-request', id)
+        router.post(url, {
             action: action
         }, {
             onSuccess: () => alert('Berhasil diproses'),
