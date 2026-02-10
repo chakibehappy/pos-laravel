@@ -37,7 +37,7 @@ watch(search, debounce((value) => {
             <button 
                 v-if="showAddButton"    
                 @click="emit('on-add')"
-                class="bg-[#fdc702] text-black px-6 py-2 font-bold uppercase border-2 border-black hover:bg-white hover:text-black transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+                class="bg-[#fdc702] text-black px-6 py-2 font-bold uppercase border-2 border-black hover:bg-blue-600 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
             >
                 Tambahkan
             </button>
