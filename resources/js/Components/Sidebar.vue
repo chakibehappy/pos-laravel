@@ -30,7 +30,7 @@ const menuItems = [
         activeOn: ['digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
         children: [
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
-            { label: 'Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
+            // { label: 'Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
             { label: 'Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
             { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') }
@@ -69,7 +69,7 @@ const menuItems = [
         children: [
             { label: 'Daftar Pengguna', name: 'users.index', route: route('users.index') },
             { label: 'Daftar Staff', name: 'pos_users.index', route: route('pos_users.index') },
-            { label: 'Daftar Akun', name: 'accounts.index', route: route('accounts.index') }
+            // { label: 'Daftar Akun', name: 'accounts.index', route: route('accounts.index') }
         ]
     },
 ];
