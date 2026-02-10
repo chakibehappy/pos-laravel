@@ -12,6 +12,17 @@ const toggleDropdown = (label) => {
 const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { 
+        label: 'Pengguna', 
+        icon: '👤', 
+        isDropdown: true,
+        activeOn: ['users.*', 'pos_users.*', 'accounts.*'],
+        children: [
+            { label: 'Daftar Pengguna', name: 'users.index', route: route('users.index') },
+            { label: 'Daftar Staff', name: 'pos_users.index', route: route('pos_users.index') },
+            // { label: 'Daftar Akun', name: 'accounts.index', route: route('accounts.index') }
+        ]
+    },
+    { 
         label: 'Toko', 
         icon: '🏪', 
         isDropdown: true,
@@ -21,6 +32,18 @@ const menuItems = [
                 { label: 'Pegawai Toko',  name: 'pos-user-stores.index' ,route: route('pos-user-stores.index') },
                 { label: 'Kas Toko', name: 'cash-stores.index', route: route('cash-stores.index') },
                 { label: 'Saldo Toko', name: 'digital-wallet-store.index', route: route('digital-wallet-store.index') } 
+        ]
+    },
+    { 
+        label: 'Master Produk', 
+        icon: '📦', 
+        isDropdown: true,
+        activeOn: [ 'store-products.*', 'products.*', 'product-categories.*', 'unit-types.*'],
+        children: [
+            { label: 'Stok Produk Toko', name: 'store-products.index', route: route('store-products.index') },
+            { label: 'Daftar Produk', name: 'products.index', route: route('products.index') },
+            { label: 'Kategori Produk', name: 'product-categories.index', route: route('product-categories.index') },
+            { label: 'Satuan Produk', name: 'unit-types.index', route: route('unit-types.index') }
         ]
     },
     { 
@@ -47,29 +70,6 @@ const menuItems = [
             { label: 'Riwayat Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
             { label: 'Aturan Biaya', name: 'topup-fee-rules.index', route: route('topup-fee-rules.index') },
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') },
-        ]
-    },
-    { 
-        label: 'Master Produk', 
-        icon: '📦', 
-        isDropdown: true,
-        activeOn: [ 'store-products.*', 'products.*', 'product-categories.*', 'unit-types.*'],
-        children: [
-            { label: 'Stok Produk Toko', name: 'store-products.index', route: route('store-products.index') },
-            { label: 'Daftar Produk', name: 'products.index', route: route('products.index') },
-            { label: 'Kategori Produk', name: 'product-categories.index', route: route('product-categories.index') },
-            { label: 'Satuan Produk', name: 'unit-types.index', route: route('unit-types.index') }
-        ]
-    },
-    { 
-        label: 'Pengguna', 
-        icon: '👤', 
-        isDropdown: true,
-        activeOn: ['users.*', 'pos_users.*', 'accounts.*'],
-        children: [
-            { label: 'Daftar Pengguna', name: 'users.index', route: route('users.index') },
-            { label: 'Daftar Staff', name: 'pos_users.index', route: route('pos_users.index') },
-            // { label: 'Daftar Akun', name: 'accounts.index', route: route('accounts.index') }
         ]
     },
 ];

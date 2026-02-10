@@ -40,25 +40,11 @@ const openEdit = (row) => {
 const submit = () => {
     errorMessage.value = '';
 
-    // 1. Validasi Input Kosong
     if (!form.pos_user_id || !form.store_id) {
         errorMessage.value = "Pilih User dan Unit Toko terlebih dahulu!";
         return;
     }
-
-    // 2. Filter Duplikasi User (Hanya satu user per satu akses toko)
-    // const userAlreadyExists = props.resource.data.some(item => 
-    //     item.pos_user_id === form.pos_user_id && 
-    //     item.id !== form.id
-    // );
-
-    // if (userAlreadyExists) {
-    //     const userData = props.posUsers.find(u => u.id === form.pos_user_id);
-    //     errorMessage.value = `TOLAK: ${userData?.name || 'USER'} SUDAH MEMILIKI AKSES DI TOKO LAIN!`;
-    //     return; 
-    // }
-
-    // 3. Eksekusi Kirim
+    
     const action = form.id ? 'put' : 'post';
     const url = form.id ? route('pos-user-stores.update', form.id) : route('pos-user-stores.store');
 
@@ -88,7 +74,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
     <Head title="Pegawai Toko" />
 
     <AuthenticatedLayout>
-        <div class="p-8">
+        <!-- <div class="p-8">
             
             <div v-if="showForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
@@ -178,6 +164,6 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                     </div>
                 </template>
             </DataTable>
-        </div>
+        </div> -->
     </AuthenticatedLayout>
 </template>
