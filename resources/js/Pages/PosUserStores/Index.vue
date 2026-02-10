@@ -74,7 +74,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
     <Head title="Pegawai Toko" />
 
     <AuthenticatedLayout>
-        <!-- <div class="p-8">
+        <div class="p-8">
             
             <div v-if="showForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
@@ -123,7 +123,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 </div>
             </div>
 
-            <DataTable 
+            <!-- <DataTable 
                 title="Pegawai Toko"
                 :resource="resource" 
                 :columns="[
@@ -163,7 +163,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                         <button @click="destroy(row.id)" title="Hapus" class="text-gray-400 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
                     </div>
                 </template>
-            </DataTable>
-        </div> -->
+            </DataTable> -->
+        </div>
     </AuthenticatedLayout>
 </template>
