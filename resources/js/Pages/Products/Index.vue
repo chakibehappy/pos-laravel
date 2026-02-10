@@ -85,6 +85,13 @@ const submit = () => {
         }
     });
 };
+
+const destroy = (id) => {
+    if (confirm('APAKAH ANDA YAKIN INGIN MENGHAPUS DATA INI?')) {
+        router.delete(route('products.destroy', id));
+    }
+};
+
 </script>
 
 <template>
@@ -224,8 +231,7 @@ const submit = () => {
                 <template #actions="{ row }">
                     <div class="flex gap-4 justify-end">
                         <button @click="openEdit(row)" class="text-gray-400 hover:text-blue-600 transition-colors">✏️</button>
-                        <button @click="router.delete(route('products.destroy', row.id))" 
-                                class="text-gray-400 hover:text-red-600 transition-colors">❌</button>
+                        <button @click="destroy(row.id)" class="text-gray-400 hover:text-red-600 transition-colors">❌</button>
                     </div>
                 </template>
             </DataTable>
