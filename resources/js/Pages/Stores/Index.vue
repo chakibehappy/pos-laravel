@@ -88,7 +88,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 </script>
 
 <template>
-    <Head title="Manajemen Toko" />
+    <Head title="Daftar Toko" />
 
     <AuthenticatedLayout>
         <div class="p-8">
@@ -195,7 +195,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
             </div>
 
             <DataTable 
-                title="Manajemen Toko"
+                title="Daftar Toko"
                 :resource="stores" 
                 :columns="[
                     { label: 'Identitas Toko', key: 'name' }, 

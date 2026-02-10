@@ -183,7 +183,7 @@ const destroy = (id) => {
             </div>
 
             <DataTable 
-                title="Stok Produk Cabang"
+                title="Stok Produk Toko"
                 :resource="stocks" 
                 :columns="columns"
                 :showAddButton="!showInlineForm"

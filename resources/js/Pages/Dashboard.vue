@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { usePage } from '@inertiajs/vue3'
+import { usePage, Head } from '@inertiajs/vue3'
 import { onMounted, ref } from 'vue';
 import Chart from 'chart.js/auto';
 
@@ -15,8 +15,10 @@ onMounted(() => {
             labels: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'],
             datasets: [{
                 label: 'Penjualan Mingguan (Rp)',
-                data: [450, 590, 800, 810, 560, 950, 1200],
-                backgroundColor: '#000000', // Black bars
+                data: [450000, 590000, 800000, 810000, 560000, 950000, 1200000],
+                backgroundColor: '#111827', // Dark Slate
+                hoverBackgroundColor: '#FACC15', // Yellow on hover
+                borderRadius: 6,
                 borderWidth: 0,
             }]
         },
@@ -24,8 +26,15 @@ onMounted(() => {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true, grid: { display: false } },
-                x: { grid: { display: false } }
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: '#F3F4F6' },
+                    ticks: { font: { size: 10, weight: '600' } }
+                },
+                x: { 
+                    grid: { display: false },
+                    ticks: { font: { size: 10, weight: '600' } }
+                }
             },
             plugins: {
                 legend: { display: false }
@@ -36,35 +45,50 @@ onMounted(() => {
 </script>
 
 <template>
+    <Head title="Dashboard" />
     <AuthenticatedLayout>
-        <div class="space-y-6">
-            <div class="p-8 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-                <h1 class="text-4xl font-black uppercase italic tracking-tighter">
-                    Selamat Datang, {{ user?.name }}!
+        <div class="p-8 space-y-8">
+            <div class="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+                <h1 class="text-3xl font-bold text-gray-900 tracking-tight">
+                    Selamat Datang, <span class="text-yellow-500">{{ user?.name }}</span>!
                 </h1>
-                <p class="font-bold text-gray-500 mt-2 uppercase text-xs">
-                    Status sistem: <span class="text-green-600  ">Terkoneksi ke VPS</span>
-                </p>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        Status sistem: <span class="text-gray-900">Online / Terkoneksi ke VPS</span>
+                    </p>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="p-6 border-2 border-black bg-yellow-400  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-                    <p class="text-xs font-black uppercase">Pendapatan Hari Ini</p>
-                    <p class="text-3xl font-black mt-2">Rp.1,200.00</p>
+                <div class="p-6 bg-yellow-400 rounded-2xl shadow-sm border border-yellow-500/20 group hover:shadow-md transition-shadow">
+                    <p class="text-[10px] font-black uppercase text-yellow-900 tracking-wider">Pendapatan Hari Ini</p>
+                    <p class="text-3xl font-bold mt-2 text-black">Rp 1.200.000</p>
                 </div>
-                <div class="p-6 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-                    <p class="text-xs font-black uppercase">Total Produk</p>
-                    <p class="text-3xl font-black mt-2">142</p>
+
+                <div class="p-6 bg-white rounded-2xl shadow-sm border border-gray-100 group hover:shadow-md transition-shadow">
+                    <p class="text-[10px] font-black uppercase text-gray-400 tracking-wider">Total Produk</p>
+                    <p class="text-3xl font-bold mt-2 text-gray-900">142</p>
                 </div>
-                <div class="p-6 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-                    <p class="text-xs font-black uppercase">Staff Aktif</p>
-                    <p class="text-3xl font-black mt-2">8</p>
+
+                <div class="p-6 bg-white rounded-2xl shadow-sm border border-gray-100 group hover:shadow-md transition-shadow">
+                    <p class="text-[10px] font-black uppercase text-gray-400 tracking-wider">Staff Aktif</p>
+                    <p class="text-3xl font-bold mt-2 text-gray-900">8</p>
                 </div>
             </div>
 
-            <div class="p-8 border-2 border-black bg-white  -[4px_4px_0px_0px_rgba(0,0,0,0.25)]">
-                <h2 class="text-xl font-black uppercase mb-6 tracking-tight">Penjualan Mingguan</h2>
-                <div class="h-[300px]">
+            <div class="p-8 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-sm font-black uppercase tracking-widest text-gray-900 italic">Analisis Penjualan Mingguan</h2>
+                    <div class="flex gap-2">
+                        <div class="w-3 h-3 bg-black rounded-full"></div>
+                        <div class="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    </div>
+                </div>
+                <div class="h-[320px]">
                     <canvas ref="canvas"></canvas>
                 </div>
             </div>

@@ -153,7 +153,7 @@ const displayLimit = (value) => {
 </script>
 
 <template>
-    <Head title="Topup Fee Rules" />
+    <Head title="Aturan Biaya Top Up" />
 
     <AuthenticatedLayout>
         <div class="p-8">
@@ -271,7 +271,7 @@ const displayLimit = (value) => {
             </div>
 
             <DataTable 
-                title="Topup Fee Rules"
+                title="Aturan Biaya Top Up"
                 :resource="data" 
                 :columns="[
                     { label: 'Tipe', key: 'type_name' }, 

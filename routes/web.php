@@ -24,6 +24,7 @@ use App\Http\Controllers\TopupFeeRuleController;
 use App\Http\Controllers\PosUserStoreController;
 use App\Http\Controllers\WithdrawalFeeRuleController;
 use App\Http\Controllers\TransactionDetailController;
+use App\Http\Controllers\TransactionApprovalController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -175,4 +176,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/transaction-details/{id}', [TransactionDetailController::class, 'show'])->name('transaction-details.show');
 
+    // Letakkan di dalam group middleware auth
+    Route::get('/transactions/approval', [TransactionApprovalController::class, 'index'])->name('transactions.approval');
+    Route::post('/api/transactions-approval/{id}', [TransactionApprovalController::class, 'handleAction']);
 });

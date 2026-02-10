@@ -19,7 +19,8 @@ const fetchDetails = async () => {
     loading.value = true;
     details.value = []; 
     try {
-        const response = await fetch(`/transaction-details/${props.transactionId}`);
+        const url = route('transaction-details.show', props.transactionId);
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Gagal mengambil data');
         const data = await response.json();
         details.value = data;

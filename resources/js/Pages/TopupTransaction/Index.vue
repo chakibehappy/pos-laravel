@@ -93,7 +93,7 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
 </script>
 
 <template>
-    <Head title="Transaksi Topup" />
+    <Head title="Riwayat Topup" />
 
     <AuthenticatedLayout>
         <div class="p-8">
@@ -166,7 +166,7 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
             </div>
 
             <DataTable 
-                title="Transaksi Topup"
+                title="Riwayat Topup"
                 :resource="transactions" 
                 :columns="columns"
                 :showAddButton="false"

@@ -8,11 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Transaction extends Model
 {
-    
-    const STATUS_ACTIVE = 0;
-    const STATUS_PENDING_DELETE = 1;
-    const STATUS_DELETED = 2;
-
     protected $fillable = [
         'store_id',
         'pos_user_id',
@@ -21,61 +16,60 @@ class Transaction extends Model
         'subtotal',
         'tax',
         'total',
-        // new deletion-related fields
         'status',
         'delete_requested_by',
         'delete_reason',
         'admin_approved_by',
-        'deleted_at',
+        'deleted_at'
     ];
 
-    protected $casts = [
-        'transaction_at' => 'datetime',
-        'deleted_at' => 'datetime',
-        'status' => 'integer',
-    ];
-
-    public function scopeActive($query)
-    {
-        return $query->where('status', self::STATUS_ACTIVE);
-    }
-
-    public function scopePendingDelete($query)
-    {
-        return $query->where('status', self::STATUS_PENDING_DELETE);
-    }
-
-    public function scopeDeleted($query)
-    {
-        return $query->where('status', self::STATUS_DELETED);
-    }
-    
     /**
-     * Relasi ke pembuat transaksi (TAMBAHKAN INI UNTUK MEMPERBAIKI ERROR 500)
+     * Relasi ke Toko
      */
-    public function creator(): BelongsTo
-    {
-        // Biasanya creator merujuk ke pos_user_id atau user yang sedang login
-        return $this->belongsTo(PosUser::class, 'pos_user_id');
-    }
-
-    public function paymentMethod(): BelongsTo
-    {
-        return $this->belongsTo(PaymentMethod::class, 'payment_id');
-    }
-
-    public function details(): HasMany
-    {
-        return $this->hasMany(TransactionDetail::class);
-    }
-
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
     }
 
+    /**
+     * Relasi ke pembuat transaksi (pos_user_id)
+     */
     public function posUser(): BelongsTo
     {
         return $this->belongsTo(PosUser::class, 'pos_user_id');
+    }
+
+    /**
+     * Relasi untuk mengambil nama pengaju hapus (ID 66)
+     * Kita tambahkan 'delete_requested_by' sebagai foreign key 
+     * dan 'id' sebagai owner key agar pencocokan data lebih akurat.
+     */
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(PosUser::class, 'delete_requested_by', 'id');
+    }
+
+    /**
+     * Relasi ke Detail Transaksi
+     */
+    public function details(): HasMany
+    {
+        return $this->hasMany(TransactionDetail::class);
+    }
+
+    /**
+     * Relasi ke Metode Pembayaran
+     */
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class, 'payment_id');
+    }
+
+    /**
+     * Relasi ke Admin yang menyetujui
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'admin_approved_by');
     }
 }

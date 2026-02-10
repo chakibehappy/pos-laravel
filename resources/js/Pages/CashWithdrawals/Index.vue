@@ -81,7 +81,7 @@ const getSourceName = (id) => {
 </script>
 
 <template>
-    <Head title="Transaksi Tarik Tunai" />
+    <Head title="Riwayat Tarik Tunai" />
 
     <AuthenticatedLayout>
         <div class="p-8">
@@ -154,7 +154,7 @@ const getSourceName = (id) => {
             </div>
 
             <DataTable 
-                title="Transaksi Tarik Tunai"
+                title="Riwayat Tarik Tunai"
                 :resource="withdrawals" 
                 :columns="columns"
                 :showAddButton="false" 
