@@ -76,7 +76,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
     <AuthenticatedLayout>
         <div class="p-8">
             
-            <div class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+            <div v-if="showForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                     <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         {{ form.id ? '✏️ Edit Akses User' : '➕ Assign User Ke Toko' }}
@@ -123,7 +123,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 </div>
             </div>
 
-            <!-- <DataTable 
+            <DataTable 
                 title="Pegawai Toko"
                 :resource="resource" 
                 :columns="[
@@ -132,7 +132,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                     { label: 'Tanggal', key: 'created_at' }, 
                     { label: 'Diberikan Oleh', key: 'creator_name' }
                 ]"
-                routeName="pos-user-stores.index" 
+                route-name="pos-user-stores.index" 
                 :initialSearch="filters?.search || ''"
                 :showAddButton="!showForm"
                 @on-add="openCreate"
@@ -163,7 +163,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                         <button @click="destroy(row.id)" title="Hapus" class="text-gray-400 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
                     </div>
                 </template>
-            </DataTable> -->
+            </DataTable>
         </div>
     </AuthenticatedLayout>
 </template>
