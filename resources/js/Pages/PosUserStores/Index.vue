@@ -76,7 +76,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
     <AuthenticatedLayout>
         <div class="p-8">
             
-            <div v-if="showForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+            <div class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                     <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
                         {{ form.id ? '✏️ Edit Akses User' : '➕ Assign User Ke Toko' }}
