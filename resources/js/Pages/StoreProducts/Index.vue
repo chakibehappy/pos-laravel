@@ -17,11 +17,23 @@ const selectedStore = ref(props.filters?.store_id || '');
 const selectedStoreType = ref(props.filters?.store_type_id || '');
 const selectedProductCategories = ref(props.filters?.product_category_id || '');
 
+// Filter Daftar Toko berdasarkan Jenis Usaha (Untuk Dropdown Filter)
+const filteredStoresList = computed(() => {
+    if (!selectedStoreType.value || selectedStoreType.value === 'all') {
+        return props.stores;
+    }
+    return props.stores.filter(s => s.store_type_id == selectedStoreType.value);
+});
+
+// Reset pilihan toko jika Jenis Usaha berubah
+watch(selectedStoreType, () => {
+    selectedStore.value = '';
+});
+
 watch([selectedStore, selectedStoreType, selectedProductCategories], ([newStore, newType, newCategories]) => {
     router.get(route('store-products.index'), { 
         ...props.filters, 
         store_id: newStore,
-        // Jika nilainya 'all' atau kosong, kirim null agar tidak memfilter di backend
         store_type_id: (newType === 'all' || newType === '') ? null : newType,
         product_category_id: newCategories,
         page: 1 
@@ -41,10 +53,9 @@ const columns = [
 ];
 
 const errorMessage = ref('');
-const showInlineForm = ref(false); // Untuk Tambah
-const showModalForm = ref(false);  // Untuk Edit
+const showInlineForm = ref(false);
+const showModalForm = ref(false);
 
-// Logic Dropdown Search dalam Form
 const searchQuery = ref(''); 
 const showDropdown = ref(false); 
 const storeSearchQuery = ref('');
@@ -79,7 +90,7 @@ const openCreate = () => {
     searchQuery.value = '';
     storeSearchQuery.value = '';
     showModalForm.value = false;
-    showInlineForm.value = true; // Munculkan Inline
+    showInlineForm.value = true;
 };
 
 const openEdit = (row) => {
@@ -92,7 +103,7 @@ const openEdit = (row) => {
     searchQuery.value = row.product_name; 
     storeSearchQuery.value = row.store_name; 
     showInlineForm.value = false;
-    showModalForm.value = true; // Munculkan Popup
+    showModalForm.value = true;
 };
 
 const selectProduct = (p) => {
@@ -130,26 +141,8 @@ const destroy = (id) => {
         router.delete(route('store-products.destroy', id));
     }
 };
-
-// Tambahkan ini di bagian script setup (di bawah filteredStores yang sudah ada)
-
-const filteredStoresList = computed(() => {
-    // Jika Jenis Usaha tidak dipilih atau 'all', tampilkan semua toko dari props
-    if (!selectedStoreType.value || selectedStoreType.value === 'all') {
-        return props.stores;
-    }
-    
-    // Filter toko yang memiliki store_type_id sama dengan selectedStoreType
-    return props.stores.filter(s => s.store_type_id == selectedStoreType.value);
-});
-
-// Tambahkan watch untuk mereset dropdown Toko jika Jenis Usaha berubah
-// Agar tidak ada ID toko yang "tertinggal" padahal jenis usahanya sudah ganti
-watch(selectedStoreType, () => {
-    selectedStore.value = '';
-});
-
 </script>
+
 <template>
     <Head title="Manajemen Stok Cabang" />
 
@@ -162,9 +155,6 @@ watch(selectedStoreType, () => {
                     <button @click="showInlineForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
                 </div>
                 <div class="p-6">
-                    <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-                        <p class="text-xs font-bold text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
-                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="flex flex-col gap-1 relative">
                             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cabang Tujuan</label>
@@ -220,15 +210,15 @@ watch(selectedStoreType, () => {
                     </div>
                 </div>
             </div>
+
             <div class="mb-6">
-                    <div class="inline-flex bg-white p-1.5 rounded-xl border border-gray-200 items-center gap-3 shadow-sm">
-                        <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Jenis Usaha</label>
-                        
-                        <select v-model="selectedStoreType" class="bg-transparent border-none text-gray-800 text-xs rounded-lg focus:ring-0 px-4 py-2 font-black outline-none min-w-[180px] uppercase">
-                            <option value="all"> SEMUA TIPE</option>
-                            <option v-for="st in storeTypes" :key="st.id" :value="st.id">🏷️ {{ st.name }}</option>
-                        </select>
-                    </div>
+                <div class="inline-flex bg-white p-1.5 rounded-xl border border-gray-200 items-center gap-3 shadow-sm">
+                    <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Jenis Usaha</label>
+                    <select v-model="selectedStoreType" class="bg-transparent border-none text-gray-800 text-xs rounded-lg focus:ring-0 px-4 py-2 font-black outline-none min-w-[180px] uppercase">
+                        <option value="all"> SEMUA TIPE</option>
+                        <option v-for="st in storeTypes" :key="st.id" :value="st.id">🏷️ {{ st.name }}</option>
+                    </select>
+                </div>
             </div>
             
             <DataTable 
@@ -251,13 +241,12 @@ watch(selectedStoreType, () => {
                         </option>
                     </select>
 
-                    
                     <select 
                         v-model="selectedProductCategories"
                         class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all">
-                        <option value="">-- KATEGORY PRODUK  --</option>
+                        <option value="">-- KATEGORI PRODUK --</option>
                         <option v-for="c in categories" :key="c.id" :value="c.id">
-                            {{ c.name }}
+                            {{ c.name.toUpperCase() }}
                         </option>
                     </select>
                 </template>
