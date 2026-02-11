@@ -25,6 +25,11 @@ class ProductController extends Controller
                       ->orWhere('sku', 'like', "%{$search}%");
                 });
             })
+            // --- TAMBAHKAN LOGIKA INI ---
+            ->when($request->category, function ($query, $categoryId) {
+                $query->where('product_category_id', $categoryId);
+            })
+            // -
             ->latest('updated_at')
             ->paginate(10)
             ->withQueryString();

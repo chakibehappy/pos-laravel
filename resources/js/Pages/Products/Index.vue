@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue'; // Digabung agar tidak error
 import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
+// defineProps diletakkan di atas agar bisa diakses oleh konstanta lain
 const props = defineProps({ 
     products: Object, 
     categories: Array,
@@ -11,7 +12,18 @@ const props = defineProps({
     filters: Object
 });
 
-// Kolom Stok dihapus dari daftar kolom
+// State untuk filter kategori, mengambil nilai awal dari props
+const selectedCategory = ref(props.filters?.category || '');
+
+// Logika untuk otomatis refresh data saat kategori dipilih
+watch(selectedCategory, (newValue) => {
+    router.get(route('products.index'), { 
+        ...props.filters, 
+        category: newValue,
+        page: 1 // Reset ke halaman 1 saat filter berubah
+    }, { preserveState: true, replace: true });
+});
+
 const columns = [
     { label: 'Tanggal', key: 'created_at' },
     { label: 'Gambar', key: 'image_url' },
@@ -91,7 +103,6 @@ const destroy = (id) => {
         router.delete(route('products.destroy', id));
     }
 };
-
 </script>
 
 <template>
@@ -204,6 +215,20 @@ const destroy = (id) => {
                 :initialSearch="filters?.search"
                 @on-add="openCreate"
             >
+                <template #extra-filters>
+                    <select 
+                        v-model="selectedCategory"
+                        class="border border-gray-300 rounded p-2 text-xs font-bold uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none min-w-[200px]"
+                    >
+                        <option value="">-- KATEGORI PRODUK--</option>
+                        <option v-for="c in categories" :key="c.id" :value="c.id">
+                            {{ c.name.toUpperCase() }}
+                        </option>
+                    </select>
+                </template>
+
+                
+
                 <template #created_at="{ value }">
                     <span class="text-[10px] text-gray-500 font-medium whitespace-nowrap">{{ value }}</span>
                 </template>

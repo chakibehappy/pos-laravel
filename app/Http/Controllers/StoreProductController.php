@@ -34,11 +34,29 @@ class StoreProductController extends Controller
             });
         }
 
+        if ($request->filled('store_id')) {
+            $query->where('store_id', $request->store_id);
+        }
+
+        if ($request->filled('store_type_id')) {
+        $query->whereHas('store', function($q) use ($request) {
+            $q->where('store_type_id', $request->store_type_id);
+        });
+        }
+
+        if ($request->filled('product_category_id')) {
+        $query->whereHas('product', function($q) use ($request) {
+            $q->where('product_category_id', $request->product_category_id);
+        });
+        }
+
         return Inertia::render('StoreProducts/Index', [
             'stocks' => $query->latest('store_products.updated_at')->paginate(10)->withQueryString(),
-            'stores' => Store::all(['id', 'name']),
+            'stores' => Store::all(['id', 'name', 'store_type_id']),
+            'storeTypes' => \App\Models\StoreType::all(['id', 'name']),
             'products' => Product::all(['id', 'name', 'sku']),
-            'filters' => $request->only(['search']),
+            'categories' => \App\Models\ProductCategory::all(['id', 'name']),
+            'filters' => $request->only(['search','store_id','store_type_id','product_category_id']),
         ]);
     }
 

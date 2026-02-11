@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -7,8 +7,29 @@ import DataTable from '@/Components/DataTable.vue';
 const props = defineProps({
     stocks: Object,
     stores: Array,
+    storeTypes: Array,
     products: Array,
+    categories: Array,
     filters: Object
+});
+
+const selectedStore = ref(props.filters?.store_id || '');
+const selectedStoreType = ref(props.filters?.store_type_id || '');
+const selectedProductCategories = ref(props.filters?.product_category_id || '');
+
+watch([selectedStore, selectedStoreType, selectedProductCategories], ([newStore, newType, newCategories]) => {
+    router.get(route('store-products.index'), { 
+        ...props.filters, 
+        store_id: newStore,
+        // Jika nilainya 'all' atau kosong, kirim null agar tidak memfilter di backend
+        store_type_id: (newType === 'all' || newType === '') ? null : newType,
+        product_category_id: newCategories,
+        page: 1 
+    }, { 
+        preserveState: true, 
+        replace: true,
+        preserveScroll: true 
+    });
 });
 
 const columns = [
@@ -109,8 +130,26 @@ const destroy = (id) => {
         router.delete(route('store-products.destroy', id));
     }
 };
-</script>
 
+// Tambahkan ini di bagian script setup (di bawah filteredStores yang sudah ada)
+
+const filteredStoresList = computed(() => {
+    // Jika Jenis Usaha tidak dipilih atau 'all', tampilkan semua toko dari props
+    if (!selectedStoreType.value || selectedStoreType.value === 'all') {
+        return props.stores;
+    }
+    
+    // Filter toko yang memiliki store_type_id sama dengan selectedStoreType
+    return props.stores.filter(s => s.store_type_id == selectedStoreType.value);
+});
+
+// Tambahkan watch untuk mereset dropdown Toko jika Jenis Usaha berubah
+// Agar tidak ada ID toko yang "tertinggal" padahal jenis usahanya sudah ganti
+watch(selectedStoreType, () => {
+    selectedStore.value = '';
+});
+
+</script>
 <template>
     <Head title="Manajemen Stok Cabang" />
 
@@ -181,7 +220,17 @@ const destroy = (id) => {
                     </div>
                 </div>
             </div>
-
+            <div class="mb-6">
+                    <div class="inline-flex bg-white p-1.5 rounded-xl border border-gray-200 items-center gap-3 shadow-sm">
+                        <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Jenis Usaha</label>
+                        
+                        <select v-model="selectedStoreType" class="bg-transparent border-none text-gray-800 text-xs rounded-lg focus:ring-0 px-4 py-2 font-black outline-none min-w-[180px] uppercase">
+                            <option value="all"> SEMUA TIPE</option>
+                            <option v-for="st in storeTypes" :key="st.id" :value="st.id">🏷️ {{ st.name }}</option>
+                        </select>
+                    </div>
+            </div>
+            
             <DataTable 
                 title="Stok Produk Toko"
                 :resource="stocks" 
@@ -191,6 +240,28 @@ const destroy = (id) => {
                 :initialSearch="filters.search"
                 @on-add="openCreate" 
             >
+                <template #extra-filters>
+                    <select 
+                        v-model="selectedStore"
+                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all"
+                    >
+                        <option value="">-- SEMUA TOKO --</option>
+                        <option v-for="s in filteredStoresList" :key="s.id" :value="s.id">
+                            {{ s.name.toUpperCase() }}
+                        </option>
+                    </select>
+
+                    
+                    <select 
+                        v-model="selectedProductCategories"
+                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all">
+                        <option value="">-- KATEGORY PRODUK  --</option>
+                        <option v-for="c in categories" :key="c.id" :value="c.id">
+                            {{ c.name }}
+                        </option>
+                    </select>
+                </template>
+
                 <template #stock="{ value }">
                     <span class="font-bold text-blue-600">{{ value }} <small class="text-[10px] text-gray-400 font-bold">UNIT</small></span>
                 </template>
