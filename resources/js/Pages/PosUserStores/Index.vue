@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useForm, Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -9,11 +9,29 @@ const props = defineProps({
     resource: Object, 
     posUsers: Array,
     stores: Array,
+    storeTypes: Array,
     filters: Object,
 });
 
 const showForm = ref(false);
 const errorMessage = ref('');
+
+
+const selectedStore = ref(props.filters?.store_id || '');
+const selectedStoreType = ref(props.filters?.store_type_id || '');
+
+watch([selectedStore, selectedStoreType], ([newStore, newType]) => {
+    router.get(route('pos-user-stores.index'), { 
+        ...props.filters, 
+        store_id: newStore,
+        store_type_id: newType,
+        page: 1 
+    }, { 
+        preserveState: true, 
+        replace: true,
+        preserveScroll: true 
+    });
+});
 
 const form = useForm({
     id: null,
@@ -137,6 +155,27 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 :showAddButton="!showForm"
                 @on-add="openCreate"
             >
+                <template #extra-filters>
+                    <select 
+                        v-model="selectedStore"
+                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all"
+                    >
+                        <option value="">-- SEMUA TOKO --</option>
+                        <option v-for="s in stores" :key="s.id" :value="s.id">
+                            {{ s.name.toUpperCase() }}
+                        </option>
+                    </select>
+
+                    <select 
+                        v-model="selectedStoreType"
+                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all">
+                        <option value="">-- JENIS USAHA  --</option>
+                        <option v-for="st in storeTypes" :key="st.id" :value="st.id">
+                            {{ st.name }}
+                        </option>
+                    </select>
+                </template>
+
                 <template #store_name="{ row }">
                     <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-blue-100 shadow-sm">
                         {{ row.pos_user?.role == 'admin' ? 'ALL STORES' : row.store?.name }}

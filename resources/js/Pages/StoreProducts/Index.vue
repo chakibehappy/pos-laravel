@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -7,8 +7,41 @@ import DataTable from '@/Components/DataTable.vue';
 const props = defineProps({
     stocks: Object,
     stores: Array,
+    storeTypes: Array,
     products: Array,
+    categories: Array,
     filters: Object
+});
+
+const selectedStore = ref(props.filters?.store_id || '');
+const selectedStoreType = ref(props.filters?.store_type_id || '');
+const selectedProductCategories = ref(props.filters?.product_category_id || '');
+
+// Filter Daftar Toko berdasarkan Jenis Usaha (Untuk Dropdown Filter)
+const filteredStoresList = computed(() => {
+    if (!selectedStoreType.value || selectedStoreType.value === 'all') {
+        return props.stores;
+    }
+    return props.stores.filter(s => s.store_type_id == selectedStoreType.value);
+});
+
+// Reset pilihan toko jika Jenis Usaha berubah
+watch(selectedStoreType, () => {
+    selectedStore.value = '';
+});
+
+watch([selectedStore, selectedStoreType, selectedProductCategories], ([newStore, newType, newCategories]) => {
+    router.get(route('store-products.index'), { 
+        ...props.filters, 
+        store_id: newStore,
+        store_type_id: (newType === 'all' || newType === '') ? null : newType,
+        product_category_id: newCategories,
+        page: 1 
+    }, { 
+        preserveState: true, 
+        replace: true,
+        preserveScroll: true 
+    });
 });
 
 const columns = [
@@ -20,10 +53,9 @@ const columns = [
 ];
 
 const errorMessage = ref('');
-const showInlineForm = ref(false); // Untuk Tambah
-const showModalForm = ref(false);  // Untuk Edit
+const showInlineForm = ref(false);
+const showModalForm = ref(false);
 
-// Logic Dropdown Search dalam Form
 const searchQuery = ref(''); 
 const showDropdown = ref(false); 
 const storeSearchQuery = ref('');
@@ -58,7 +90,7 @@ const openCreate = () => {
     searchQuery.value = '';
     storeSearchQuery.value = '';
     showModalForm.value = false;
-    showInlineForm.value = true; // Munculkan Inline
+    showInlineForm.value = true;
 };
 
 const openEdit = (row) => {
@@ -71,7 +103,7 @@ const openEdit = (row) => {
     searchQuery.value = row.product_name; 
     storeSearchQuery.value = row.store_name; 
     showInlineForm.value = false;
-    showModalForm.value = true; // Munculkan Popup
+    showModalForm.value = true;
 };
 
 const selectProduct = (p) => {
@@ -123,9 +155,6 @@ const destroy = (id) => {
                     <button @click="showInlineForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
                 </div>
                 <div class="p-6">
-                    <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-                        <p class="text-xs font-bold text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
-                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="flex flex-col gap-1 relative">
                             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cabang Tujuan</label>
@@ -182,6 +211,16 @@ const destroy = (id) => {
                 </div>
             </div>
 
+            <div class="mb-6">
+                <div class="inline-flex bg-white p-1.5 rounded-xl border border-gray-200 items-center gap-3 shadow-sm">
+                    <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Jenis Usaha</label>
+                    <select v-model="selectedStoreType" class="bg-transparent border-none text-gray-800 text-xs rounded-lg focus:ring-0 px-4 py-2 font-black outline-none min-w-[180px] uppercase">
+                        <option value="all"> SEMUA TIPE</option>
+                        <option v-for="st in storeTypes" :key="st.id" :value="st.id">🏷️ {{ st.name }}</option>
+                    </select>
+                </div>
+            </div>
+            
             <DataTable 
                 title="Stok Produk Toko"
                 :resource="stocks" 
@@ -191,6 +230,27 @@ const destroy = (id) => {
                 :initialSearch="filters.search"
                 @on-add="openCreate" 
             >
+                <template #extra-filters>
+                    <select 
+                        v-model="selectedStore"
+                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all"
+                    >
+                        <option value="">-- SEMUA TOKO --</option>
+                        <option v-for="s in filteredStoresList" :key="s.id" :value="s.id">
+                            {{ s.name.toUpperCase() }}
+                        </option>
+                    </select>
+
+                    <select 
+                        v-model="selectedProductCategories"
+                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all">
+                        <option value="">-- KATEGORI PRODUK --</option>
+                        <option v-for="c in categories" :key="c.id" :value="c.id">
+                            {{ c.name.toUpperCase() }}
+                        </option>
+                    </select>
+                </template>
+
                 <template #stock="{ value }">
                     <span class="font-bold text-blue-600">{{ value }} <small class="text-[10px] text-gray-400 font-bold">UNIT</small></span>
                 </template>

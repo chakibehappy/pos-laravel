@@ -43,14 +43,27 @@ watch(search, debounce((value) => {
             </button>
         </div>
 
-        <div v-if="routeName" class="mb-6">
-            <input 
-                v-model="search"
-                type="text" 
-                :placeholder="placeholder.toUpperCase()"
-                class="w-full md:w-1/3 border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm transition-all placeholder:text-gray-400"
-            />
+        <div class="flex flex-col md:flex-row gap-4 items-center mb-6">
+    
+   <div v-if="routeName" class="mb-6 flex flex-col md:flex-row gap-3 items-center">
+            <div class="relative w-full md:w-80">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                </span>
+                <input 
+                    v-model="search"
+                    type="text" 
+                    :placeholder="placeholder"
+                    class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white shadow-sm transition-all transition-duration-200 placeholder:text-gray-400"
+                />
+            </div>
+
+            <div class="flex gap-2 w-full md:w-auto">
+                <slot name="extra-filters" />
+            </div>
         </div>
+
+
+    </div>
 
         <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <table class="w-full border-collapse">

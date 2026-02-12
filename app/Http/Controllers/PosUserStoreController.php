@@ -28,12 +28,26 @@ class PosUserStoreController extends Controller
                 });
             });
         }
+            // TAMBAHKAN INI: Filter Dropdown Toko
+        if ($request->filled('store_id')) {
+            $query->where('store_id', $request->store_id);
+        }
+
+        if ($request->filled('store_type_id')) {
+        $query->whereHas('store', function($q) use ($request) {
+            $q->where('store_type_id', $request->store_type_id);
+        });
+        }
 
         return Inertia::render('PosUserStores/Index', [
-            'resource' => $query->latest()->paginate(10)->withQueryString(),
+            'resource' => $query
+            ->latest()
+            ->paginate(10)
+            ->withQueryString(),
             'posUsers' => PosUser::where('role', '!=', 'developer')->get(['id', 'name']),
             'stores'   => Store::all(['id', 'name']),
-            'filters'  => $request->only(['search']),
+            'storeTypes' => \App\Models\StoreType::all(['id', 'name']),
+            'filters'  => $request->only(['search','store_id','store_type_id']),
         ]);
     }
 

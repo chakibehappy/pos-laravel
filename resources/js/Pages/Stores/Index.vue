@@ -186,7 +186,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
             <div class="mb-6">
                 <div class="inline-flex bg-white p-1.5 rounded-xl border border-gray-200 items-center gap-3 shadow-sm">
-                    <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Filter Kategori</label>
+                    <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Jenis Usaha</label>
                     <select @change="filterByType($event.target.value)" v-model="activeType" class="bg-transparent border-none text-gray-800 text-xs rounded-lg focus:ring-0 px-4 py-2 font-black outline-none min-w-[180px] uppercase">
                         <option value="all"> SEMUA TIPE</option>
                         <option v-for="type in store_types" :key="type.id" :value="type.id.toString()">🏷️ {{ type.name }}</option>
