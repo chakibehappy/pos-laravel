@@ -24,6 +24,8 @@ use App\Models\TopupFeeRule;
 use App\Models\WithdrawalFeeRule;
 
 use App\Helpers\PosHelper;
+use App\Helpers\ActivityLogger;
+
 use Illuminate\Support\Facades\DB;
 
 Route::prefix('test-api')->group(function () {
@@ -58,7 +60,7 @@ Route::post('/pos-user-login', function (Request $request) {
     $request->validate([
         'pos_user_id' => 'required|integer',
         'pin' => 'required|string',
-        'device_name' => 'required|string',
+        'device_name' => 'required|string'
     ]);
 
     $user = PosUser::find($request->pos_user_id);
@@ -67,6 +69,13 @@ Route::post('/pos-user-login', function (Request $request) {
         return response()->json(['message' => 'Invalid POS user credentials'], 401);
     }
 
+    ActivityLogger::log(
+        'login', 
+        'stores', 
+        $request->store_id, 
+        'Login Aplikasi POS '. $request->store_name, 
+        $request->pos_user_id
+    );
     $token = $user->createToken($request->device_name)->plainTextToken;
 
     return response()->json([
