@@ -8,6 +8,8 @@ use App\Models\StoreType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+use App\Helpers\ActivityLogger;
+
 class CashStoreController extends Controller
 {
     public function index(Request $request)
@@ -68,12 +70,16 @@ class CashStoreController extends Controller
         $inputAmount = $request->cash;
         $finalCash = $currentCash;
 
+        $label = "Menambah Kas Toko ";
+
         if ($request->action_type === 'add') {
             $finalCash = $currentCash + $inputAmount;
         } elseif ($request->action_type === 'subtract') {
+            $label = "Mengurangi Kas Toko ";
             $finalCash = $currentCash - $inputAmount;
         } elseif ($request->action_type === 'reset') {
-            $finalCash = 0;
+            $finalCash = 0;        
+            $label = "Mengeset Kas Toko ";
         }
 
         // Simpan hasil kalkulasi ke database
@@ -86,7 +92,9 @@ class CashStoreController extends Controller
             'subtract' => 'dikurangi',
             'reset' => 'direset ke 0'
         ];
-
+        $store_name = Store::where('id', $request->store_id)->first()->name;
+        // TODO : connect created by
+        ActivityLogger::log('update', 'cash_store', $cashStore->id, $label . $store_name, auth()->user()->posUser->id);
         return back()->with('message', "Saldo kas berhasil {$statusLabel[$request->action_type]}!");
     }
 
