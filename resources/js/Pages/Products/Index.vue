@@ -240,6 +240,7 @@ const destroy = (id) => {
                             {{ c.name.toUpperCase() }}
                         </option>
                     </select>
+                
                 </template>
 
                 
