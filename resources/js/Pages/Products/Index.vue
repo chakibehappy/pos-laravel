@@ -82,20 +82,33 @@ const handleFileChange = (e) => {
 };
 
 const submit = () => {
-    form.post(route('products.store'), {
-        forceFormData: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            showInlineForm.value = false;
-            showModalForm.value = false;
-            form.reset();
-            imagePreview.value = null;
-        },
-        onError: (errors) => {
-            console.error("Submit Error:", errors);
-            alert("Gagal menyimpan data. Cek console atau pastikan semua field terisi.");
-        }
-    });
+    if (form.id) {
+        // LOGIKA UPDATE (EDIT)
+        // Gunakan transform untuk menambahkan _method: 'put' agar Laravel mengenali ini sebagai UPDATE
+        form.transform((data) => ({
+            ...data,
+            _method: 'put',
+        })).post(route('products.update', form.id), {
+            forceFormData: true, // Wajib true untuk upload file
+            preserveScroll: true,
+            onSuccess: () => {
+                showModalForm.value = false;
+                form.reset();
+                imagePreview.value = null;
+            },
+        });
+    } else {
+        // LOGIKA STORE (TAMBAH BARU)
+        form.post(route('products.store'), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                showInlineForm.value = false;
+                form.reset();
+                imagePreview.value = null;
+            },
+        });
+    }
 };
 
 const destroy = (id) => {
