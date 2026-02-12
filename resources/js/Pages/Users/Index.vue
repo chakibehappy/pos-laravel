@@ -9,6 +9,8 @@ const props = defineProps({
     filters: Object // Untuk menangani state pencarian
 });
 
+const isUpdate = ref(false);
+
 const columns = [
     { label: 'Nama Lengkap', key: 'name' }, 
     { label: 'Alamat Email', key: 'email' }
@@ -26,6 +28,7 @@ const openCreate = () => {
     form.reset();
     form.clearErrors();
     form.id = null;
+    isUpdate.value = false;
     showForm.value = true;
 };
 
@@ -35,6 +38,7 @@ const openEdit = (row) => {
     form.name = row.name;
     form.email = row.email;
     form.password = ''; 
+    isUpdate.value = true;
     showForm.value = true;
 };
 
@@ -78,7 +82,8 @@ const destroy = (id) => {
 
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email</label>
-                            <input v-model="form.email" type="email" placeholder="contoh@mail.com" 
+                            <input v-model="form.email" type="email" placeholder="contoh@mail.com" :readonly="isUpdate"
+                            :class="isUpdate ? 'text-gray-500' : ''"
                                 class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all placeholder:text-gray-300" />
                             <span v-if="form.errors.email" class="text-[9px] text-red-500 font-bold uppercase mt-1 ml-1">{{ form.errors.email }}</span>
                         </div>

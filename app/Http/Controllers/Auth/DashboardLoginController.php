@@ -8,9 +8,12 @@ use App\Http\Controllers\Controller;
 use Inertia\Inertia;
 
 use App\Models\User;
+use App\Models\PosUser;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+
+use App\Helpers\ActivityLogger;
 
 class DashboardLoginController extends Controller
 {
@@ -27,7 +30,6 @@ class DashboardLoginController extends Controller
             'password' => ['required'],
         ]);
 
-        // 1️. Check if user exists
         $user = User::where('email', $request->email)->first();
 
         if (! $user) {
@@ -36,20 +38,19 @@ class DashboardLoginController extends Controller
             ]);
         }
 
-        // 2️. Check password
         if (! Hash::check($request->password, $user->password)) {
             return back()->withErrors([
                 'password' => 'Incorrect password.',
             ]);
         }
 
-        // 3. Login user
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
-        // 4️. Generate API token for this session/device
         $deviceName = $request->header('User-Agent') ?? 'Unknown Device';
         $token = $user->createToken($deviceName)->plainTextToken;
+
+        ActivityLogger::log('login', '', NULL, 'Login Admin Dashboard', $user->posUser->id);
 
         // return plain token to frontend
         return redirect()->intended('/dashboard')->with([
@@ -75,6 +76,8 @@ class DashboardLoginController extends Controller
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        ActivityLogger::log('logout', '', NULL, 'Logout dari Admin Dashboard', $user->posUser->id);
 
         return redirect('/login');
     }

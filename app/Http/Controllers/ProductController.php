@@ -101,17 +101,43 @@ class ProductController extends Controller
             }
 
             // Upload Gambar
+            // if ($request->hasFile('image')) {
+            //     if ($product && $product->image) {
+            //         Storage::disk('public')->delete($product->image);
+            //     }
+
+            //     $file = $request->file('image');
+            //     $filename = time() . '_' . uniqid() . '.webp';
+            //     $manager = new ImageManager(new Driver());
+            //     $image = $manager->read($file);
+            //     $image->scale(width: 800);
+            //     $encoded = $image->toWebp(70);
+
+            //     $path = 'products/' . $filename;
+            //     Storage::disk('public')->put($path, (string) $encoded);
+            //     $data['image'] = $path;
+            // }
+
             if ($request->hasFile('image')) {
                 if ($product && $product->image) {
                     Storage::disk('public')->delete($product->image);
                 }
 
                 $file = $request->file('image');
-                $filename = time() . '_' . uniqid() . '.webp';
+                // 1. Change extension to .png
+                $filename = time() . '_' . uniqid() . '.png';
+                
                 $manager = new ImageManager(new Driver());
                 $image = $manager->read($file);
+                
+                // 2. Scale it down (800 is good for performance)
                 $image->scale(width: 800);
-                $encoded = $image->toWebp(70);
+                
+                // 3. Encode to PNG. 
+                // For Unity compatibility, standard PNG encoding is safest.
+                // Note: PNG is lossless, so there isn't a "quality 70" like WebP, 
+                // but Intervention handles the optimization.
+                $encoded = $image->toPng(); 
 
                 $path = 'products/' . $filename;
                 Storage::disk('public')->put($path, (string) $encoded);

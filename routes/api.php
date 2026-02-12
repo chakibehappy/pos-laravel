@@ -292,7 +292,7 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
         $posUser = $request->user();
 
         $transaction->update([
-            'status' => Transaction::STATUS_PENDING_DELETE,
+            'status' => 1,
             'delete_requested_by' => $request->user()->id,
             'delete_reason' => $request->reason,
         ]);
