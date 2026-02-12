@@ -246,7 +246,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     ]);
 
     $storeId = $request->store_id;
-    $status  = $request->get('status', 0); // default to 0
+    $status  = $request->status; // default to 0
 
     $timezone = 'Asia/Jakarta';
 
