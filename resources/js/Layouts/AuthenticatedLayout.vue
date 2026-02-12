@@ -28,19 +28,17 @@ const formattedCount = computed(() => {
 <template>
     <div class="flex flex-col h-screen bg-gray-100 overflow-hidden">
         
-        <header class="h-16 bg-white border-b border-black flex items-center justify-between px-8 shrink-0 z-[60]">
-            <div class="flex items-center gap-6">
-                <div class="flex items-center gap-3">
-                    <img src="/storage/img/maarlogo.png" class="w-8 h-8 object-contain" />
-                    <div class="text-lg font-black uppercase italic tracking-tighter text-black">
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 shrink-0 z-[60]">
+            <div class="flex items-center gap-4">
+                <img src="/storage/img/maarlogo.png" class="w-9 h-9 object-contain" />
+                
+                <div class="flex flex-col justify-center">
+                    <div class="text-lg font-black uppercase italic tracking-tighter text-black leading-none">
                         MAAR COMPANY
                     </div>
-                </div>
-
-                <div class="h-6 w-[1px] bg-black/10 mx-2"></div>
-
-                <div class="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                    Current Page: <span class="text-black">{{ $page.component }}</span>
+                    <div class="text-[9px] font-bold uppercase tracking-wider text-gray-400 mt-1">
+                        Current Page: <span class="text-black">{{ $page.component }}</span>
+                    </div>
                 </div>
             </div>
             
@@ -63,7 +61,7 @@ const formattedCount = computed(() => {
                     </div>
                 </Link>
 
-                <span class="text-xs font-mono bg-gray-100 px-3 py-1.5 border border-black/5 rounded-lg font-bold">
+                <span class="text-xs font-mono bg-white px-3 py-1.5 border border-gray-100 rounded-lg font-bold shadow-inner">
                     {{ $page.props.auth.user.email }}
                 </span>
             </div>

@@ -18,7 +18,11 @@ class StoreProduct extends Model
         'stock',
         'created_by', // Ditambahkan sesuai struktur tabel di gambar
     ];
-
+    public function buyingPrice(): HasOne
+    {
+        // Parameter kedua 'product_id' memastikan Laravel mencari kolom tersebut di tb buying_price
+        return $this->hasOne(BuyingPrice::class, 'product_id');
+    }
     /**
      * Relasi ke Cabang/Store
      */
