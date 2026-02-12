@@ -242,9 +242,11 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
 
     $request->validate([
         'store_id' => 'required|integer|exists:stores,id',
+        'status'   => 'nullable|integer|in:0,1,2',
     ]);
 
     $storeId = $request->store_id;
+    $status  = $request->get('status', 0); // default to 0
 
     $timezone = 'Asia/Jakarta';
 
@@ -254,13 +256,12 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     $transactions = Transaction::with([
             'posUser',
             'details.product',
-            // 'details.topupTransaction',
             'details.topupTransaction.transType',
             'details.topupTransaction.digitalWalletStore.wallet',
             'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
-        ->where('status', 0)
+        ->where('status', $status)
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
