@@ -78,8 +78,7 @@ const openEdit = (row) => {
 const handleFileChange = (e) => {
     const file = e.target.files[0];
     form.image = file;
-    console.log("Hello")
-    console.log(file)
+    // console.log(file)
     if (file) imagePreview.value = URL.createObjectURL(file);
 };
 

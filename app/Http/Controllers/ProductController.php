@@ -101,22 +101,22 @@ class ProductController extends Controller
             }
 
             // Upload Gambar
-            // if ($request->hasFile('image')) {
-            //     if ($product && $product->image) {
-            //         Storage::disk('public')->delete($product->image);
-            //     }
+            if ($request->hasFile('image')) {
+                if ($product && $product->image) {
+                    Storage::disk('public')->delete($product->image);
+                }
 
-            //     $file = $request->file('image');
-            //     $filename = time() . '_' . uniqid() . '.webp';
-            //     $manager = new ImageManager(new Driver());
-            //     $image = $manager->read($file);
-            //     $image->scale(width: 800);
-            //     $encoded = $image->toWebp(70);
+                $file = $request->file('image');
+                $filename = time() . '_' . uniqid() . '.webp';
+                $manager = new ImageManager(new Driver());
+                $image = $manager->read($file);
+                $image->scale(width: 800);
+                $encoded = $image->toWebp(70);
 
-            //     $path = 'products/' . $filename;
-            //     Storage::disk('public')->put($path, (string) $encoded);
-            //     $data['image'] = $path;
-            // }
+                $path = 'products/' . $filename;
+                Storage::disk('public')->put($path, (string) $encoded);
+                $data['image'] = $path;
+            }
 
             Product::updateOrCreate(['id' => $request->id], $data);
 
