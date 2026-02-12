@@ -154,6 +154,7 @@ const destroy = (id) => {
                     <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider">➕ Tambah Alokasi Baru</h2>
                     <button @click="showInlineForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
                 </div>
+                
                 <div class="p-6">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="flex flex-col gap-1 relative">
@@ -230,6 +231,29 @@ const destroy = (id) => {
                 :initialSearch="filters.search"
                 @on-add="openCreate" 
             >
+                <template #table-actions>
+                    <a v-if="!showInlineForm" 
+                    :href="route('store-products.export', props.filters)" 
+                    class="group bg-gray-300 text-black px-6 font-bold uppercase border-2 border-black hover:bg-emerald-600 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center gap-2 h-[44px] text-sm box-border">
+                        
+                        <svg xmlns="http://www.w3.org/2000/svg" 
+                            class="w-5 h-5 text-black group-hover:text-white transition-colors duration-200" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            stroke-width="2.5" 
+                            stroke-linecap="round" 
+                            stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <path d="M8 13l4 4"/>
+                            <path d="M12 13l-4 4"/>
+                        </svg>
+
+                        Eksport Excel
+                    </a>
+                </template>
+                
                 <template #extra-filters>
                     <select 
                         v-model="selectedStore"
@@ -263,6 +287,7 @@ const destroy = (id) => {
                         <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors">❌</button>
                     </div>
                 </template>
+                
             </DataTable>
         </div>
     </AuthenticatedLayout>
