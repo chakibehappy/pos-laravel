@@ -25,6 +25,9 @@ use App\Http\Controllers\PosUserStoreController;
 use App\Http\Controllers\WithdrawalFeeRuleController;
 use App\Http\Controllers\TransactionDetailController;
 use App\Http\Controllers\TransactionApprovalController;
+
+
+
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -106,6 +109,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/store-products', [StoreProductController::class, 'index'])->name('store-products.index');
     Route::post('/store-products', [StoreProductController::class, 'store'])->name('store-products.store');
     Route::delete('/store-products/{id}', [StoreProductController::class, 'destroy'])->name('store-products.destroy');
+    // ---- eksport excel
+    Route::get('store-products/export', [StoreProductController::class, 'export'])->name('store-products.export');
+    
     // --- SAMPAI DI SINI ---
 
     // --- TAMBAHKAN MULAI DARI SINI ---
@@ -179,4 +185,6 @@ Route::middleware(['auth'])->group(function () {
     // Letakkan di dalam group middleware auth
     Route::get('/transactions/approval', [TransactionApprovalController::class, 'index'])->name('transactions.approval');
     Route::post('/transactions-approve-request/{id}', [TransactionApprovalController::class, 'handleAction'])->name('transactions.approve-request');
-});
+
+
+    });

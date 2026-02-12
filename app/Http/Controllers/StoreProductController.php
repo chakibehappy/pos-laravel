@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Store;
 use App\Models\Product;
+use App\Exports\StoreProductExport;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Models\StoreProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+
 
 class StoreProductController extends Controller
 {
@@ -113,4 +116,33 @@ class StoreProductController extends Controller
 
         return back()->with('message', 'Data stok cabang berhasil dihapus.');
     }
+    
+   public function export(Request $request)
+    {
+        $query = StoreProduct::query();
+
+        // Terapkan filter dasar jika dipilih
+        if ($request->filled('store_id')) {
+            $query->where('store_id', $request->store_id);
+        }
+
+        if ($request->filled('product_category_id')) {
+            $query->whereHas('product', function($q) use ($request) {
+                $q->where('product_category_id', $request->product_category_id);
+            });
+        }
+
+        // Penamaan File
+        $storeLabel = $request->filled('store_id') ? \App\Models\Store::find($request->store_id)->name : 'Semua-Toko';
+        $categoryLabel = $request->filled('product_category_id') ? \App\Models\ProductCategory::find($request->product_category_id)->name : 'Semua-Kategori';
+        
+        $fileName = \Illuminate\Support\Str::slug("stok-{$storeLabel}-{$categoryLabel}") . '.xlsx';
+
+        // Kirim query, category_id, dan store_id
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new StoreProductExport($query, $request->product_category_id, $request->store_id), 
+            $fileName
+        );
+    }
+
 }

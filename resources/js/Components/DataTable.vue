@@ -34,13 +34,18 @@ watch(search, debounce((value) => {
         
         <div class="mb-4 flex justify-between items-end">
             <h1 class="text-2xl font-black uppercase tracking-tighter">{{ title }}</h1>
-            <button 
-                v-if="showAddButton"    
-                @click="emit('on-add')"
-                class="bg-[#fdc702] text-black px-6 py-2 font-bold uppercase border-2 border-black hover:bg-blue-600 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-            >
-                Tambahkan
-            </button>
+            
+            <div class="flex items-center gap-3">
+                <slot name="table-actions" />
+
+                <button 
+                    v-if="showAddButton"    
+                    @click="emit('on-add')"
+                    class="bg-[#fdc702] text-black px-6 py-2 font-bold uppercase border-2 border-black hover:bg-blue-600 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+                >
+                    Tambahkan
+                </button>
+            </div>
         </div>
 
         <div class="flex flex-col md:flex-row gap-4 items-center mb-6">
