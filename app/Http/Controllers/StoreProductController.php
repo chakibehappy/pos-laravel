@@ -25,6 +25,7 @@ class StoreProductController extends Controller
                 'store_products.*', 
                 'stores.name as store_name', 
                 'products.name as product_name',
+                'products.buying_price as product_buying_price',
                 'products.sku as product_sku',
                 'pos_users.name as creator_name' // Kolom nama dari pos_users
             );
@@ -57,7 +58,7 @@ class StoreProductController extends Controller
             'stocks' => $query->latest('store_products.updated_at')->paginate(10)->withQueryString(),
             'stores' => Store::all(['id', 'name', 'store_type_id']),
             'storeTypes' => \App\Models\StoreType::all(['id', 'name']),
-            'products' => Product::all(['id', 'name', 'sku']),
+            'products' => Product::all(['id', 'name', 'sku', 'buying_price']),
             'categories' => \App\Models\ProductCategory::all(['id', 'name']),
             'filters' => $request->only(['search','store_id','store_type_id','product_category_id']),
         ]);

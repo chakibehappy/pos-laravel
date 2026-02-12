@@ -6,13 +6,28 @@ import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
     stocks: Object,
+    all_stocks_reference: Array,
     stores: Array,
     storeTypes: Array,
     products: Array,
     categories: Array,
     filters: Object
 });
+const currentStockInfo = computed(() => {
+    // 1. Validasi awal: pastikan toko dipilih dan input produk tidak kosong
+    if (!form.store_id || !searchQuery.value) return 0;
 
+    const targetProductName = searchQuery.value.toLowerCase().trim();
+    
+    // 2. Gunakan .find() atau .reduce() pada props.stocks.data
+    // Pastikan membandingkan store_id DAN product_name secara akurat
+    const existingData = props.stocks.data.find(item => {
+        return String(item.store_id) === String(form.store_id) && 
+               String(item.product_name).toLowerCase().trim() === targetProductName;
+    });
+
+    return existingData ? existingData.stock : 0;
+});
 const selectedStore = ref(props.filters?.store_id || '');
 const selectedStoreType = ref(props.filters?.store_type_id || '');
 const selectedProductCategories = ref(props.filters?.product_category_id || '');
@@ -47,7 +62,8 @@ watch([selectedStore, selectedStoreType, selectedProductCategories], ([newStore,
 const columns = [
     { label: 'Cabang', key: 'store_name' }, 
     { label: 'Produk', key: 'product_name' }, 
-    { label: 'SKU', key: 'product_sku' }, 
+    { label: 'SKU', key: 'product_sku' },
+    { label: 'Modal', key: 'product_buying_price' }, // Tambahkan ini 
     { label: 'Jumlah Stok', key: 'stock' },
     { label: 'Dibuat Oleh', key: 'creator' }
 ];
@@ -70,9 +86,11 @@ const form = useForm({
 
 const filteredProducts = computed(() => {
     if (!searchQuery.value) return props.products;
+    const q = searchQuery.value.toLowerCase();
     return props.products.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(searchQuery.value.toLowerCase()))
+        p.name.toLowerCase().includes(q) ||
+        (p.sku && p.sku.toLowerCase().includes(q)) ||
+        (p.base_price && p.base_price.toString().includes(q)) // Bisa cari berdasarkan harga juga
     );
 });
 
@@ -108,7 +126,7 @@ const openEdit = (row) => {
 
 const selectProduct = (p) => {
     form.product_id = p.id;
-    searchQuery.value = p.name;
+    searchQuery.value = p.name; 
     showDropdown.value = false;
 };
 
@@ -167,15 +185,39 @@ const destroy = (id) => {
                         <div class="flex flex-col gap-1 relative">
                             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Produk</label>
                             <input v-model="searchQuery" @focus="showDropdown = true" @blur="handleBlur('product')" type="text" placeholder="CARI PRODUK..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
-                            <div v-if="showDropdown" class="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-14 max-h-40 overflow-y-auto shadow-xl">
-                                <div v-for="p in filteredProducts" :key="p.id" @mousedown="selectProduct(p)" class="p-2.5 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50 flex justify-between">
-                                    <span>{{ p.name }}</span> <span class="text-gray-400 italic font-medium">{{ p.sku }}</span>
+                            <div v-if="showDropdown" class="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-14 max-h-60 overflow-y-auto shadow-xl transition-all">
+                                <div v-for="p in filteredProducts" :key="p.id" 
+                                    @mousedown="selectProduct(p)" 
+                                    class="p-3 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50 flex justify-between items-center group"
+                                >
+                                    <div class="flex flex-col">
+                                        <span class="text-gray-800">{{ p.name }}</span>
+                                        <div class="flex gap-2 mt-0.5">
+                                            <span class="text-blue-600 text-[10px] font-black">
+                                                Modal(Rp): {{ p.buying_price ? new Intl.NumberFormat('id-ID').format(p.buying_price) : '0' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-[9px]">PILIH</span>
+                                    </div>
+                                </div>
+                                
+                                <div v-if="filteredProducts.length === 0" class="p-4 text-center text-gray-400 text-xs italic">
+                                    Produk tidak ditemukan...
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Jumlah Stok</label>
-                            <input v-model="form.stock" type="number" class="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2.5 text-sm font-bold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                            <label class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+                                Stok Saat Ini: <span class="text-red-600 font-black">({{ currentStockInfo }} UNIT)</span>
+                            </label>
+                            <input 
+                                v-model="form.stock" 
+                                type="number" 
+                                class="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2.5 text-sm font-bold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                placeholder="Input Stok Baru..."
+                            />
                         </div>
                     </div>
                     <div class="mt-8 flex gap-3 border-t border-gray-100 pt-6">
@@ -274,7 +316,11 @@ const destroy = (id) => {
                         </option>
                     </select>
                 </template>
-
+                <template #product_buying_price="{ value }">
+                    <span class="font-medium text-gray-600">
+                        Rp {{ value ? new Intl.NumberFormat('id-ID').format(value) : '0' }}
+                    </span>
+                </template>
                 <template #stock="{ value }">
                     <span class="font-bold text-blue-600">{{ value }} <small class="text-[10px] text-gray-400 font-bold">UNIT</small></span>
                 </template>
