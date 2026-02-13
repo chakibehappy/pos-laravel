@@ -24,8 +24,6 @@ use App\Models\TopupFeeRule;
 use App\Models\WithdrawalFeeRule;
 
 use App\Helpers\PosHelper;
-use App\Helpers\ActivityLogger;
-
 use Illuminate\Support\Facades\DB;
 
 Route::prefix('test-api')->group(function () {
@@ -60,7 +58,7 @@ Route::post('/pos-user-login', function (Request $request) {
     $request->validate([
         'pos_user_id' => 'required|integer',
         'pin' => 'required|string',
-        'device_name' => 'required|string'
+        'device_name' => 'required|string',
     ]);
 
     $user = PosUser::find($request->pos_user_id);
@@ -69,13 +67,6 @@ Route::post('/pos-user-login', function (Request $request) {
         return response()->json(['message' => 'Invalid POS user credentials'], 401);
     }
 
-    ActivityLogger::log(
-        'login', 
-        'stores', 
-        $request->store_id, 
-        'Login Aplikasi POS '. $request->store_name, 
-        $request->pos_user_id
-    );
     $token = $user->createToken($request->device_name)->plainTextToken;
 
     return response()->json([
@@ -251,11 +242,9 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
 
     $request->validate([
         'store_id' => 'required|integer|exists:stores,id',
-        'status'   => 'nullable|integer|in:0,1,2',
     ]);
 
     $storeId = $request->store_id;
-    $status  = $request->status; // default to 0
 
     $timezone = 'Asia/Jakarta';
 
@@ -265,12 +254,13 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     $transactions = Transaction::with([
             'posUser',
             'details.product',
+            // 'details.topupTransaction',
             'details.topupTransaction.transType',
             'details.topupTransaction.digitalWalletStore.wallet',
             'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
-        ->where('status', $status)
+        ->where('status', 0)
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
