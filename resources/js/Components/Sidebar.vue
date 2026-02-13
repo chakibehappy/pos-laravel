@@ -10,6 +10,13 @@ const emit = defineEmits(['expand', 'toggle']);
 const page = usePage();
 const openDropdown = ref(null);
 
+const currentDisplayed = ref(null); 
+let debounceTimer = null; 
+
+// Timing yang lebih responsif untuk efek kenyal
+const WAIT_TIME = 100;      
+const EXIT_ANIM_TIME = 200; 
+
 const toggleSidebar = () => emit('toggle');
 
 const toggleDropdown = (label) => {
@@ -80,7 +87,32 @@ const isItemActive = (item) => {
     return item.activeOn.some(r => route().current(r));
 };
 
+const handleHover = (label) => {
+    if (currentDisplayed.value === label) {
+        clearTimeout(debounceTimer);
+        return;
+    }
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        currentDisplayed.value = null;
+        setTimeout(() => {
+            currentDisplayed.value = label;
+        }, EXIT_ANIM_TIME);
+    }, WAIT_TIME); 
+};
+
+const handleMouseLeaveNav = () => {
+    clearTimeout(debounceTimer);
+    currentDisplayed.value = null;
+    setTimeout(() => {
+        const activeItem = menuItems.find(item => isItemActive(item));
+        if (activeItem) currentDisplayed.value = activeItem.label;
+    }, EXIT_ANIM_TIME);
+};
+
 const checkActiveDropdown = () => {
+    const activeItem = menuItems.find(item => isItemActive(item));
+    if (activeItem) currentDisplayed.value = activeItem.label;
     if (props.isMinimized) {
         openDropdown.value = null;
         return;
@@ -111,9 +143,8 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
         <div class="flex items-center pt-10 sidebar-main-transition" 
              :class="isMinimized ? 'px-0 justify-center' : 'px-5 gap-4'">
             <img src="/storage/img/maarlogo.png" 
-                 class="w-10 h-10 object-contain shrink-0 transition-all duration-700 ease-in-out" 
-                 :class="isMinimized ? 'scale-90 translate-x-0' : 'scale-110'" />
-            
+                 class="w-10 h-10 object-contain shrink-0 transition-all duration-500" 
+                 :class="isMinimized ? 'scale-90' : 'scale-110'" />
             <Transition name="text-pop">
                 <div v-if="!isMinimized" class="flex flex-col justify-center overflow-visible">
                     <div class="text-lg font-black uppercase italic tracking-tighter text-white leading-none whitespace-nowrap">
@@ -123,14 +154,17 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
             </Transition>
         </div>
 
-        <nav class="flex-1 pt-10 space-y-4 overflow-y-auto overflow-x-hidden custom-scrollbar pl-4">
+        <nav @mouseleave="handleMouseLeaveNav" class="flex-1 pt-10 space-y-4 overflow-y-auto overflow-x-hidden custom-scrollbar pl-4">
             <template v-for="item in menuItems" :key="item.label">
-                <div class="relative w-full">
-                    <div v-if="isItemActive(item)" 
-                        class="absolute top-0 right-0 h-14 bg-yellow-400 rounded-l-[35px] z-0 w-full sidebar-main-transition">
-                        <div class="absolute -top-[25px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-br-[25px]"></div>
-                        <div class="absolute -bottom-[25px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-tr-[25px]"></div>
-                    </div>
+                <div class="relative w-full" @mouseenter="handleHover(item.label)">
+                    
+                    <Transition name="jelly">
+                        <div v-if="currentDisplayed === item.label" 
+                            class="absolute top-0 right-0 h-14 bg-yellow-400 rounded-l-[35px] z-0 w-full origin-right">
+                            <div class="absolute -top-[25px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-br-[25px]"></div>
+                            <div class="absolute -bottom-[25px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-tr-[25px]"></div>
+                        </div>
+                    </Transition>
 
                     <component 
                         :is="item.isDropdown ? 'button' : Link"
@@ -138,14 +172,12 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
                         @click="item.isDropdown ? toggleDropdown(item.label) : (isMinimized && emit('expand'))"
                         class="flex items-center sidebar-main-transition uppercase cursor-pointer relative z-10 w-full"
                         :class="[
-                            isItemActive(item) ? 'text-black h-14' : 'text-gray-400 hover:bg-white/5 rounded-l-xl h-12',
+                            currentDisplayed === item.label ? 'text-black h-14' : 'text-gray-400 hover:bg-white/5 rounded-l-xl h-12',
                             isMinimized ? 'justify-center px-0' : 'px-4 gap-4'
                         ]"
                     >
-                        <div class="flex items-center justify-center transition-all duration-700 ease-in-out shrink-0"
-                             :class="isMinimized ? 'w-full' : 'w-6'">
-                            <span class="text-xl transition-all duration-700" 
-                                  :class="isItemActive(item) ? 'scale-125' : 'scale-100'">
+                        <div class="flex items-center justify-center transition-all duration-500 shrink-0" :class="isMinimized ? 'w-full' : 'w-6'">
+                            <span class="text-xl transition-all duration-500" :class="currentDisplayed === item.label ? 'scale-125' : 'scale-100'">
                                 {{ item.icon }}
                             </span>
                         </div>
@@ -161,13 +193,11 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
                     </component>
 
                     <Transition name="dropdown-bounce">
-                        <div v-if="item.isDropdown && openDropdown === item.label && !isMinimized" 
-                            class="mt-4 ml-8 relative z-10 border-l border-white/10">
+                        <div v-if="item.isDropdown && openDropdown === item.label && !isMinimized" class="mt-4 ml-8 relative z-10 border-l border-white/10">
                             <Link v-for="child in item.children" :key="child.name" :href="child.route"
                                 class="flex items-center gap-3 py-2.5 pl-5 text-[10px] font-semibold uppercase transition-all"
                                 :class="route().current(child.name) ? 'text-yellow-400' : 'text-gray-500 hover:text-gray-300'">
-                                <span class="w-1.5 h-1.5 rounded-full shrink-0 transition-colors" 
-                                    :class="route().current(child.name) ? 'bg-yellow-400' : 'bg-gray-800'"></span>
+                                <span class="w-1.5 h-1.5 rounded-full shrink-0 transition-colors" :class="route().current(child.name) ? 'bg-yellow-400' : 'bg-gray-800'"></span>
                                 {{ child.label }}
                             </Link>
                         </div>
@@ -180,15 +210,10 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
             <Link :href="route('logout')" method="post" as="button" 
                   class="flex items-center w-full sidebar-main-transition text-xs font-bold uppercase text-gray-400 hover:text-red-400 rounded-l-xl hover:bg-red-400/5 group" 
                   :class="isMinimized ? 'justify-center px-0 h-12' : 'px-4 py-3 gap-4'">
-                
-                <div class="flex items-center justify-center transition-all duration-700 ease-in-out shrink-0"
-                     :class="isMinimized ? 'w-full' : 'w-6'">
+                <div class="flex items-center justify-center transition-all duration-500 shrink-0" :class="isMinimized ? 'w-full' : 'w-6'">
                     <span class="text-xl group-hover:scale-125 transition-transform duration-300">🚪</span>
                 </div>
-
-                <Transition name="text-pop">
-                    <span v-if="!isMinimized">Keluar</span>
-                </Transition>
+                <Transition name="text-pop"><span v-if="!isMinimized">Keluar</span></Transition>
             </Link>
         </div>
     </div>
@@ -197,44 +222,34 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
 <style scoped>
 .custom-scrollbar::-webkit-scrollbar { width: 0px; }
 
-/* Global Spring Transition */
-.sidebar-main-transition {
-    transition: all 0.65s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+/* ANIMASI JELLY / KENYAL */
+.jelly-enter-active {
+    /* Menggunakan durasi 0.5s agar pantulan terlihat jelas tapi tetap snappy */
+    animation: jelly-in 0.5s both;
+}
+.jelly-leave-active {
+    animation: rubber-out 0.25s cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 
-/* Animasi Teks Pop In/Out */
-.text-pop-enter-active {
-    animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-.text-pop-leave-active {
-    animation: pop-out 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
-}
-
-@keyframes pop-in {
-    0% { opacity: 0; transform: translateX(-20px) scale(0.7); filter: blur(8px); }
-    100% { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
+@keyframes jelly-in {
+    0% { transform: scaleX(0) scaleY(1); opacity: 0; }
+    30% { transform: scaleX(1.05) scaleY(0.75); opacity: 1; } /* Melebar tipis */
+    50% { transform: scaleX(0.95) scaleY(1.1); }             /* Memantul meninggi */
+    70% { transform: scaleX(1.02) scaleY(0.95); }            /* Pantulan kecil horizontal */
+    100% { transform: scaleX(1) scaleY(1); opacity: 1; }     /* Stabil */
 }
 
-@keyframes pop-out {
-    0% { opacity: 1; transform: scale(1); filter: blur(0); }
-    100% { opacity: 0; transform: scale(0.9) translateX(10px); filter: blur(4px); }
+@keyframes rubber-out {
+    0% { transform: scaleX(1) scaleY(1); opacity: 1; }
+    100% { transform: scaleX(0) scaleY(0.8); opacity: 0; }
 }
 
-/* Dropdown Animation */
-.dropdown-bounce-enter-active {
-    animation: d-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    transform-origin: top;
-}
-.dropdown-bounce-leave-active {
-    animation: d-out 0.2s ease-in;
-}
+.sidebar-main-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.text-pop-enter-active { animation: pop-in 0.3s ease-out forwards; }
+@keyframes pop-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
 
-@keyframes d-in {
-    from { opacity: 0; transform: translateY(-10px) scaleY(0.7); }
-    to { opacity: 1; transform: translateY(0) scaleY(1); }
-}
-
-@keyframes d-out {
-    to { opacity: 0; transform: translateY(-10px) scaleY(0.8); }
-}
+.dropdown-bounce-enter-active { animation: d-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); transform-origin: top; }
+.dropdown-bounce-leave-active { animation: d-out 0.2s ease-in; }
+@keyframes d-in { from { opacity: 0; transform: translateY(-5px) scaleY(0.9); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
+@keyframes d-out { to { opacity: 0; transform: translateY(-5px) scaleY(0.95); } }
 </style>
