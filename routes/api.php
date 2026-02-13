@@ -25,6 +25,7 @@ use App\Models\WithdrawalFeeRule;
 
 use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\ActivityLogger;
 
 Route::prefix('test-api')->group(function () {
     Route::get('/ping', fn() => response()->json(['message' => 'pong']));
@@ -238,6 +239,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
     }
 });
 
+// currently used :
 Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $request) {
 
     $request->validate([
@@ -261,6 +263,44 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
         ])
         ->where('store_id', $storeId)
         ->where('status', 0)
+        ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        ->orderBy('transaction_at', 'desc')
+        ->get();
+
+    return response()->json([
+        'timezone' => $timezone,
+        'date' => $startOfDay->toDateString(),
+        'store_id' => $storeId,
+        'count' => $transactions->count(),
+        'transactions' => $transactions,
+    ]);
+});
+
+// get transaction by status, and also pass pos user id for logger
+Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Request $request) {
+
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+        'status'   => 'nullable|integer|in:0,1,2',
+    ]);
+
+    $storeId = $request->store_id;
+    $status  = $request->status; // default to 0
+
+    $timezone = 'Asia/Jakarta';
+
+    $startOfDay = Carbon::now($timezone)->startOfDay();
+    $endOfDay   = Carbon::now($timezone)->endOfDay();
+
+    $transactions = Transaction::with([
+            'posUser',
+            'details.product',
+            'details.topupTransaction.transType',
+            'details.topupTransaction.digitalWalletStore.wallet',
+            'details.cashWithdrawal'
+        ])
+        ->where('store_id', $storeId)
+        ->where('status', $status)
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
