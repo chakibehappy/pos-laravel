@@ -25,6 +25,7 @@ class UnitType extends Model
      */
     protected $fillable = [
         'name',
+        'created_by',
     ];
 
     /**
@@ -35,5 +36,9 @@ class UnitType extends Model
     public function units(): HasMany
     {
         return $this->hasMany(unit::class, 'unit_type_id');
+    }
+    public function creator()
+    {
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 }

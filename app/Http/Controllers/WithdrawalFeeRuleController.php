@@ -7,6 +7,7 @@ use App\Models\PosUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class WithdrawalFeeRuleController extends Controller
 {
@@ -41,7 +42,10 @@ class WithdrawalFeeRuleController extends Controller
         // Jika tidak ketemu, ambil ID pertama dari pos_users agar tidak kena error SQL 1452
         $finalId = $posUser ? $posUser->id : PosUser::first()?->id;
 
-        WithdrawalFeeRule::updateOrCreate(
+        $actionLabel = $request->id ? "Memperbarui" : "Membuat";
+        $logType = $request->id ? "update" : "create";
+
+        $rule = WithdrawalFeeRule::updateOrCreate(
             ['id' => $request->id],
             [
                 'min_limit'  => $request->min_limit,
@@ -51,14 +55,41 @@ class WithdrawalFeeRuleController extends Controller
             ]
         );
 
+        // LOG ACTIVITY
+        ActivityLogger::log(
+            $logType, 
+            'withdrawal_fee_rules', 
+            $rule->id, 
+            "$actionLabel aturan biaya penarikan  ", 
+            $finalId
+        );
+
         return back()->with('message', 'Aturan biaya penarikan berhasil disimpan!');
     }
 
     public function destroy($id)
     {
-        $rule = WithdrawalFeeRule::findOrFail($id);
-        $rule->delete();
+        try {
+            $rule = WithdrawalFeeRule::findOrFail($id);
+            
+            // Ambil ID PosUser untuk log
+            $posUser = PosUser::where('username', Auth::user()->email)->first();
+            $userOperatorId = $posUser ? $posUser->id : PosUser::first()?->id;
 
-        return back()->with('message', 'Aturan biaya berhasil dihapus.');
+            // LOG ACTIVITY DELETE (Sebelum dihapus)
+            ActivityLogger::log(
+                'delete', 
+                'withdrawal_fee_rules', 
+                $id, 
+                "Menghapus aturan biaya penarikan", 
+                $userOperatorId
+            );
+
+            $rule->delete();
+
+            return back()->with('message', 'Aturan biaya berhasil dihapus.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal menghapus: ' . $e->getMessage()]);
+        }
     }
 }

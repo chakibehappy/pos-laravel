@@ -57,7 +57,7 @@ class User extends Authenticatable
         return $this->belongsTo(
             PosUser::class, // related model
             'email',        // local key on this table (users.email)
-            'name'         // owner key on pos_users table
+            'username'         // owner key on pos_users table
         );
     }
 }

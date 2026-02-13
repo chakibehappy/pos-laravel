@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class PosUserController extends Controller
 {
@@ -47,7 +48,6 @@ class PosUserController extends Controller
         $data = $request->validate($rules);
 
         // --- LOGIKA IDENTIFIKASI PENGEDIT/PEMBUAT ---
-        // Cari ID pengguna POS berdasarkan email admin yang sedang login
         $adminEmail = Auth::user()->email;
         $currentUserPos = PosUser::where('username', $adminEmail)->first();
         $currentEditorId = $currentUserPos ? $currentUserPos->id : null;
@@ -66,6 +66,15 @@ class PosUserController extends Controller
             $data['created_by'] = $currentEditorId;
 
             $user->update($data);
+
+            // LOG ACTIVITY UPDATE
+            ActivityLogger::log(
+                'update',
+                'pos_users',
+                $user->id,
+                "Memperbarui data user POS: {$user->name} (Username: {$user->username})",
+                $currentEditorId
+            );
         } else {
             // --- PROSES CREATE ---
             $data['pin']        = Hash::make($data['pin']);
@@ -74,7 +83,16 @@ class PosUserController extends Controller
             // Isi created_by untuk user baru
             $data['created_by'] = $currentEditorId;
             
-            PosUser::create($data);
+            $newUser = PosUser::create($data);
+
+            // LOG ACTIVITY CREATE
+            ActivityLogger::log(
+                'create',
+                'pos_users',
+                $newUser->id,
+                "Membuat user POS baru: {$newUser->name} sebagai {$newUser->role}",
+                $currentEditorId
+            );
         }
 
         return back()->with('message', 'Data Berhasil Diperbarui!');
@@ -82,7 +100,27 @@ class PosUserController extends Controller
 
     public function destroy($id)
     {
-        PosUser::findOrFail($id)->delete();
-        return back()->with('message', 'User Berhasil Dihapus.');
+        try {
+            $user = PosUser::findOrFail($id);
+
+            // Identifikasi admin yang menghapus
+            $adminEmail = Auth::user()->email;
+            $currentUserPos = PosUser::where('username', $adminEmail)->first();
+            $currentEditorId = $currentUserPos ? $currentUserPos->id : null;
+
+            // LOG ACTIVITY DELETE (Sebelum hapus)
+            ActivityLogger::log(
+                'delete',
+                'pos_users',
+                $id,
+                "Menghapus user POS: {$user->name} ",
+                $currentEditorId
+            );
+
+            $user->delete();
+            return back()->with('message', 'User Berhasil Dihapus.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Gagal menghapus user.']);
+        }
     }
 }

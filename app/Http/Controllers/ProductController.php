@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class ProductController extends Controller
 {
@@ -100,24 +101,6 @@ class ProductController extends Controller
                 $data['stock'] = 0; 
             }
 
-            // Upload Gambar
-            // if ($request->hasFile('image')) {
-            //     if ($product && $product->image) {
-            //         Storage::disk('public')->delete($product->image);
-            //     }
-
-            //     $file = $request->file('image');
-            //     $filename = time() . '_' . uniqid() . '.webp';
-            //     $manager = new ImageManager(new Driver());
-            //     $image = $manager->read($file);
-            //     $image->scale(width: 800);
-            //     $encoded = $image->toWebp(70);
-
-            //     $path = 'products/' . $filename;
-            //     Storage::disk('public')->put($path, (string) $encoded);
-            //     $data['image'] = $path;
-            // }
-
             if ($request->hasFile('image')) {
                 if ($product && $product->image) {
                     Storage::disk('public')->delete($product->image);
@@ -134,9 +117,6 @@ class ProductController extends Controller
                 $image->scale(width: 800);
                 
                 // 3. Encode to PNG. 
-                // For Unity compatibility, standard PNG encoding is safest.
-                // Note: PNG is lossless, so there isn't a "quality 70" like WebP, 
-                // but Intervention handles the optimization.
                 $encoded = $image->toPng(); 
 
                 $path = 'products/' . $filename;
@@ -144,7 +124,21 @@ class ProductController extends Controller
                 $data['image'] = $path;
             }
 
-            Product::updateOrCreate(['id' => $request->id], $data);
+            // Identifikasi Aksi untuk Log
+            $logType = $request->id ? 'update' : 'create';
+            $logDesc = ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $request->name . " ";
+
+            $savedProduct = Product::updateOrCreate(['id' => $request->id], $data);
+
+            // LOG ACTIVITY
+            $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+            ActivityLogger::log(
+                $logType,
+                'products',
+                $savedProduct->id,
+                $logDesc,
+                $posUserAudit ? $posUserAudit->id : null
+            );
 
             return back()->with('message', 'Data berhasil diproses!');
 
@@ -156,6 +150,17 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
+
+        // LOG ACTIVITY (Sebelum hapus)
+        $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+        ActivityLogger::log(
+            'delete',
+            'products',
+            $id,
+            "Menghapus produk: {$product->name} ",
+            $posUserAudit ? $posUserAudit->id : null
+        );
+
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }

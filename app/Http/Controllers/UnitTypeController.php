@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\UnitType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class UnitTypeController extends Controller
 {
@@ -16,6 +19,7 @@ class UnitTypeController extends Controller
     {
         return Inertia::render('UnitTypes/Index', [
             'units' => UnitType::query()
+                ->with(['creator']) // Load relasi creator dari pos_users
                 ->when($request->search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%");
                 })
@@ -24,6 +28,16 @@ class UnitTypeController extends Controller
                 ->withQueryString(),
             'filters' => $request->only(['search'])
         ]);
+    }
+
+    /**
+     * Logika Private: Mapping User Admin ke ID PosUser.
+     */
+    private function getPosUserId()
+    {
+        $adminEmail = Auth::user()->email;
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+        return $posUser ? $posUser->id : null;
     }
 
     /**
@@ -39,9 +53,27 @@ class UnitTypeController extends Controller
             'name.required' => 'Nama satuan wajib diisi.'
         ]);
 
-        UnitType::updateOrCreate(
+        $posUserId = $this->getPosUserId();
+        
+        // Identifikasi tipe log sebelum eksekusi
+        $logType = $request->id ? 'update' : 'create';
+        $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
+
+        $unit = UnitType::updateOrCreate(
             ['id' => $request->id],
-            ['name' => $request->name]
+            [
+                'name' => $request->name,
+                'created_by' => $posUserId // Tercantum di kolom created_by
+            ]
+        );
+
+        // LOG ACTIVITY
+        ActivityLogger::log(
+            $logType,
+            'unit_types',
+            $unit->id,
+            "$actionLabel satuan: {$unit->name}",
+            $posUserId
         );
 
         return back()->with('message', 'Satuan berhasil disimpan!');
@@ -54,7 +86,20 @@ class UnitTypeController extends Controller
     {
         $unit = UnitType::findOrFail($id);
         
-        // Cek jika satuan masih dipakai produk bisa ditambahkan di sini
+        // Ambil ID admin untuk audit log
+        $posUserId = $this->getPosUserId();
+
+        // LOG ACTIVITY (Sebelum hapus)
+        ActivityLogger::log(
+            'delete',
+            'unit_types',
+            $id,
+            "Menghapus satuan: {$unit->name}",
+            $posUserId
+        );
+
+        // Update created_by sebelum delete agar log audit di kolom created_by mencatat siapa yang menghapus
+        $unit->update(['created_by' => $posUserId]);
         
         $unit->delete();
 

@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class UserController extends Controller
 {
@@ -25,15 +28,23 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * Logika Private: Mapping User Admin ke ID PosUser.
+     */
+    private function getPosUserId()
+    {
+        $adminEmail = Auth::user()->email;
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+        return $posUser ? $posUser->id : null;
+    }
+
     public function store(Request $request) 
     {
         $data = $request->validate([
-            // Nama sekarang wajib unik, kecuali untuk ID user yang sedang di-edit
             'name' => 'required|string|max:255|unique:users,name,' . $request->id,
             'email' => 'required|email|unique:users,email,' . $request->id,
             'password' => $request->id ? 'nullable|min:6' : 'required|min:6',
         ], [
-            // Custom pesan error jika ingin menggunakan Bahasa Indonesia
             'name.unique' => 'Nama ini sudah digunakan, silakan gunakan nama lain.',
             'email.unique' => 'Email ini sudah terdaftar.',
             'password.min' => 'Password minimal harus 6 karakter.',
@@ -42,14 +53,26 @@ class UserController extends Controller
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         } else {
-            // Hapus password dari array data agar tidak menimpa password lama dengan null
             unset($data['password']); 
         }
 
+        $posUserId = $this->getPosUserId();
+        $logType = $request->id ? 'update' : 'create';
+        $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
+
         // updateOrCreate akan mengecek berdasarkan ID
-        User::updateOrCreate(
+        $user = User::updateOrCreate(
             ['id' => $request->id], 
             $data
+        );
+
+        // LOG ACTIVITY (Tetap mencatat eksekutor meski tabel users tidak punya created_by)
+        ActivityLogger::log(
+            $logType,
+            'users',
+            $user->id,
+            "$actionLabel akun Admin/User: {$user->name} ({$user->email})",
+            $posUserId
         );
 
         return back()->with('message', 'User berhasil disimpan');
@@ -59,10 +82,21 @@ class UserController extends Controller
     {
         $user = User::findOrFail($id);
         
-        // Mencegah menghapus diri sendiri (opsional)
+        // Mencegah menghapus diri sendiri
         if ($user->id === auth()->id()) {
             return back()->withErrors(['message' => 'Anda tidak bisa menghapus akun sendiri!']);
         }
+
+        $posUserId = $this->getPosUserId();
+
+        // LOG ACTIVITY (Sebelum hapus)
+        ActivityLogger::log(
+            'delete',
+            'users',
+            $id,
+            "Menghapus akun Admin/User: {$user->name} ({$user->email})",
+            $posUserId
+        );
 
         $user->delete();
         return back();

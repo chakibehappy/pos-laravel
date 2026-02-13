@@ -10,7 +10,7 @@ use App\Models\StoreProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-
+use App\Helpers\ActivityLogger; // Import Helper
 
 class StoreProductController extends Controller
 {
@@ -43,15 +43,15 @@ class StoreProductController extends Controller
         }
 
         if ($request->filled('store_type_id')) {
-        $query->whereHas('store', function($q) use ($request) {
-            $q->where('store_type_id', $request->store_type_id);
-        });
+            $query->whereHas('store', function($q) use ($request) {
+                $q->where('store_type_id', $request->store_type_id);
+            });
         }
 
         if ($request->filled('product_category_id')) {
-        $query->whereHas('product', function($q) use ($request) {
-            $q->where('product_category_id', $request->product_category_id);
-        });
+            $query->whereHas('product', function($q) use ($request) {
+                $q->where('product_category_id', $request->product_category_id);
+            });
         }
 
         return Inertia::render('StoreProducts/Index', [
@@ -66,7 +66,6 @@ class StoreProductController extends Controller
 
     /**
      * Menyimpan atau Update stok toko secara mandiri
-     * Serta mencatat siapa yang melakukan aksi berdasarkan mapping email -> pos_users
      */
     public function store(Request $request)
     {
@@ -76,18 +75,19 @@ class StoreProductController extends Controller
             'stock'      => 'required|integer|min:0',
         ]);
 
-        /** * LOGIKA MAPPING USER:
-         * 1. Ambil email dari user yang login di sistem Admin.
-         * 2. Cari di tabel 'pos_users' yang username-nya sama dengan email tersebut.
-         */
         $adminEmail = auth()->user()->email;
         $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-        
-        // Ambil ID-nya jika ketemu, jika tidak set null
         $createdBy = $posUser ? $posUser->id : null;
 
-        // Proses Update atau Create (Mandiri tanpa memotong stok gudang)
-        StoreProduct::updateOrCreate(
+        // Cek data lama untuk menentukan tipe log (Create/Update)
+        $existing = StoreProduct::where('store_id', $request->store_id)
+            ->where('product_id', $request->product_id)
+            ->first();
+
+        $actionLabel = $existing ? "Memperbarui" : "Menambah";
+        $logType = $existing ? "update" : "create";
+
+        $sp = StoreProduct::updateOrCreate(
             [
                 'store_id' => $request->store_id, 
                 'product_id' => $request->product_id
@@ -98,12 +98,23 @@ class StoreProductController extends Controller
             ]
         );
 
+        // Ambil info relasi untuk deskripsi log
+        $product = Product::find($request->product_id);
+        $store = Store::find($request->store_id);
+
+        ActivityLogger::log(
+            $logType,
+            'store_products',
+            $sp->id,
+            "{$actionLabel} produk {$product->name} di {$store->name} menjadi  {$request->stock}",
+            $createdBy
+        );
+
         return back()->with('message', 'Data stok cabang berhasil diperbarui!');
     }
 
     public function update(Request $request, $id)
     {
-        // Mengarahkan ke store untuk konsistensi logic
         return $this->store($request);
     }
 
@@ -112,17 +123,33 @@ class StoreProductController extends Controller
      */
     public function destroy($id)
     {
-        $sp = StoreProduct::findOrFail($id);
-        $sp->delete();
+        try {
+            $sp = StoreProduct::with(['product', 'store'])->findOrFail($id);
+            
+            $adminEmail = auth()->user()->email;
+            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+            $userId = $posUser ? $posUser->id : null;
 
-        return back()->with('message', 'Data stok cabang berhasil dihapus.');
+            // LOG ACTIVITY (Sebelum hapus)
+            ActivityLogger::log(
+                'delete',
+                'store_products',
+                $id,
+                "Menghapus record stok produk: {$sp->product->name} dari toko {$sp->store->name}",
+                $userId
+            );
+
+            $sp->delete();
+            return back()->with('message', 'Data stok cabang berhasil dihapus.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Gagal menghapus data stok.']);
+        }
     }
     
    public function export(Request $request)
     {
         $query = StoreProduct::query();
 
-        // Terapkan filter dasar jika dipilih
         if ($request->filled('store_id')) {
             $query->where('store_id', $request->store_id);
         }
@@ -133,17 +160,14 @@ class StoreProductController extends Controller
             });
         }
 
-        // Penamaan File
         $storeLabel = $request->filled('store_id') ? \App\Models\Store::find($request->store_id)->name : 'Semua-Toko';
         $categoryLabel = $request->filled('product_category_id') ? \App\Models\ProductCategory::find($request->product_category_id)->name : 'Semua-Kategori';
         
         $fileName = \Illuminate\Support\Str::slug("stok-{$storeLabel}-{$categoryLabel}") . '.xlsx';
 
-        // Kirim query, category_id, dan store_id
         return \Maatwebsite\Excel\Facades\Excel::download(
             new StoreProductExport($query, $request->product_category_id, $request->store_id), 
             $fileName
         );
     }
-
 }

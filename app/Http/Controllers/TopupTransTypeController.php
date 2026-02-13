@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class TopupTransTypeController extends Controller
 {
@@ -65,11 +66,20 @@ class TopupTransTypeController extends Controller
         // Gunakan Database Transaction agar data tersimpan semua atau tidak sama sekali jika ada error
         DB::transaction(function () use ($request, $posUserId) {
             foreach ($request->items as $item) {
-                TopupTransType::create([
+                $newType = TopupTransType::create([
                     'name'       => $item['name'],
                     'type'       => $item['type'],
                     'created_by' => $posUserId,
                 ]);
+
+                // LOG ACTIVITY (Batch)
+                ActivityLogger::log(
+                    'create',
+                    'topup_trans_types',
+                    $newType->id,
+                    "Menambahkan tipe transaksi topup: {$newType->name} ({$newType->type})",
+                    $posUserId
+                );
             }
         });
 
@@ -97,6 +107,15 @@ class TopupTransTypeController extends Controller
             'created_by' => $posUserId, // Update identitas pengedit sesuai pos_users
         ]);
 
+        // LOG ACTIVITY
+        ActivityLogger::log(
+            'update',
+            'topup_trans_types',
+            $id,
+            "Memperbarui tipe transaksi topup: {$item->name} ({$item->type})",
+            $posUserId
+        );
+
         return back()->with('message', 'Data berhasil diperbarui.');
     }
 
@@ -106,7 +125,19 @@ class TopupTransTypeController extends Controller
     public function destroy($id)
     {
         try {
-            TopupTransType::findOrFail($id)->delete();
+            $item = TopupTransType::findOrFail($id);
+            $posUserId = $this->getPosUserId();
+
+            // LOG ACTIVITY (Sebelum hapus)
+            ActivityLogger::log(
+                'delete',
+                'topup_trans_types',
+                $id,
+                "Menghapus tipe transaksi topup: {$item->name} ({$item->type})",
+                $posUserId
+            );
+
+            $item->delete();
             return back()->with('message', 'Data berhasil dihapus.');
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Gagal menghapus! Data mungkin terikat dengan transaksi lain.']);

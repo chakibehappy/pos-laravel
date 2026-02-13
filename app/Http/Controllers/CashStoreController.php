@@ -84,7 +84,8 @@ class CashStoreController extends Controller
 
         // Simpan hasil kalkulasi ke database
         $cashStore->update([
-            'cash' => $finalCash
+            'cash' => $finalCash,
+            'created_by' => auth()->user()->posUser->id,
         ]);
 
         $statusLabel = [

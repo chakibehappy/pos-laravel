@@ -8,6 +8,7 @@ use App\Models\PosUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class PosUserStoreController extends Controller
 {
@@ -34,9 +35,9 @@ class PosUserStoreController extends Controller
         }
 
         if ($request->filled('store_type_id')) {
-        $query->whereHas('store', function($q) use ($request) {
-            $q->where('store_type_id', $request->store_type_id);
-        });
+            $query->whereHas('store', function($q) use ($request) {
+                $q->where('store_type_id', $request->store_type_id);
+            });
         }
 
         return Inertia::render('PosUserStores/Index', [
@@ -58,23 +59,26 @@ class PosUserStoreController extends Controller
             'store_id'    => 'required|exists:stores,id',
         ]);
 
-        // FILTER: Cek apakah user sudah terdaftar di tabel (toko mana saja)
-        // $exists = PosUserStore::where('pos_user_id', $request->pos_user_id)->exists();
-
-        // if ($exists) {
-        //     return back()->withErrors([
-        //         'pos_user_id' => 'USER INI SUDAH TERDAFTAR DI SEBUAH TOKO. TIDAK BOLEH DOUBLE AKSES!'
-        //     ]);
-        // }
-
         $creator = PosUser::where('username', Auth::user()->email)->first();
         $creatorId = $creator ? $creator->id : null;
 
-        PosUserStore::create([
+        $assignment = PosUserStore::create([
             'pos_user_id' => $request->pos_user_id,
             'store_id'    => $request->store_id,
             'created_by'  => $creatorId,
         ]);
+
+        // LOG ACTIVITY
+        $targetUser = PosUser::find($request->pos_user_id);
+        $targetStore = Store::find($request->store_id);
+        
+        ActivityLogger::log(
+            'create',
+            'pos_user_stores',
+            $assignment->id,
+            "Menugaskan user {$targetUser->name} ke toko {$targetStore->name}",
+            $creatorId
+        );
 
         return back()->with('message', 'Penugasan user ke toko berhasil ditambahkan!');
     }
@@ -104,12 +108,41 @@ class PosUserStoreController extends Controller
             'store_id'    => $request->store_id,
         ]);
 
+        // LOG ACTIVITY
+        $creator = PosUser::where('username', Auth::user()->email)->first();
+        $targetUser = PosUser::find($request->pos_user_id);
+        $targetStore = Store::find($request->store_id);
+
+        ActivityLogger::log(
+            'update',
+            'pos_user_stores',
+            $id,
+            "Memperbarui akses user {$targetUser->name} ke {$targetStore->name}",
+            $creator ? $creator->id : null
+        );
+
         return back()->with('message', 'Akses user berhasil diperbarui!');
     }
 
     public function destroy($id)
     {
-        PosUserStore::findOrFail($id)->delete();
-        return back()->with('message', 'Akses user ke toko telah dicabut.');
+        try {
+            $akses = PosUserStore::with(['posUser', 'store'])->findOrFail($id);
+            $creator = PosUser::where('username', Auth::user()->email)->first();
+
+            // LOG ACTIVITY (Sebelum hapus)
+            ActivityLogger::log(
+                'delete',
+                'pos_user_stores',
+                $id,
+                "Mencabut akses user {$akses->posUser->name} dari toko {$akses->store->name}",
+                $creator ? $creator->id : null
+            );
+
+            $akses->delete();
+            return back()->with('message', 'Akses user ke toko telah dicabut.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Gagal menghapus data']);
+        }
     }
 }

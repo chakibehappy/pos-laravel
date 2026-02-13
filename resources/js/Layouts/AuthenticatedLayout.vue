@@ -30,13 +30,8 @@ const formattedCount = computed(() => {
         
         <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 shrink-0 z-[60]">
             <div class="flex items-center gap-4">
-                <img src="/storage/img/maarlogo.png" class="w-9 h-9 object-contain" />
-                
                 <div class="flex flex-col justify-center">
-                    <div class="text-lg font-black uppercase italic tracking-tighter text-black leading-none">
-                        MAAR COMPANY
-                    </div>
-                    <div class="text-[9px] font-bold uppercase tracking-wider text-gray-400 mt-1">
+                    <div class="text-[9px] font-bold uppercase tracking-wider text-gray-400">
                         Current Page: <span class="text-black">{{ $page.component }}</span>
                     </div>
                 </div>

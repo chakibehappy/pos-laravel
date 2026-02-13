@@ -25,6 +25,7 @@ use App\Http\Controllers\PosUserStoreController;
 use App\Http\Controllers\WithdrawalFeeRuleController;
 use App\Http\Controllers\TransactionDetailController;
 use App\Http\Controllers\TransactionApprovalController;
+use App\Http\Controllers\ActivityLogController;
 
 
 
@@ -186,5 +187,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/transactions/approval', [TransactionApprovalController::class, 'index'])->name('transactions.approval');
     Route::post('/transactions-approve-request/{id}', [TransactionApprovalController::class, 'handleAction'])->name('transactions.approve-request');
 
+
+    // Activity Logs (Read-Only)
+    Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 
     });

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductCategory extends Model
 {
@@ -12,7 +13,6 @@ class ProductCategory extends Model
 
     /**
      * Nama tabel yang didefinisikan secara eksplisit.
-     * Secara default Laravel akan mencari tabel bernama 'product_categories'.
      *
      * @var string
      */
@@ -25,6 +25,7 @@ class ProductCategory extends Model
      */
     protected $fillable = [
         'name',
+        'created_by', // Ditambahkan agar bisa menyimpan ID admin/operator
     ];
 
     /**
@@ -35,5 +36,14 @@ class ProductCategory extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class, 'product_category_id');
+    }
+
+    /**
+     * Relasi ke PosUser untuk mengetahui siapa yang membuat/mengedit kategori.
+     * * @return BelongsTo
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 }

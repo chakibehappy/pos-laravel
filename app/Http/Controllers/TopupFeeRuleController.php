@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import ActivityLogger
 
 class TopupFeeRuleController extends Controller
 {
@@ -71,9 +72,19 @@ class TopupFeeRuleController extends Controller
                         'fee'                 => $request->rules[0]['fee'],
                         'admin_fee'           => $request->rules[0]['admin_fee'],
                     ]);
+
+                    // LOG ACTIVITY UPDATE
+                    $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
+                    ActivityLogger::log(
+                        'update',
+                        'topup_fee_rules',
+                        $rule->id,
+                        "Memperbarui aturan biaya Top Up: $typeName ",
+                        $posUser->id
+                    );
                 } else {
                     foreach ($request->rules as $ruleData) {
-                        TopupFeeRule::create([
+                        $newRule = TopupFeeRule::create([
                             'topup_trans_type_id' => $ruleData['topup_trans_type_id'],
                             'wallet_target_id'    => $ruleData['wallet_target_id'] ?? null,
                             'min_limit'           => $ruleData['min_limit'],
@@ -82,6 +93,16 @@ class TopupFeeRuleController extends Controller
                             'admin_fee'           => $ruleData['admin_fee'],
                             'created_by'          => $posUser->id,
                         ]);
+
+                        // LOG ACTIVITY CREATE
+                        $typeName = TopupTransType::find($newRule->topup_trans_type_id)->name ?? 'Unknown';
+                        ActivityLogger::log(
+                            'create',
+                            'topup_fee_rules',
+                            $newRule->id,
+                            "Membuat aturan biaya Top Up baru: $typeName",
+                            $posUser->id
+                        );
                     }
                 }
             });
@@ -98,6 +119,21 @@ class TopupFeeRuleController extends Controller
     {
         try {
             $rule = TopupFeeRule::findOrFail($id);
+            
+            // Ambil info operator untuk log
+            $authEmail = Auth::user()->email;
+            $posUser = DB::table('pos_users')->where('username', $authEmail)->first();
+            $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
+
+            // LOG ACTIVITY DELETE (Dicatat sebelum hapus)
+            ActivityLogger::log(
+                'delete',
+                'topup_fee_rules',
+                $id,
+                "Menghapus aturan biaya Top Up: $typeName",
+                $posUser->id ?? auth()->user()->id
+            );
+
             $rule->delete();
             
             return back()->with('message', 'Rule berhasil dihapus.');

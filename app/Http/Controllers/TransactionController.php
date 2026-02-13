@@ -13,6 +13,7 @@ use App\Models\DigitalWalletStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger;
 
 class TransactionController extends Controller
 {
@@ -75,7 +76,17 @@ class TransactionController extends Controller
                     ->where('store_id', $transaction->store_id)
                     ->decrement('cash', $transaction->subtotal);
 
-                // 3. Hapus data
+                // 3. Catat Activity Log sebelum data dihapus
+                $storeName = Store::find($transaction->store_id)->name ?? 'Unknown Store';
+                ActivityLogger::log(
+                    'delete', 
+                    'transactions', 
+                    $id, 
+                    "Membatalkan & menghapus transaksi ID: #$id Toko: $storeName", 
+                    auth()->user()->posUser->id
+                );
+
+                // 4. Hapus data
                 $transaction->details()->delete();
                 $transaction->delete();
             });
@@ -103,7 +114,7 @@ class TransactionController extends Controller
         $matchPosUser = PosUser::where('username', $adminEmail)->first();
         $automatedCreatedBy = $matchPosUser ? $matchPosUser->id : $request->pos_user_id;
 
-        // Hitung ulang subtotal untuk keamanan (hanya produk & topup yang menambah kas masuk)
+        // Hitung ulang subtotal untuk keamanan
         $calcSubtotal = 0;
         foreach ($request->details as $item) {
             if ($item['type'] !== 'tarik_tunai') {
@@ -113,7 +124,7 @@ class TransactionController extends Controller
         $calcTotal = $calcSubtotal + ($request->tax ?? 0);
 
         try {
-            DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal) {
+            $transaction = DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal) {
                 $storeId = $request->store_id;
 
                 if ($id) {
@@ -145,7 +156,6 @@ class TransactionController extends Controller
                     $buyingPrice = 0;
                     $itemSubtotal = ($item['type'] === 'tarik_tunai') ? 0 : $item['subtotal'];
 
-                    // LOGIKA PRODUK
                     if ($item['type'] === 'produk') {
                         $productMaster = Product::find($item['product_id']);
                         if ($productMaster) $buyingPrice = $productMaster->buying_price;
@@ -155,18 +165,15 @@ class TransactionController extends Controller
                         $sp->decrement('stock', $item['quantity']);
                     }
 
-                    // LOGIKA TOPUP (PERBAIKAN DI SINI)
                     if ($item['type'] === 'topup') {
-                        // Ambil ID tipe dari meta (sesuai saran perbaikan Vue sebelumnya) atau fallback ke product_id
                         $typeId = isset($item['meta']['topup_trans_type_id']) ? $item['meta']['topup_trans_type_id'] : $item['product_id'];
-
                         $topupTransId = DB::table('topup_transactions')->insertGetId([
                             'store_id'                => $storeId,
                             'digital_wallet_store_id' => $item['meta']['digital_wallet_store_id'],
                             'cust_account_number'     => $item['meta']['target'],
                             'nominal_request'         => $item['meta']['nominal_topup'],
                             'nominal_pay'             => $item['price'],
-                            'topup_trans_type_id'     => $typeId, // Menggunakan ID yang benar
+                            'topup_trans_type_id'     => $typeId,
                             'created_by'              => $automatedCreatedBy,
                             'created_at'              => $request->transaction_at,
                             'updated_at'              => now(),
@@ -174,7 +181,6 @@ class TransactionController extends Controller
                         DigitalWalletStore::where('id', $item['meta']['digital_wallet_store_id'])->decrement('balance', $item['meta']['nominal_topup']);
                     }
 
-                    // LOGIKA TARIK TUNAI
                     if ($item['type'] === 'tarik_tunai') {
                         $cashWithId = DB::table('cash_withdrawals')->insertGetId([
                             'store_id'             => $storeId,
@@ -200,7 +206,21 @@ class TransactionController extends Controller
                         'created_by'           => $automatedCreatedBy
                     ]);
                 }
+                return $transaction;
             });
+
+            // LOG ACTIVITY
+            $storeName = Store::find($request->store_id)->name;
+            $actionLabel = $id ? "Memperbarui" : "Mencatat";
+            $logType = $id ? "update" : "create";
+
+            ActivityLogger::log(
+                $logType, 
+                'transactions', 
+                $transaction->id, 
+                "$actionLabel transaksi penjualan Toko: $storeName", 
+                auth()->user()->posUser->id
+            );
 
             return redirect()->route('transactions.index')->with('message', 'Transaksi Berhasil Disimpan!');
         } catch (\Exception $e) {
@@ -211,14 +231,12 @@ class TransactionController extends Controller
     private function rollbackAssets($transaction)
     {
         foreach ($transaction->details as $detail) {
-            // 1. Rollback Stok
             if ($detail->product_id) {
                 StoreProduct::where('store_id', $transaction->store_id)
                     ->where('product_id', $detail->product_id)
                     ->increment('stock', $detail->quantity);
             }
 
-            // 2. Rollback Saldo Wallet (Topup)
             if ($detail->topup_transaction_id) {
                 $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
                 if ($topup) {
@@ -228,7 +246,6 @@ class TransactionController extends Controller
                 }
             }
 
-            // 3. Rollback Kas Toko (Tarik Tunai)
             if ($detail->cash_withdrawal_id) {
                 $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
                 if ($withdraw) {

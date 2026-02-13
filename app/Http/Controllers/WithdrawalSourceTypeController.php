@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class WithdrawalSourceTypeController extends Controller
 {
@@ -59,10 +60,20 @@ class WithdrawalSourceTypeController extends Controller
 
             DB::transaction(function () use ($request, $posUserId) {
                 foreach ($request->items as $item) {
-                    WithdrawalSourceType::create([
-                        'name'       => strtoupper($item['name']),
+                    $name = strtoupper($item['name']);
+                    $source = WithdrawalSourceType::create([
+                        'name'       => $name,
                         'created_by' => $posUserId // Simpan ID pos_users
                     ]);
+
+                    // LOG ACTIVITY BATCH
+                    ActivityLogger::log(
+                        'create',
+                        'withdrawal_source_types',
+                        $source->id,
+                        "Menambah sumber dana penarikan (Batch): {$name}",
+                        $posUserId
+                    );
                 }
             });
             return back();
@@ -70,10 +81,21 @@ class WithdrawalSourceTypeController extends Controller
 
         // Simpan Single (Fallback)
         $request->validate(['name' => 'required|string|max:255']);
-        WithdrawalSourceType::create([
-            'name'       => strtoupper($request->name),
+        $name = strtoupper($request->name);
+        
+        $source = WithdrawalSourceType::create([
+            'name'       => $name,
             'created_by' => $posUserId
         ]);
+
+        // LOG ACTIVITY SINGLE
+        ActivityLogger::log(
+            'create',
+            'withdrawal_source_types',
+            $source->id,
+            "Menambah sumber dana penarikan: {$name}",
+            $posUserId
+        );
 
         return back();
     }
@@ -87,11 +109,23 @@ class WithdrawalSourceTypeController extends Controller
         
         $posUserId = $this->getPosUserId();
         $sourceType = WithdrawalSourceType::findOrFail($id);
+        $newName = strtoupper($request->name);
         
+        // Simpan nama lama untuk deskripsi log jika diperlukan, 
+        // namun untuk konsistensi kita gunakan format standar.
         $sourceType->update([
-            'name'       => strtoupper($request->name),
+            'name'       => $newName,
             'created_by' => $posUserId // Update pengedit terakhir
         ]);
+
+        // LOG ACTIVITY UPDATE
+        ActivityLogger::log(
+            'update',
+            'withdrawal_source_types',
+            $id,
+            "Memperbarui sumber dana penarikan menjadi: {$newName}",
+            $posUserId
+        );
 
         return back();
     }
@@ -102,6 +136,17 @@ class WithdrawalSourceTypeController extends Controller
     public function destroy($id)
     {
         $sourceType = WithdrawalSourceType::findOrFail($id);
+        $posUserId = $this->getPosUserId();
+
+        // LOG ACTIVITY DELETE (Sebelum hapus)
+        ActivityLogger::log(
+            'delete',
+            'withdrawal_source_types',
+            $id,
+            "Menghapus sumber dana penarikan: {$sourceType->name}",
+            $posUserId
+        );
+
         $sourceType->delete();
         
         return back();

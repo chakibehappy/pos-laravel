@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class StoreController extends Controller
 {
@@ -70,7 +71,6 @@ class StoreController extends Controller
 
         /**
          * LOGIKA KHUSUS KOLOM ACCOUNT_ID
-         * Diambil dari ID tabel accounts
          */
         $account = DB::table('accounts')->first(['id']);
         
@@ -80,7 +80,6 @@ class StoreController extends Controller
 
         /**
          * LOGIKA KHUSUS KOLOM CREATED_BY
-         * Mencocokkan email login dengan username di pos_users untuk ambil ID
          */
         $posUser = DB::table('pos_users')
             ->where('username', auth()->user()->email)
@@ -94,34 +93,62 @@ class StoreController extends Controller
 
         // Persiapan data untuk Save/Update
         $updateData = [
-            'account_id'    => $account->id, // Hasil dari tb accounts
+            'account_id'    => $account->id,
             'name'          => $request->name,
             'keyname'       => Str::upper($request->keyname),
             'store_type_id' => $request->store_type_id,
             'address'       => $request->address,
         ];
 
-        // Hanya update password jika input diisi (untuk fitur edit)
         if ($request->filled('password')) {
-            // $updateData['password'] = $request->password;
             $updateData['password'] = Hash::make($request->password);
         }
 
-        // created_by hanya diisi saat membuat data baru (Insert)
         if (!$request->id) {
-            $updateData['created_by'] = $posUser->id; // Hasil jembatan email -> username
+            $updateData['created_by'] = $posUser->id;
         }
 
-        Store::updateOrCreate(
+        $actionLabel = $request->id ? "Memperbarui" : "Membuat";
+        $logType = $request->id ? "update" : "create";
+
+        $store = Store::updateOrCreate(
             ['id' => $request->id], 
             $updateData
+        );
+
+        // LOG ACTIVITY
+        ActivityLogger::log(
+            $logType,
+            'stores',
+            $store->id,
+            "$actionLabel data toko: {$store->name} ",
+            $posUser->id
         );
 
         return back()->with('message', 'Data toko berhasil diproses.');
     }
 
     public function destroy($id) {
-        Store::findOrFail($id)->delete();
-        return back()->with('message', 'Toko telah dihapus.');
+        try {
+            $store = Store::findOrFail($id);
+            
+            $posUser = DB::table('pos_users')
+                ->where('username', auth()->user()->email)
+                ->first(['id']);
+
+            // LOG ACTIVITY (Sebelum hapus)
+            ActivityLogger::log(
+                'delete',
+                'stores',
+                $id,
+                "Menghapus toko: {$store->name} ",
+                $posUser ? $posUser->id : null
+            );
+
+            $store->delete();
+            return back()->with('message', 'Toko telah dihapus.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Gagal menghapus toko.']);
+        }
     }
 }

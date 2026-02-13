@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class ProductCategoryController extends Controller
 {
@@ -15,14 +18,25 @@ class ProductCategoryController extends Controller
     {
         return Inertia::render('ProductCategories/Index', [
             'categories' => ProductCategory::query()
+                ->with(['creator']) // Load relasi creator dari pos_users
                 ->when($request->search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%");
                 })
                 ->latest()
-                ->paginate(10) // Wajib paginate untuk DataTable.vue
+                ->paginate(10)
                 ->withQueryString(),
             'filters' => $request->only(['search'])
         ]);
+    }
+
+    /**
+     * Logika Private: Mapping User Admin ke ID PosUser.
+     */
+    private function getPosUserId()
+    {
+        $adminEmail = Auth::user()->email;
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+        return $posUser ? $posUser->id : null;
     }
 
     /**
@@ -38,9 +52,27 @@ class ProductCategoryController extends Controller
             'name.required' => 'Nama kategori wajib diisi.'
         ]);
 
-        ProductCategory::updateOrCreate(
+        $posUserId = $this->getPosUserId();
+        
+        // Identifikasi tipe log sebelum eksekusi
+        $logType = $request->id ? 'update' : 'create';
+        $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
+
+        $category = ProductCategory::updateOrCreate(
             ['id' => $request->id],
-            ['name' => $request->name]
+            [
+                'name' => $request->name,
+                'created_by' => $posUserId // Tercantum di kolom created_by
+            ]
+        );
+
+        // LOG ACTIVITY
+        ActivityLogger::log(
+            $logType,
+            'product_categories',
+            $category->id,
+            "$actionLabel kategori produk: {$category->name}",
+            $posUserId
         );
 
         return back()->with('message', 'Kategori berhasil disimpan!');
@@ -57,6 +89,17 @@ class ProductCategoryController extends Controller
         if ($category->products()->exists()) {
             return back()->with('error', 'Gagal! Kategori masih digunakan oleh produk.');
         }
+
+        $posUserId = $this->getPosUserId();
+
+        // LOG ACTIVITY (Sebelum hapus)
+        ActivityLogger::log(
+            'delete',
+            'product_categories',
+            $id,
+            "Menghapus kategori produk: {$category->name}",
+            $posUserId
+        );
 
         $category->delete();
 

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class PaymentMethodController extends Controller
 {
@@ -53,10 +54,21 @@ class PaymentMethodController extends Controller
                 'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
             ]);
 
-            PaymentMethod::where('id', $request->id)->update([
+            $method = PaymentMethod::findOrFail($request->id);
+            
+            $method->update([
                 'name'       => $request->name,
                 'created_by' => $posUserId // Update pengedit terakhir
             ]);
+
+            // LOG ACTIVITY UPDATE
+            ActivityLogger::log(
+                'update',
+                'payment_methods',
+                $method->id,
+                "Memperbarui metode pembayaran: {$request->name}",
+                $posUserId
+            );
         } 
         // 2. Logic untuk MODE CREATE (Batch Antrian)
         else {
@@ -69,10 +81,19 @@ class PaymentMethodController extends Controller
 
             DB::transaction(function () use ($request, $posUserId) {
                 foreach ($request->items as $item) {
-                    PaymentMethod::create([
+                    $newMethod = PaymentMethod::create([
                         'name'       => $item['name'],
                         'created_by' => $posUserId // Mengisi created_by dengan ID pos_users
                     ]);
+
+                    // LOG ACTIVITY CREATE (Batch)
+                    ActivityLogger::log(
+                        'create',
+                        'payment_methods',
+                        $newMethod->id,
+                        "Menambah metode pembayaran baru: {$newMethod->name}",
+                        $posUserId
+                    );
                 }
             });
         }
@@ -83,6 +104,17 @@ class PaymentMethodController extends Controller
     public function destroy($id)
     {
         $method = PaymentMethod::findOrFail($id);
+        $posUserId = $this->getPosUserId();
+
+        // LOG ACTIVITY DELETE (Sebelum hapus)
+        ActivityLogger::log(
+            'delete',
+            'payment_methods',
+            $id,
+            "Menghapus metode pembayaran: {$method->name}",
+            $posUserId
+        );
+
         $method->delete();
 
         return redirect()->back()->with('success', 'Metode pembayaran berhasil dihapus!');
