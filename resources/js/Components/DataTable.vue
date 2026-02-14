@@ -1,5 +1,5 @@
 <script setup>
-import { Link, router } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import debounce from 'lodash/debounce';
 
@@ -10,28 +10,56 @@ const props = defineProps({
     columns: Array,
     title: String,
     showAddButton: Boolean,
-    routeName: String, // Untuk trigger pencarian otomatis
+    routeName: String, 
     placeholder: { type: String, default: 'Cari data...' },
-    initialSearch: { type: String, default: '' }
+    initialSearch: { type: String, default: '' },
+    filters: { type: Object, default: () => ({}) }
 });
 
 const search = ref(props.initialSearch);
 
-// OTOMATIS: Sistem pencarian server-side identik
-watch(search, debounce((value) => {
+// State Internal untuk Sorting
+const sortKey = ref(props.filters?.sort || '');
+const sortDirection = ref(props.filters?.direction || 'asc');
+
+// Sinkronisasi internal state saat props filters berubah dari server
+watch(() => props.filters, (newFilters) => {
+    sortKey.value = newFilters?.sort || '';
+    sortDirection.value = newFilters?.direction || 'asc';
+}, { deep: true });
+
+const handleSort = (key) => {
+    if (sortKey.value === key) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortKey.value = key;
+        sortDirection.value = 'asc';
+    }
+    executeRequest();
+};
+
+const executeRequest = () => {
     if (props.routeName) {
         router.get(
             route(props.routeName), 
-            { search: value }, 
-            { preserveState: true, replace: true }
+            { 
+                ...props.filters,
+                search: search.value,
+                sort: sortKey.value,
+                direction: sortDirection.value
+            }, 
+            { preserveState: true, replace: true, preserveScroll: true }
         );
     }
+};
+
+watch(search, debounce(() => {
+    executeRequest();
 }, 500));
 </script>
 
 <template>
     <div class="w-full flex flex-col">
-        
         <div class="mb-4 flex justify-between items-end">
             <h1 class="text-2xl font-black uppercase tracking-tighter">{{ title }}</h1>
             
@@ -49,36 +77,49 @@ watch(search, debounce((value) => {
         </div>
 
         <div class="flex flex-col md:flex-row gap-4 items-center mb-6">
-    
-   <div v-if="routeName" class="mb-6 flex flex-col md:flex-row gap-3 items-center">
-            <div class="relative w-full md:w-80">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
-                </span>
-                <input 
-                    v-model="search"
-                    type="text" 
-                    :placeholder="placeholder"
-                    class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white shadow-sm transition-all transition-duration-200 placeholder:text-gray-400"
-                />
-            </div>
+            <div v-if="routeName" class="mb-6 flex flex-col md:flex-row gap-3 items-center w-full">
+                <div class="relative w-full md:w-80">
+                    <input 
+                        v-model="search"
+                        type="text" 
+                        :placeholder="placeholder"
+                        class="w-full border border-gray-300 rounded-lg pl-4 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white shadow-sm transition-all placeholder:text-gray-400 font-medium"
+                    />
+                </div>
 
-            <div class="flex gap-2 w-full md:w-auto">
-                <slot name="extra-filters" />
+                <div class="flex gap-2 w-full md:w-auto">
+                    <slot name="extra-filters" />
+                </div>
             </div>
         </div>
-
-
-    </div>
 
         <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <table class="w-full border-collapse">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-200">
                         <th v-for="col in columns" :key="col.key" 
-                            class="p-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            {{ col.label }}
+                            @click="col.sortable ? handleSort(col.key) : null"
+                            class="p-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider select-none group"
+                            :class="col.sortable ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''"
+                        >
+                            <div class="flex items-center gap-2">
+                                {{ col.label }}
+                                
+                                <div v-if="col.sortable" class="flex items-center">
+                                    <svg v-if="sortKey !== col.key" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M7 15l5 5 5-5M7 9l5-5 5 5" />
+                                    </svg>
+
+                                    <svg v-else xmlns="http://www.w3.org/2000/svg" 
+                                        class="w-3.5 h-3.5 text-blue-600 transition-transform duration-300" 
+                                        :class="sortDirection === 'desc' ? 'rotate-180' : 'rotate-0'"
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 19V5M5 12l7-7 7 7" />
+                                    </svg>
+                                </div>
+                            </div>
                         </th>
-                        <th class="p-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        <th class="p-4 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">
                             Aksi
                         </th>
                     </tr>
@@ -125,13 +166,12 @@ watch(search, debounce((value) => {
                         
                         <a v-else 
                             :href="link.url" 
+                            v-html="link.label"
                             class="px-3 py-1 text-xs border rounded transition-all duration-200 font-medium"
                             :class="link.active 
                                 ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
                                 : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'"
-                        >
-                            <span v-html="link.label"></span>
-                        </a>
+                        ></a>
                     </template>
                 </div>
             </div>

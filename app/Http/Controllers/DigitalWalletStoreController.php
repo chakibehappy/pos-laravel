@@ -83,10 +83,20 @@ class DigitalWalletStoreController extends Controller
             ];
         })->values();
 
+        // --- LOGIKA SORTING (Hanya Tambahan) ---
+        $sort = $request->input('sort', 'store_name');
+        $direction = $request->input('direction', 'asc');
+        
+        if ($direction === 'asc') {
+            $groupedData = $groupedData->sortBy($sort);
+        } else {
+            $groupedData = $groupedData->sortByDesc($sort);
+        }
+
         // 5. MANUAL PAGINATION
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $perPage = 10;
-        $currentItems = $groupedData->slice(($currentPage - 1) * $perPage, $perPage)->all();
+        $currentItems = $groupedData->values()->slice(($currentPage - 1) * $perPage, $perPage)->all();
 
         $paginatedItems = new LengthAwarePaginator(
             $currentItems, 
@@ -103,7 +113,7 @@ class DigitalWalletStoreController extends Controller
             'resource' => $paginatedItems,
             'stores'   => Store::whereIn('store_type_id', $konterTypeIds)->get(['id', 'name']),
             'wallets'  => DigitalWallet::all(['id', 'name']),
-            'filters'  => $request->only(['search']),
+            'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -115,7 +125,6 @@ class DigitalWalletStoreController extends Controller
             'action_type' => 'required|in:add,subtract,reset',
         ]);
 
-        // Menggunakan Model untuk mendapatkan relasi saat logging
         $walletStore = DigitalWalletStore::with(['store', 'wallet'])->where('id', $request->id)->first();
         
         if (!$walletStore) {

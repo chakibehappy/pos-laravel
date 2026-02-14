@@ -12,26 +12,30 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
 
 class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        // Query standar tanpa join berat atau sinkronisasi massal
+        // Ambil parameter sort, default ke 'updated_at' dan 'desc'
+        $sortField = $request->input('sort', 'updated_at');
+        $sortDirection = $request->input('direction', 'desc');
+
         $products = Product::with(['category', 'store', 'unitType'])
+            // Filter Pencarian
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('sku', 'like', "%{$search}%");
                 });
             })
-            // --- TAMBAHKAN LOGIKA INI ---
+            // Filter Kategori
             ->when($request->category, function ($query, $categoryId) {
                 $query->where('product_category_id', $categoryId);
             })
-            // -
-            ->latest('updated_at')
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
@@ -49,7 +53,7 @@ class ProductController extends Controller
                 'sku' => $product->sku,
                 'buying_price' => $product->buying_price,
                 'selling_price' => $product->selling_price,
-                'stock' => $product->stock, // Menampilkan nilai apa adanya dari database
+                'stock' => $product->stock,
                 'image_url' => $product->image ? asset('storage/' . $product->image) : null,
                 'created_at' => $product->updated_at->format('d/m/Y H:i'),
                 'created_by' => $posUser->name ?? 'System',
@@ -61,7 +65,8 @@ class ProductController extends Controller
             'stores' => Store::all(['id', 'name']),
             'categories' => ProductCategory::all(['id', 'name']),
             'unitTypes' => UnitType::all(['id', 'name']),
-            'filters' => $request->only(['search', 'category'])
+            // Kirim filters kembali ke frontend agar icon sorting menyala sesuai state
+            'filters' => $request->only(['search', 'category', 'sort', 'direction'])
         ]);
     }
 
@@ -90,14 +95,12 @@ class ProductController extends Controller
 
             $product = $request->id ? Product::find($request->id) : null;
 
-            // Jika TAMBAH BARU
             if (!$product) {
                 $userEmail = auth()->user()->email;
                 $posUser = DB::table('pos_users')->where('username', $userEmail)->first();
                 if ($posUser) {
                     $data['created_by'] = $posUser->id;
                 }
-                // Set stok ke nilai default 0 agar tidak error database
                 $data['stock'] = 0; 
             }
 
@@ -107,16 +110,11 @@ class ProductController extends Controller
                 }
 
                 $file = $request->file('image');
-                // 1. Change extension to .png
                 $filename = time() . '_' . uniqid() . '.png';
                 
                 $manager = new ImageManager(new Driver());
                 $image = $manager->read($file);
-                
-                // 2. Scale it down (800 is good for performance)
                 $image->scale(width: 800);
-                
-                // 3. Encode to PNG. 
                 $encoded = $image->toPng(); 
 
                 $path = 'products/' . $filename;
@@ -124,13 +122,11 @@ class ProductController extends Controller
                 $data['image'] = $path;
             }
 
-            // Identifikasi Aksi untuk Log
             $logType = $request->id ? 'update' : 'create';
-            $logDesc = ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $request->name . " ";
+            $logDesc = ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $request->name;
 
             $savedProduct = Product::updateOrCreate(['id' => $request->id], $data);
 
-            // LOG ACTIVITY
             $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
             ActivityLogger::log(
                 $logType,
@@ -151,13 +147,12 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        // LOG ACTIVITY (Sebelum hapus)
         $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
         ActivityLogger::log(
             'delete',
             'products',
             $id,
-            "Menghapus produk: {$product->name} ",
+            "Menghapus produk: {$product->name}",
             $posUserAudit ? $posUserAudit->id : null
         );
 

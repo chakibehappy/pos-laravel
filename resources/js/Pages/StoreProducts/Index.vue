@@ -13,14 +13,11 @@ const props = defineProps({
     categories: Array,
     filters: Object
 });
-const currentStockInfo = computed(() => {
-    // 1. Validasi awal: pastikan toko dipilih dan input produk tidak kosong
-    if (!form.store_id || !searchQuery.value) return 0;
 
+const currentStockInfo = computed(() => {
+    if (!form.store_id || !searchQuery.value) return 0;
     const targetProductName = searchQuery.value.toLowerCase().trim();
     
-    // 2. Gunakan .find() atau .reduce() pada props.stocks.data
-    // Pastikan membandingkan store_id DAN product_name secara akurat
     const existingData = props.stocks.data.find(item => {
         return String(item.store_id) === String(form.store_id) && 
                String(item.product_name).toLowerCase().trim() === targetProductName;
@@ -28,11 +25,11 @@ const currentStockInfo = computed(() => {
 
     return existingData ? existingData.stock : 0;
 });
+
 const selectedStore = ref(props.filters?.store_id || '');
 const selectedStoreType = ref(props.filters?.store_type_id || '');
 const selectedProductCategories = ref(props.filters?.product_category_id || '');
 
-// Filter Daftar Toko berdasarkan Jenis Usaha (Untuk Dropdown Filter)
 const filteredStoresList = computed(() => {
     if (!selectedStoreType.value || selectedStoreType.value === 'all') {
         return props.stores;
@@ -40,14 +37,14 @@ const filteredStoresList = computed(() => {
     return props.stores.filter(s => s.store_type_id == selectedStoreType.value);
 });
 
-// Reset pilihan toko jika Jenis Usaha berubah
 watch(selectedStoreType, () => {
     selectedStore.value = '';
 });
 
+// Perbaikan Watcher: Menjaga state field dan direction agar tetap ada di URL
 watch([selectedStore, selectedStoreType, selectedProductCategories], ([newStore, newType, newCategories]) => {
     router.get(route('store-products.index'), { 
-        ...props.filters, 
+        ...props.filters, // Penting: Menjaga parameter search, field, dan direction
         store_id: newStore,
         store_type_id: (newType === 'all' || newType === '') ? null : newType,
         product_category_id: newCategories,
@@ -59,13 +56,14 @@ watch([selectedStore, selectedStoreType, selectedProductCategories], ([newStore,
     });
 });
 
+// Penambahan Properti sortable: true pada kolom yang didaftarkan di Controller
 const columns = [
-    { label: 'Cabang', key: 'store_name' }, 
-    { label: 'Produk', key: 'product_name' }, 
-    { label: 'SKU', key: 'product_sku' },
-    { label: 'Modal', key: 'product_buying_price' }, // Tambahkan ini 
-    { label: 'Jumlah Stok', key: 'stock' },
-    { label: 'Dibuat Oleh', key: 'creator' }
+    { label: 'Cabang', key: 'store_name', sortable: true }, 
+    { label: 'Produk', key: 'product_name', sortable: true }, 
+    { label: 'SKU', key: 'product_sku', sortable: true },
+    { label: 'Modal', key: 'product_buying_price', sortable: true }, 
+    { label: 'Jumlah Stok', key: 'stock', sortable: true },
+    { label: 'Dibuat Oleh', key: 'creator' } // creator biasanya tidak disortir karena alias join pos_users
 ];
 
 const errorMessage = ref('');
@@ -89,8 +87,7 @@ const filteredProducts = computed(() => {
     const q = searchQuery.value.toLowerCase();
     return props.products.filter(p => 
         p.name.toLowerCase().includes(q) ||
-        (p.sku && p.sku.toLowerCase().includes(q)) ||
-        (p.base_price && p.base_price.toString().includes(q)) // Bisa cari berdasarkan harga juga
+        (p.sku && p.sku.toLowerCase().includes(q))
     );
 });
 
@@ -202,7 +199,6 @@ const destroy = (id) => {
                                         <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-[9px]">PILIH</span>
                                     </div>
                                 </div>
-                                
                                 <div v-if="filteredProducts.length === 0" class="p-4 text-center text-gray-400 text-xs italic">
                                     Produk tidak ditemukan...
                                 </div>
@@ -277,63 +273,47 @@ const destroy = (id) => {
                     <a v-if="!showInlineForm" 
                     :href="route('store-products.export', props.filters)" 
                     class="group bg-gray-300 text-black px-6 font-bold uppercase border-2 border-black hover:bg-emerald-600 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center gap-2 h-[44px] text-sm box-border">
-                        
-                        <svg xmlns="http://www.w3.org/2000/svg" 
-                            class="w-5 h-5 text-black group-hover:text-white transition-colors duration-200" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            stroke-width="2.5" 
-                            stroke-linecap="round" 
-                            stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-black group-hover:text-white transition-colors duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
                             <polyline points="14 2 14 8 20 8"/>
-                            <path d="M8 13l4 4"/>
-                            <path d="M12 13l-4 4"/>
+                            <path d="M8 13l4 4"/><path d="M12 13l-4 4"/>
                         </svg>
-
                         Eksport Excel
                     </a>
                 </template>
                 
                 <template #extra-filters>
-                    <select 
-                        v-model="selectedStore"
-                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all"
-                    >
+                    <select v-model="selectedStore" class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all">
                         <option value="">-- SEMUA TOKO --</option>
-                        <option v-for="s in filteredStoresList" :key="s.id" :value="s.id">
-                            {{ s.name.toUpperCase() }}
-                        </option>
+                        <option v-for="s in filteredStoresList" :key="s.id" :value="s.id">{{ s.name.toUpperCase() }}</option>
                     </select>
 
-                    <select 
-                        v-model="selectedProductCategories"
-                        class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all">
+                    <select v-model="selectedProductCategories" class="border border-gray-300 rounded-lg p-2.5 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none min-w-[200px] shadow-sm transition-all">
                         <option value="">-- KATEGORI PRODUK --</option>
-                        <option v-for="c in categories" :key="c.id" :value="c.id">
-                            {{ c.name.toUpperCase() }}
-                        </option>
+                        <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name.toUpperCase() }}</option>
                     </select>
                 </template>
+
                 <template #product_buying_price="{ value }">
                     <span class="font-medium text-gray-600">
                         Rp {{ value ? new Intl.NumberFormat('id-ID').format(value) : '0' }}
                     </span>
                 </template>
+
                 <template #stock="{ value }">
                     <span class="font-bold text-blue-600">{{ value }} <small class="text-[10px] text-gray-400 font-bold">UNIT</small></span>
                 </template>
+
                 <template #creator="{ row }">
                     <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-600">👤 {{ row.creator_name || 'SYSTEM' }}</span>
                 </template>
+
                 <template #actions="{ row }">
                     <div class="flex flex-row gap-4 justify-end">
                         <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors">✏️</button>
                         <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors">❌</button>
                     </div>
                 </template>
-                
             </DataTable>
         </div>
     </AuthenticatedLayout>

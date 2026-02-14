@@ -13,18 +13,36 @@ class WithdrawalFeeRuleController extends Controller
 {
     public function index(Request $request)
     {
+        // Menangkap parameter sorting dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default sort field
+        $sortDirection = $request->input('direction', 'desc'); // Default direction
+
         $query = WithdrawalFeeRule::with(['creator']);
 
+        // Logika Pencarian
         if ($request->search) {
-            $query->where('fee', 'like', "%{$request->search}%")
+            $query->where(function($q) use ($request) {
+                $q->where('fee', 'like', "%{$request->search}%")
                   ->orWhere('min_limit', 'like', "%{$request->search}%")
                   ->orWhere('max_limit', 'like', "%{$request->search}%");
+            });
         }
 
         return Inertia::render('WithdrawalFeeRules/Index', [
-            'resource' => $query->latest()->paginate(10)->withQueryString(),
-            'filters'  => $request->only(['search']),
+            'resource' => $query->orderBy($sortField, $sortDirection)
+                               ->paginate(10)
+                               ->withQueryString(),
+            'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
+    }
+
+    /**
+     * Helper untuk mendapatkan ID Operator (pos_users)
+     */
+    private function getOperatorId()
+    {
+        $posUser = PosUser::where('username', Auth::user()->email)->first();
+        return $posUser ? $posUser->id : PosUser::first()?->id;
     }
 
     public function store(Request $request)
@@ -35,13 +53,7 @@ class WithdrawalFeeRuleController extends Controller
             'fee'       => 'required|numeric|min:0',
         ]);
 
-        // LOGIKA PENYELARASAN:
-        // Mencari di pos_users yang username-nya sama dengan email User yang sedang login
-        $posUser = PosUser::where('username', Auth::user()->email)->first();
-
-        // Jika tidak ketemu, ambil ID pertama dari pos_users agar tidak kena error SQL 1452
-        $finalId = $posUser ? $posUser->id : PosUser::first()?->id;
-
+        $finalId = $this->getOperatorId();
         $actionLabel = $request->id ? "Memperbarui" : "Membuat";
         $logType = $request->id ? "update" : "create";
 
@@ -60,7 +72,7 @@ class WithdrawalFeeRuleController extends Controller
             $logType, 
             'withdrawal_fee_rules', 
             $rule->id, 
-            "$actionLabel aturan biaya penarikan  ", 
+            "$actionLabel aturan biaya penarikan ID: {$rule->id}", 
             $finalId
         );
 
@@ -71,17 +83,14 @@ class WithdrawalFeeRuleController extends Controller
     {
         try {
             $rule = WithdrawalFeeRule::findOrFail($id);
-            
-            // Ambil ID PosUser untuk log
-            $posUser = PosUser::where('username', Auth::user()->email)->first();
-            $userOperatorId = $posUser ? $posUser->id : PosUser::first()?->id;
+            $userOperatorId = $this->getOperatorId();
 
             // LOG ACTIVITY DELETE (Sebelum dihapus)
             ActivityLogger::log(
                 'delete', 
                 'withdrawal_fee_rules', 
                 $id, 
-                "Menghapus aturan biaya penarikan", 
+                "Menghapus aturan biaya penarikan ID: $id", 
                 $userOperatorId
             );
 

@@ -11,25 +11,31 @@ use App\Helpers\ActivityLogger; // Import Helper
 
 class PaymentMethodController extends Controller
 {
+    /**
+     * Menampilkan data dengan Search dan Dynamic Sorting.
+     */
     public function index(Request $request)
     {
-        // Mendukung fitur search dan eager load relasi creator dari pos_users
-        $query = PaymentMethod::query()
-            ->with(['creator'])
-            ->latest();
+        // Menangkap parameter sorting dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default sort ke tanggal
+        $sortDirection = $request->input('direction', 'desc'); // Default urutan terbaru
 
-        if ($request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
-        }
+        $query = PaymentMethod::query()
+            ->with(['creator']) // Eager load relasi creator (pos_users)
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', '%' . $search . '%');
+            })
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection);
 
         return Inertia::render('PaymentMethods/Index', [
             'methods' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search'])
+            'filters' => $request->only(['search', 'sort', 'direction'])
         ]);
     }
 
     /**
-     * Logika Private: Mapping User Admin ke ID PosUser sesuai skema yang Anda minta.
+     * Logika Private: Mapping User Admin ke ID PosUser.
      */
     private function getPosUserId()
     {
@@ -43,6 +49,9 @@ class PaymentMethodController extends Controller
         return $posUser ? $posUser->id : null;
     }
 
+    /**
+     * Simpan atau Update data (Mendukung Batch Store).
+     */
     public function store(Request $request)
     {
         // Dapatkan ID pos_users berdasarkan email login
@@ -83,7 +92,7 @@ class PaymentMethodController extends Controller
                 foreach ($request->items as $item) {
                     $newMethod = PaymentMethod::create([
                         'name'       => $item['name'],
-                        'created_by' => $posUserId // Mengisi created_by dengan ID pos_users
+                        'created_by' => $posUserId 
                     ]);
 
                     // LOG ACTIVITY CREATE (Batch)
@@ -98,9 +107,12 @@ class PaymentMethodController extends Controller
             });
         }
 
-        return redirect()->back()->with('success', 'Data berhasil diproses!');
+        return redirect()->back()->with('message', 'Data berhasil diproses!');
     }
 
+    /**
+     * Hapus Data.
+     */
     public function destroy($id)
     {
         $method = PaymentMethod::findOrFail($id);
@@ -117,6 +129,6 @@ class PaymentMethodController extends Controller
 
         $method->delete();
 
-        return redirect()->back()->with('success', 'Metode pembayaran berhasil dihapus!');
+        return redirect()->back()->with('message', 'Metode pembayaran berhasil dihapus!');
     }
 }

@@ -6,14 +6,15 @@ import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({ 
     users: Object,
-    filters: Object // Untuk menangani state pencarian
+    filters: Object // Untuk menangani state pencarian dan sorting
 });
 
 const isUpdate = ref(false);
 
+// Menambahkan properti sortable agar tombol switch muncul di header
 const columns = [
-    { label: 'Nama Lengkap', key: 'name' }, 
-    { label: 'Alamat Email', key: 'email' }
+    { label: 'Nama Lengkap', key: 'name', sortable: true }, 
+    { label: 'Alamat Email', key: 'email', sortable: true }
 ];
 
 const showForm = ref(false);
@@ -43,6 +44,7 @@ const openEdit = (row) => {
 };
 
 const submit = () => {
+    // Menggunakan route users.store yang menangani updateOrCreate di Controller
     form.post(route('users.store'), {
         onSuccess: () => {
             showForm.value = false;
@@ -113,6 +115,7 @@ const destroy = (id) => {
                 title="Daftar Pengguna"
                 :resource="users" 
                 :columns="columns"
+                :filters="filters"
                 :showAddButton="!showForm"
                 route-name="users.index" 
                 :initial-search="filters?.search || ''"

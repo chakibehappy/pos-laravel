@@ -10,12 +10,12 @@ const props = defineProps({
     filters: Object 
 });
 
-// Definisi kolom tabel - Dibuat Oleh diletakkan SETELAH Tanggal
+// Definisi kolom tabel dengan fitur sortable: true
 const columns = [
-    { label: 'Nama Layanan', key: 'name' }, 
-    { label: 'Kategori (Type)', key: 'type' },
-    { label: 'Tanggal', key: 'created_at' },
-    { label: 'Dibuat Oleh', key: 'creator' }, 
+    { label: 'Nama Layanan', key: 'name', sortable: true }, 
+    { label: 'Kategori (Type)', key: 'type', sortable: true },
+    { label: 'Tanggal', key: 'created_at', sortable: true },
+    { label: 'Dibuat Oleh', key: 'creator' }, // Creator biasanya relation, disarankan sort via created_by di backend jika perlu
 ];
 
 const showForm = ref(false); 
@@ -217,8 +217,13 @@ const formatDate = (dateString) => {
 
             <DataTable 
                 title="Master Tipe Transaksi"
-                :resource="data" :columns="columns" :showAddButton="!showForm"
-                routeName="topup-trans-types.index" :initialSearch="filters.search" @on-add="openCreate" 
+                :resource="data" 
+                :columns="columns" 
+                :showAddButton="!showForm"
+                routeName="topup-trans-types.index" 
+                :filters="filters"
+                :initialSearch="filters.search" 
+                @on-add="openCreate" 
             >
                 <template #name="{ row }">
                     <span class="font-bold text-gray-800 uppercase italic">{{ row.name }}</span>

@@ -9,10 +9,19 @@ use Inertia\Inertia;
 class ActivityLogController extends Controller
 {
     /**
-     * Menampilkan daftar log aktivitas (Read-Only)
+     * Menampilkan daftar log aktivitas (Read-Only) dengan Sorting & Search Dinamis
      */
     public function index(Request $request)
     {
+        // Menangkap parameter sorting dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default field
+        $sortDirection = $request->input('direction', 'desc'); // Default urutan
+
+        // Mapping jika field sorting di UI berbeda dengan nama kolom di DB
+        if ($sortField === 'user_name') {
+            $sortField = 'created_by';
+        }
+
         $query = ActivityLog::with(['user']);
 
         // Fitur Pencarian Global
@@ -28,8 +37,8 @@ class ActivityLogController extends Controller
         }
 
         return Inertia::render('ActivityLogs/Index', [
-            'logs' => $query->latest('created_at')
-                            ->paginate(6)
+            'logs' => $query->orderBy($sortField, $sortDirection)
+                            ->paginate(15) // Menambah pagination agar lebih proporsional untuk log
                             ->withQueryString()
                             ->through(fn ($log) => [
                                 'id' => $log->id,
@@ -40,7 +49,7 @@ class ActivityLogController extends Controller
                                 'description' => $log->description,
                                 'created_at' => $log->created_at ? $log->created_at->format('d/m/Y H:i') : '-',
                             ]),
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 }

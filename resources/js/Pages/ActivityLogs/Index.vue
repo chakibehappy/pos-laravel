@@ -3,7 +3,6 @@ import { ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
-// Menggunakan modal yang sama dengan contoh Anda
 import TransactionDetailModal from '@/Pages/TransactionsDetails/Index.vue';
 
 const props = defineProps({
@@ -16,12 +15,13 @@ const showDetailModal = ref(false);
 const selectedTransactionId = ref(null);
 const detailModalRef = ref(null);
 
+// Menambahkan sortable: true pada kolom yang relevan
 const columns = [
-    { label: 'Waktu Aktivitas', key: 'created_at' },
-    { label: 'Eksekutor', key: 'user_name' },
-    { label: 'Tindakan', key: 'action' },
-    { label: 'Referensi', key: 'reference_type' },
-    { label: 'Detail Keterangan', key: 'description' },
+    { label: 'Waktu Aktivitas', key: 'created_at', sortable: true },
+    { label: 'Eksekutor', key: 'user_name', sortable: true },
+    { label: 'Tindakan', key: 'action', sortable: true },
+    { label: 'Referensi', key: 'reference_type', sortable: true },
+    { label: 'Detail Keterangan', key: 'description', sortable: false },
 ];
 
 const getActionTheme = (action) => {
@@ -55,9 +55,10 @@ const openTransactionDetail = (id) => {
                 title="Riwayat Aktivitas"
                 :resource="logs" 
                 :columns="columns"
+                :filters="filters"
                 :showAddButton="false" 
-                routeName="activity-logs.index" 
-                :initialSearch="filters.search"
+                route-name="activity-logs.index" 
+                :initial-search="filters?.search || ''"
             >
                 <template #created_at="{ value }">
                     <span class="text-[11px] font-bold text-gray-500 font-mono tracking-tighter">{{ value }}</span>

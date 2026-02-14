@@ -15,11 +15,12 @@ const props = defineProps({
 
 const showForm = ref(false);
 
+// Update kolom dengan properti sortable: true
 const columns = [
-    { label: 'Toko / Pelanggan', key: 'store' }, 
-    { label: 'Layanan', key: 'trans_type' },
-    { label: 'Potong Saldo', key: 'nominal_request' },
-    { label: 'Harga (Rp)', key: 'nominal_pay' }
+    { label: 'Toko / Pelanggan', key: 'store_id', sortable: true }, 
+    { label: 'Layanan', key: 'topup_trans_type_id', sortable: true },
+    { label: 'Potong Saldo', key: 'nominal_request', sortable: true },
+    { label: 'Harga (Rp)', key: 'nominal_pay', sortable: true }
 ];
 
 const form = useForm({
@@ -48,7 +49,7 @@ const filteredWallets = computed(() => {
     return props.walletStores.filter(wallet => wallet.store_id === form.store_id);
 });
 
-// Reset wallet pilihan jika toko berubah (hanya jika tidak sedang edit)
+// Reset wallet pilihan jika toko berubah
 watch(() => form.store_id, (newVal, oldVal) => {
     if (oldVal && form.id === null) {
         form.digital_wallet_store_id = '';
@@ -169,18 +170,19 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
                 title="Riwayat Topup"
                 :resource="transactions" 
                 :columns="columns"
+                :filters="filters"
                 :showAddButton="false"
                 route-name="topup-transactions.index" 
                 :initial-search="filters?.search || ''"
             >
-                <template #store="{ row }">
+                <template #store_id="{ row }">
                     <div class="flex flex-col">
                         <span class="text-xs font-black uppercase tracking-tight text-gray-900">{{ row.store?.name }}</span>
                         <span class="text-[10px] font-bold text-blue-600 tracking-wider">{{ row.cust_account_number }}</span>
                     </div>
                 </template>
 
-                <template #trans_type="{ row }">
+                <template #topup_trans_type_id="{ row }">
                     <span class="px-2 py-1 rounded bg-gray-100 text-gray-800 text-[10px] font-black uppercase">
                         {{ row.trans_type?.name }}
                     </span>
@@ -194,7 +196,12 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
                     <span class="text-green-600 font-bold">{{ formatIDR(value) }}</span>
                 </template>
 
-           
+                <template #actions="{ row }">
+                    <div class="flex gap-4 justify-end">
+                        <button @click="openEdit(row)" class="text-gray-400 hover:text-blue-600 transition-colors">✏️</button>
+                        <button @click="destroy(row.id)" class="text-gray-400 hover:text-red-600 transition-colors">❌</button>
+                    </div>
+                </template>
             </DataTable>
 
         </div>

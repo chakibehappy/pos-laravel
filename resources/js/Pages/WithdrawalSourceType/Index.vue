@@ -10,10 +10,10 @@ const props = defineProps({
     filters: Object 
 });
 
-// Menambahkan kolom creator setelah created_at
+// Definisi kolom tabel dengan fitur sortable: true
 const columns = [
-    { label: 'Nama Sumber Penarikan', key: 'name' }, 
-    { label: 'Tanggal', key: 'created_at' },
+    { label: 'Nama Sumber Penarikan', key: 'name', sortable: true }, 
+    { label: 'Tanggal', key: 'created_at', sortable: true },
     { label: 'Dibuat Oleh', key: 'creator' },
 ];
 
@@ -206,8 +206,13 @@ const formatDate = (dateString) => {
 
             <DataTable 
                 title="Master Sumber Penarikan"
-                :resource="data" :columns="columns" :showAddButton="!showForm"
-                routeName="withdrawal-source-types.index" :initialSearch="filters.search" @on-add="openCreate" 
+                :resource="data" 
+                :columns="columns" 
+                :showAddButton="!showForm"
+                routeName="withdrawal-source-types.index" 
+                :filters="filters"
+                :initialSearch="filters.search" 
+                @on-add="openCreate" 
             >
                 <template #name="{ row }">
                     <div class="flex flex-col">

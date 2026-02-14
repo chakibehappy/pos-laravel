@@ -16,6 +16,7 @@ class PosUserController extends Controller
         // Tetap menggunakan with('creator') agar relasi terbawa
         $query = PosUser::with('creator')->where('role', '!=', 'developer');
 
+        // --- LOGIKA SEARCH ---
         if ($request->filled('search')) {
             $term = "%{$request->search}%";
             $query->where(function($q) use ($term) {
@@ -24,9 +25,21 @@ class PosUserController extends Controller
             });
         }
 
+        // --- LOGIKA SORTING DINAMIS ---
+        if ($request->filled('sort') && $request->filled('direction')) {
+            $sortField = $request->sort;
+            $direction = $request->direction === 'desc' ? 'desc' : 'asc';
+            
+            // Tambahkan logika jika kolom sort adalah kolom relasi atau alias jika perlu
+            $query->orderBy($sortField, $direction);
+        } else {
+            // Default sorting jika tidak ada request sort
+            $query->latest();
+        }
+
         return Inertia::render('PosUser/Index', [
-            'resource' => $query->latest()->paginate(10)->withQueryString(),
-            'filters'  => $request->only(['search']),
+            'resource' => $query->paginate(10)->withQueryString(),
+            'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 

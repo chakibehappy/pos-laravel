@@ -9,34 +9,41 @@ use Inertia\Inertia;
 class DigitalWalletController extends Controller
 {
     /**
-     * Menampilkan daftar platform wallet.
+     * Menampilkan daftar platform wallet dengan Sorting, Pagination & Search.
      * Menggunakan variabel 'resource' agar kompatibel dengan DataTable.vue.
      */
     public function index(Request $request)
     {
+        // Ambil parameter sort, default ke 'id' dan 'desc'
+        $sortField = $request->input('sort', 'id');
+        $sortDirection = $request->input('direction', 'desc');
+
         $resource = DigitalWallet::query()
             ->when($request->search, function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%");
             })
-            ->latest()
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('DigitalWallets/Index', [
             'resource' => $resource, // Nama variabel harus 'resource' sesuai sistem DataTable
-            'filters'  => $request->only(['search']),
+            'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
     /**
      * Simpan atau Update Master Platform Wallet.
-     * Tidak lagi menyertakan kolom balance sesuai database terbaru.
      */
     public function store(Request $request)
     {
         $request->validate([
             'id'   => 'nullable|exists:digital_wallet,id',
             'name' => 'required|string|max:255|unique:digital_wallet,name,' . $request->id,
+        ], [
+            'name.unique' => 'Nama platform sudah terdaftar!',
+            'name.required' => 'Nama platform wajib diisi.'
         ]);
 
         try {
@@ -44,7 +51,6 @@ class DigitalWalletController extends Controller
                 ['id' => $request->id],
                 [
                     'name' => $request->name,
-                    // created_by bisa ditambahkan jika Anda menggunakan Auth::id()
                 ]
             );
 
@@ -60,7 +66,14 @@ class DigitalWalletController extends Controller
     public function destroy($id)
     {
         try {
-            DigitalWallet::findOrFail($id)->delete();
+            $wallet = DigitalWallet::findOrFail($id);
+            
+            // Opsional: Cek jika platform masih digunakan di tabel relasi (jika ada)
+            // if ($wallet->storeWallets()->exists()) {
+            //     return back()->with('error', 'Gagal! Platform masih digunakan oleh toko.');
+            // }
+
+            $wallet->delete();
             return back()->with('message', 'Platform Wallet berhasil dihapus!');
         } catch (\Exception $e) {
             return back()->withErrors(['id' => 'Gagal menghapus platform.']);

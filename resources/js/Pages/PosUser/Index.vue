@@ -10,20 +10,24 @@ const props = defineProps({
     filters: Object 
 });
 
+// Menambahkan properti sortable: true pada kolom yang bisa diurutkan
 const columns = [
-    { label: 'Nama Lengkap', key: 'name' }, 
-    { label: 'Username', key: 'username' },
+    { label: 'Nama Lengkap', key: 'name', sortable: true }, 
+    { label: 'Username', key: 'username', sortable: true },
     { label: 'PIN', key: 'pin_status' }, 
-    { label: 'Shift', key: 'shift' },
-    { label: 'Jabatan (Role)', key: 'role' },
-    { label: 'Status', key: 'is_active' }, // Status sekarang di posisi ke-6
-    { label: 'Dibuat Oleh', key: 'created_by' }    // Oleh sekarang di posisi terakhir sebelum Action
+    { label: 'Shift', key: 'shift', sortable: true },
+    { label: 'Jabatan (Role)', key: 'role', sortable: true },
+    { label: 'Status', key: 'is_active', sortable: true },
+    { label: 'Dibuat Oleh', key: 'created_by' }
 ];
 
 // --- SEARCH ---
 const search = ref(props.filters.search);
 watch(search, debounce((value) => {
-    router.get(route('pos_users.index'), { search: value }, { preserveState: true, replace: true });
+    router.get(route('pos_users.index'), { 
+        ...props.filters,
+        search: value 
+    }, { preserveState: true, replace: true });
 }, 300));
 
 // --- FORM & MODAL LOGIC ---
@@ -220,6 +224,7 @@ const destroy = (id) => {
                 title="Daftar Staff"
                 :resource="resource" 
                 :columns="columns"
+                :filters="filters"
                 :showAddButton="!showForm"
                 route-name="pos_users.index" 
                 :initialSearch="filters.search"

@@ -14,22 +14,29 @@ use Inertia\Inertia;
 class TopupTransactionController extends Controller
 {
     /**
-     * READ: Menampilkan daftar transaksi dengan Paginasi & Search
+     * READ: Menampilkan daftar transaksi dengan Paginasi, Search, & Sorting Dinamis
      */
     public function index(Request $request)
     {
+        // Menangkap parameter sorting dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default field
+        $sortDirection = $request->input('direction', 'desc'); // Default urutan
+
         // 1. Query dengan Filter Search & Paginasi
         $transactions = TopupTransaction::with(['store', 'transType'])
             ->when($request->search, function ($query, $search) {
-                $query->where('cust_account_number', 'like', "%{$search}%")
-                      ->orWhereHas('store', function ($q) use ($search) {
-                          $q->where('name', 'like', "%{$search}%");
+                $query->where(function($q) use ($search) {
+                    $q->where('cust_account_number', 'like', "%{$search}%")
+                      ->orWhereHas('store', function ($sq) use ($search) {
+                          $sq->where('name', 'like', "%{$search}%");
                       })
-                      ->orWhereHas('transType', function ($q) use ($search) {
-                          $q->where('name', 'like', "%{$search}%");
+                      ->orWhereHas('transType', function ($sq) use ($search) {
+                          $sq->where('name', 'like', "%{$search}%");
                       });
+                });
             })
-            ->latest()
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
@@ -39,7 +46,7 @@ class TopupTransactionController extends Controller
             'transTypes' => TopupTransType::all(['id', 'name']),
             'walletStores' => DigitalWalletStore::all(),
             'wallets' => DigitalWallet::all(['id', 'name']), 
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -49,7 +56,6 @@ class TopupTransactionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id' => 'nullable|numeric', // Tambahkan ID untuk mendukung updateOrCreate jika perlu
             'store_id' => 'required|exists:stores,id',
             'cust_account_number' => 'required|string|max:50',
             'nominal_request' => 'required|numeric|min:0',

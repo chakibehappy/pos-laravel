@@ -12,6 +12,17 @@ const props = defineProps({
     filters: Object
 });
 
+// Konfigurasi kolom dengan sorting aktif
+const columns = [
+    { label: 'Tipe', key: 'topup_trans_type_id', sortable: true }, 
+    { label: 'Target', key: 'wallet_target_id', sortable: true }, 
+    { label: 'Min Limit', key: 'min_limit', sortable: true },
+    { label: 'Max Limit', key: 'max_limit', sortable: true },
+    { label: 'Fee Profit', key: 'fee', sortable: true },
+    { label: 'Fee Modal', key: 'admin_fee', sortable: true },
+    { label: 'Dibuat Oleh', key: 'created_by', sortable: true }
+];
+
 const showForm = ref(false);
 const isEditMode = ref(false);
 const errorMessage = ref('');
@@ -87,7 +98,6 @@ const addToBatch = () => {
         return;
     }
 
-    // Tetap menjaga agar tidak ada input yang benar-benar identik dalam satu antrian yang sama
     const isIdenticalInQueue = form.rules.some(item => 
         item.topup_trans_type_id === singleEntry.value.topup_trans_type_id && 
         item.wallet_target_id === singleEntry.value.wallet_target_id &&
@@ -104,7 +114,6 @@ const addToBatch = () => {
     const lastMax = singleEntry.value.max_limit;
     resetSingleEntry();
     
-    // Auto-fill min_limit berdasarkan max_limit sebelumnya untuk memudahkan tiering
     singleEntry.value.min_limit = lastMax;
 };
 
@@ -273,24 +282,17 @@ const displayLimit = (value) => {
             <DataTable 
                 title="Aturan Biaya Top Up"
                 :resource="data" 
-                :columns="[
-                    { label: 'Tipe', key: 'type_name' }, 
-                    { label: 'Target', key: 'target_name' }, 
-                    { label: 'Min Limit', key: 'min_limit' },
-                    { label: 'Max Limit', key: 'max_limit' },
-                    { label: 'Fee Profit', key: 'fee' },
-                    { label: 'Fee Modal', key: 'admin_fee' },
-                    { label: 'Dibuat Oleh', key: 'creator' }
-                ]"
+                :columns="columns"
+                :filters="filters"
                 routeName="topup-fee-rules.index" 
                 :initialSearch="filters?.search || ''"
                 :showAddButton="!showForm"
                 @on-add="openCreate"
             >
-                <template #type_name="{ row }">
+                <template #topup_trans_type_id="{ row }">
                     <span class="font-bold text-gray-800 uppercase text-[10px] italic tracking-tight">{{ row.topup_trans_type?.name }}</span>
                 </template>
-                <template #target_name="{ row }">
+                <template #wallet_target_id="{ row }">
                     <span v-if="row.wallet_target" class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-blue-100 shadow-sm">
                         {{ row.wallet_target.name }}
                     </span>
@@ -310,7 +312,8 @@ const displayLimit = (value) => {
                 </template>
                 <template #fee="{ value }"><span class="text-green-600 font-black text-[11px]">Rp {{ formatCurrency(value) }}</span></template>
                 <template #admin_fee="{ value }"><span class="text-blue-600 font-black text-[11px] italic">Rp {{ formatCurrency(value) }}</span></template>
-                <template #creator="{ row }"><span class="text-[10px] font-black text-gray-700 uppercase italic">{{ row.creator?.name || 'SYSTEM' }}</span></template>
+                <template #created_by="{ row }"><span class="text-[10px] font-black text-gray-700 uppercase italic">{{ row.creator?.name || 'SYSTEM' }}</span></template>
+                
                 <template #actions="{ row }">
                     <div class="flex gap-4 justify-end items-center">
                         <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>

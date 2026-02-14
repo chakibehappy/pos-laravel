@@ -145,13 +145,14 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 title="Pegawai Toko"
                 :resource="resource" 
                 :columns="[
-                    { label: 'Unit Toko', key: 'store_name' }, 
-                    { label: 'Nama User', key: 'pos_user_name' }, 
-                    { label: 'Tanggal', key: 'created_at' }, 
-                    { label: 'Diberikan Oleh', key: 'creator_name' }
+                    { label: 'Unit Toko', key: 'store_name', sortable: true }, 
+                    { label: 'Nama User', key: 'pos_user_name', sortable: true }, 
+                    { label: 'Tanggal', key: 'created_at', sortable: true }, 
+                    { label: 'Diberikan Oleh', key: 'creator_name', sortable: true }
                 ]"
                 route-name="pos-user-stores.index" 
                 :initialSearch="filters?.search || ''"
+                :filters="filters"
                 :showAddButton="!showForm"
                 @on-add="openCreate"
             >
@@ -197,9 +198,9 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 </template>
 
                 <template #actions="{ row }">
-                    <div class="flex flex-row gap-4 justify-end">
-                        <button @click="openEdit(row)" title="Edit" class="text-gray-400 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
-                        <button @click="destroy(row.id)" title="Hapus" class="text-gray-400 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
+                    <div class="flex flex-row gap-4 justify-end items-center mr-2">
+                        <button @click="openEdit(row)" title="Edit" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
+                        <button @click="destroy(row.id)" title="Hapus" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
                     </div>
                 </template>
             </DataTable>

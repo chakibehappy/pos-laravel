@@ -10,11 +10,12 @@ const props = defineProps({
     filters: Object 
 });
 
+// Konfigurasi kolom dengan properti sortable
 const columns = [
-    { label: 'Min Limit', key: 'min_limit' }, 
-    { label: 'Max Limit', key: 'max_limit' },
-    { label: 'Biaya (Fee)', key: 'fee' },
-    { label: 'Dibuat Oleh', key: 'creator' }
+    { label: 'Min Limit', key: 'min_limit', sortable: true }, 
+    { label: 'Max Limit', key: 'max_limit', sortable: true },
+    { label: 'Biaya (Fee)', key: 'fee', sortable: true },
+    { label: 'Dibuat Oleh', key: 'created_by', sortable: true }
 ];
 
 const search = ref(props.filters.search || '');
@@ -24,7 +25,11 @@ const errorMessage = ref('');
 watch(search, debounce((value) => {
     router.get(
         route('withdrawal-fee-rules.index'), 
-        { search: value }, 
+        { 
+            search: value,
+            sort: props.filters.sort,
+            direction: props.filters.direction
+        }, 
         { preserveState: true, replace: true }
     );
 }, 500));
@@ -57,7 +62,6 @@ const openEdit = (row) => {
 const submit = () => {
     errorMessage.value = '';
 
-    // Alert jika data kosong saat mencoba mengirim
     if (!form.min_limit || !form.max_limit || !form.fee) {
         errorMessage.value = "Semua kolom wajib diisi agar data dapat disimpan!";
         return;
@@ -135,6 +139,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
                 title="Aturan Biaya Tarik Tunai"
                 :resource="resource" 
                 :columns="columns"
+                :filters="filters"
                 :showAddButton="!showForm"
                 routeName="withdrawal-fee-rules.index" 
                 :initialSearch="filters.search"
@@ -150,7 +155,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
                     <span class="text-blue-600 font-black">Rp {{ formatCurrency(value) }}</span>
                 </template>
 
-                <template #creator="{ row }">
+                <template #created_by="{ row }">
                     <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-600">
                         👤 {{ row.creator?.name || 'SYSTEM' }}
                     </span>

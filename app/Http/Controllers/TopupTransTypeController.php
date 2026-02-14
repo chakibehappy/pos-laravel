@@ -12,24 +12,31 @@ use App\Helpers\ActivityLogger; // Import Helper
 class TopupTransTypeController extends Controller
 {
     /**
-     * Menampilkan data dengan Paginasi, Search, dan Eager Loading pos_users.
+     * Menampilkan data dengan Paginasi, Search, Dynamic Sorting, dan Eager Loading pos_users.
      */
     public function index(Request $request)
     {
+        // Menangkap parameter sorting dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default sort ke tanggal
+        $sortDirection = $request->input('direction', 'desc'); // Default urutan terbaru
+
         $data = TopupTransType::query()
             // Mengambil relasi creator (yang terhubung ke tabel pos_users)
             ->with(['creator']) 
             ->when($request->search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
                       ->orWhere('type', 'like', "%{$search}%");
+                });
             })
-            ->latest()
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('TopupTransType/Index', [
             'data' => $data,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -63,7 +70,7 @@ class TopupTransTypeController extends Controller
         // Dapatkan ID dari pos_users berdasarkan logika mapping
         $posUserId = $this->getPosUserId();
 
-        // Gunakan Database Transaction agar data tersimpan semua atau tidak sama sekali jika ada error
+        // Gunakan Database Transaction agar data tersimpan semua atau tidak sama sekali
         DB::transaction(function () use ($request, $posUserId) {
             foreach ($request->items as $item) {
                 $newType = TopupTransType::create([
@@ -104,7 +111,7 @@ class TopupTransTypeController extends Controller
         $item->update([
             'name'       => $request->name,
             'type'       => $request->type,
-            'created_by' => $posUserId, // Update identitas pengedit sesuai pos_users
+            'created_by' => $posUserId, 
         ]);
 
         // LOG ACTIVITY

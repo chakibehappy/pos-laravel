@@ -7,19 +7,46 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
 
 class TransactionApprovalController extends Controller
 {
-    public function index()
+    /**
+     * Menampilkan daftar permintaan penghapusan dengan Sorting & Search dinamis.
+     */
+    public function index(Request $request)
     {
+        // 1. Tangkap parameter sorting dan search dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default: waktu request
+        $sortDirection = $request->input('direction', 'desc'); // Default: terbaru
+        $search = $request->input('search');
+
+        // 2. Mapping field jika key di UI berbeda dengan kolom database
+        if ($sortField === 'operator_name') {
+            $sortField = 'delete_requested_by';
+        }
+
+        // 3. Query dengan filter dan sorting
         $requests = Transaction::with(['store', 'posUser', 'details', 'requester'])
-            ->where('status', 1)
-            ->latest()
-            ->paginate(10); 
+            ->where('status', 1) // Hanya yang berstatus "Request Delete"
+            ->when($search, function ($query, $search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('delete_reason', 'like', "%{$search}%")
+                      ->orWhereHas('store', function ($sq) use ($search) {
+                          $sq->where('name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('requester', function ($sq) use ($search) {
+                          $sq->where('name', 'like', "%{$search}%");
+                      });
+                });
+            })
+            ->orderBy($sortField, $sortDirection)
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('Transactions/Approval', [
-            'requests' => $requests
+            'requests' => $requests,
+            'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -33,20 +60,20 @@ class TransactionApprovalController extends Controller
         return $posUser ? $posUser->id : null;
     }
 
+    /**
+     * Memproses Approve atau Reject penghapusan
+     */
     public function handleAction(Request $request, $id)
     {
-        // Memuat relasi requester agar nama pengaju tersedia untuk log
         $transaction = Transaction::with('requester')->findOrFail($id);
         $posUserId = $this->getPosUserId();
         
-        // Mengambil nama pengaju dari relasi, jika tidak ada tampilkan 'Sistem/Tidak Diketahui'
         $requesterName = $transaction->requester ? $transaction->requester->name : 'Tidak Diketahui';
-        $referenceNo = $transaction->reference_no ?? "#$id";
 
         if ($request->action === 'approve') {
             $transaction->update([
                 'status' => 2,
-                'admin_approved_by' => $posUserId, // Menggunakan ID pos_users agar konsisten
+                'admin_approved_by' => $posUserId,
                 'deleted_at' => now(),
             ]);
 

@@ -198,12 +198,12 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 title="Daftar Toko"
                 :resource="stores" 
                 :columns="[
-                    { label: 'Identitas Toko', key: 'name' }, 
-                    { label: 'Tipe', key: 'type_name' }, 
+                    { label: 'Identitas Toko', key: 'name', sortable: true }, 
+                    { label: 'Tipe', key: 'type_name', sortable: true }, 
                     { label: 'Password', key: 'password' }, 
                     { label: 'Alamat', key: 'address' },
-                    { label: 'Tanggal', key: 'created_at' },
-                    { label: 'Admin', key: 'creator_name' }
+                    { label: 'Tanggal', key: 'created_at', sortable: true },
+                    { label: 'Admin', key: 'creator_name', sortable: true }
                 ]"
                 routeName="stores.index" 
                 :initialSearch="filters?.search || ''"

@@ -7,26 +7,32 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
 
 class UnitTypeController extends Controller
 {
     /**
-     * Menampilkan daftar satuan.
-     * Disesuaikan untuk mendukung Pagination & Search.
+     * Menampilkan daftar satuan dengan Sorting, Pagination & Search.
      */
     public function index(Request $request)
     {
+        // Ambil parameter sort, default ke 'id' dan 'desc'
+        $sortField = $request->input('sort', 'id');
+        $sortDirection = $request->input('direction', 'desc');
+
         return Inertia::render('UnitTypes/Index', [
             'units' => UnitType::query()
                 ->with(['creator']) // Load relasi creator dari pos_users
                 ->when($request->search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%");
                 })
-                ->latest()
-                ->paginate(10) // WAJIB paginate agar DataTable tidak error
+                // Logika Sorting Dinamis
+                ->orderBy($sortField, $sortDirection)
+                ->paginate(10)
                 ->withQueryString(),
-            'filters' => $request->only(['search'])
+            
+            // Sertakan parameter sort & direction di filters agar state UI konsisten
+            'filters' => $request->only(['search', 'sort', 'direction'])
         ]);
     }
 
@@ -55,7 +61,6 @@ class UnitTypeController extends Controller
 
         $posUserId = $this->getPosUserId();
         
-        // Identifikasi tipe log sebelum eksekusi
         $logType = $request->id ? 'update' : 'create';
         $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
 
@@ -63,7 +68,7 @@ class UnitTypeController extends Controller
             ['id' => $request->id],
             [
                 'name' => $request->name,
-                'created_by' => $posUserId // Tercantum di kolom created_by
+                'created_by' => $posUserId
             ]
         );
 
@@ -86,7 +91,6 @@ class UnitTypeController extends Controller
     {
         $unit = UnitType::findOrFail($id);
         
-        // Ambil ID admin untuk audit log
         $posUserId = $this->getPosUserId();
 
         // LOG ACTIVITY (Sebelum hapus)
@@ -98,7 +102,7 @@ class UnitTypeController extends Controller
             $posUserId
         );
 
-        // Update created_by sebelum delete agar log audit di kolom created_by mencatat siapa yang menghapus
+        // Update created_by sebelum delete agar log audit mencatat siapa yang menghapus
         $unit->update(['created_by' => $posUserId]);
         
         $unit->delete();

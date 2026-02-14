@@ -19,6 +19,7 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
+        // 1. Inisialisasi Query dengan Join untuk keperluan Sorting & Search
         $query = Transaction::with(['details.product', 'details.cashWithdrawal', 'details.topupTransaction'])
             ->join('stores', 'transactions.store_id', '=', 'stores.id')
             ->join('pos_users', 'transactions.pos_user_id', '=', 'pos_users.id')
@@ -30,17 +31,36 @@ class TransactionController extends Controller
                 'payment_methods.name as payment_name'
             );
 
+        // 2. Logic Pencarian (Search)
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('stores.name', 'LIKE', "%{$request->search}%")
                     ->orWhere('pos_users.name', 'LIKE', "%{$request->search}%")
+                    ->orWhere('payment_methods.name', 'LIKE', "%{$request->search}%")
                     ->orWhere('transactions.id', 'LIKE', "%{$request->search}%");
             });
         }
 
+        // 3. Logic Dynamic Sorting
+        // Mengambil field sort dan direction (asc/desc) dari request DataTable
+        $sortField = $request->get('sort', 'transactions.transaction_at'); // Default sort
+        $sortDirection = $request->get('direction', 'desc'); // Default direction
+
+        // Mapping field jika key dari frontend berbeda dengan nama kolom DB hasil Join
+        $sortMapping = [
+            'transaction_at' => 'transactions.transaction_at',
+            'store_id'       => 'stores.name',
+            'pos_user_id'    => 'pos_users.name',
+            'payment_id'     => 'payment_methods.name',
+            'total'          => 'transactions.total'
+        ];
+
+        $orderColumn = $sortMapping[$sortField] ?? $sortField;
+        $query->orderBy($orderColumn, $sortDirection);
+
         return Inertia::render('Transactions/Index', [
-            'transactions' => $query->latest('transactions.created_at')->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search']),
+            'transactions' => $query->paginate(10)->withQueryString(),
+            'filters' => $request->only(['search', 'sort', 'direction']), // Kirim balik ke frontend
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
             'products' => Product::all(['id', 'name', 'selling_price as price']),
@@ -76,7 +96,7 @@ class TransactionController extends Controller
                     ->where('store_id', $transaction->store_id)
                     ->decrement('cash', $transaction->subtotal);
 
-                // 3. Catat Activity Log sebelum data dihapus
+                // 3. Catat Activity Log
                 $storeName = Store::find($transaction->store_id)->name ?? 'Unknown Store';
                 ActivityLogger::log(
                     'delete', 
@@ -91,7 +111,7 @@ class TransactionController extends Controller
                 $transaction->delete();
             });
 
-            return redirect()->back()->with('message', 'Transaksi berhasil dihapus dan aset telah dikembalikan.');
+            return redirect()->back()->with('message', 'Transaksi berhasil dihapus.');
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['message' => 'Gagal menghapus: ' . $e->getMessage()]);
         }
@@ -209,16 +229,12 @@ class TransactionController extends Controller
                 return $transaction;
             });
 
-            // LOG ACTIVITY
             $storeName = Store::find($request->store_id)->name;
-            $actionLabel = $id ? "Memperbarui" : "Mencatat";
-            $logType = $id ? "update" : "create";
-
             ActivityLogger::log(
-                $logType, 
+                $id ? "update" : "create", 
                 'transactions', 
                 $transaction->id, 
-                "$actionLabel transaksi penjualan Toko: $storeName", 
+                ($id ? "Memperbarui" : "Mencatat") . " transaksi penjualan Toko: $storeName", 
                 auth()->user()->posUser->id
             );
 

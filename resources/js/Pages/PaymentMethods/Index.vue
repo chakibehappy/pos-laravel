@@ -9,6 +9,13 @@ const props = defineProps({
     filters: Object
 });
 
+// Konfigurasi kolom dengan sorting
+const columns = [
+    { label: 'Metode Pembayaran', key: 'name', sortable: true }, 
+    { label: 'Dibuat Pada', key: 'created_at', sortable: true },
+    { label: 'Dibuat Oleh', key: 'creator' },
+];
+
 const showForm = ref(false);
 const isEditMode = ref(false);
 const errorMessage = ref('');
@@ -178,11 +185,8 @@ const destroy = (row) => {
             <DataTable 
                 title="Master Metode Pembayaran"
                 :resource="methods" 
-                :columns="[
-                    { label: 'Metode Pembayaran', key: 'name' }, 
-                    { label: 'Dibuat Pada', key: 'created_at' },
-                    { label: 'Dibuat Oleh', key: 'creator' },
-                ]"
+                :columns="columns"
+                :filters="filters"
                 routeName="payment-methods.index" 
                 :initialSearch="filters?.search || ''"
                 :showAddButton="!showForm"

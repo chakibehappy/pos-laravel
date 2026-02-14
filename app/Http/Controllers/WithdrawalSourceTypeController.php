@@ -12,21 +12,27 @@ use App\Helpers\ActivityLogger; // Import Helper
 class WithdrawalSourceTypeController extends Controller
 {
     /**
-     * Tampilan Utama dengan Paginasi dan Search
+     * Tampilan Utama dengan Paginasi, Search, dan Sorting
      */
     public function index(Request $request)
     {
-        $query = WithdrawalSourceType::query()
-            ->with(['creator']) // Eager load relasi ke pos_users
-            ->latest();
+        // Menangkap parameter sorting, default ke created_at desc
+        $sortField = $request->input('sort', 'created_at');
+        $sortDirection = $request->input('direction', 'desc');
 
-        if ($request->search) {
-            $query->where('name', 'LIKE', '%' . $request->search . '%');
-        }
+        $data = WithdrawalSourceType::query()
+            ->with(['creator']) // Eager load relasi ke pos_users
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'LIKE', '%' . $search . '%');
+            })
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection)
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('WithdrawalSourceType/Index', [
-            'data' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search']),
+            'data' => $data,
+            'filters' => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -76,10 +82,10 @@ class WithdrawalSourceTypeController extends Controller
                     );
                 }
             });
-            return back();
+            return back()->with('message', 'Batch data berhasil disimpan.');
         }
 
-        // Simpan Single (Fallback)
+        // Simpan Single (Fallback jika form tidak menggunakan array items)
         $request->validate(['name' => 'required|string|max:255']);
         $name = strtoupper($request->name);
         
@@ -97,7 +103,7 @@ class WithdrawalSourceTypeController extends Controller
             $posUserId
         );
 
-        return back();
+        return back()->with('message', 'Data berhasil disimpan.');
     }
 
     /**
@@ -111,8 +117,6 @@ class WithdrawalSourceTypeController extends Controller
         $sourceType = WithdrawalSourceType::findOrFail($id);
         $newName = strtoupper($request->name);
         
-        // Simpan nama lama untuk deskripsi log jika diperlukan, 
-        // namun untuk konsistensi kita gunakan format standar.
         $sourceType->update([
             'name'       => $newName,
             'created_by' => $posUserId // Update pengedit terakhir
@@ -127,7 +131,7 @@ class WithdrawalSourceTypeController extends Controller
             $posUserId
         );
 
-        return back();
+        return back()->with('message', 'Data berhasil diperbarui.');
     }
 
     /**
@@ -135,20 +139,24 @@ class WithdrawalSourceTypeController extends Controller
      */
     public function destroy($id)
     {
-        $sourceType = WithdrawalSourceType::findOrFail($id);
-        $posUserId = $this->getPosUserId();
+        try {
+            $sourceType = WithdrawalSourceType::findOrFail($id);
+            $posUserId = $this->getPosUserId();
 
-        // LOG ACTIVITY DELETE (Sebelum hapus)
-        ActivityLogger::log(
-            'delete',
-            'withdrawal_source_types',
-            $id,
-            "Menghapus sumber dana penarikan: {$sourceType->name}",
-            $posUserId
-        );
+            // LOG ACTIVITY DELETE (Sebelum hapus)
+            ActivityLogger::log(
+                'delete',
+                'withdrawal_source_types',
+                $id,
+                "Menghapus sumber dana penarikan: {$sourceType->name}",
+                $posUserId
+            );
 
-        $sourceType->delete();
-        
-        return back();
+            $sourceType->delete();
+            
+            return back()->with('message', 'Data berhasil dihapus.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal menghapus data.']);
+        }
     }
 }

@@ -19,6 +19,7 @@ class PosUserStoreController extends Controller
                 $q->where('role', '!=', 'developer'); 
             });
         
+        // --- LOGIKA PENCARIAN ---
         if ($request->filled('search')) {
             $query->where(function($q) use ($request) {
                 $term = "%{$request->search}%";
@@ -29,7 +30,8 @@ class PosUserStoreController extends Controller
                 });
             });
         }
-            // TAMBAHKAN INI: Filter Dropdown Toko
+
+        // --- FILTER DROPDOWN ---
         if ($request->filled('store_id')) {
             $query->where('store_id', $request->store_id);
         }
@@ -40,15 +42,49 @@ class PosUserStoreController extends Controller
             });
         }
 
+        // --- LOGIKA SORTING DINAMIS ---
+        $sortField = $request->input('sort');
+        $direction = $request->input('direction', 'asc');
+
+        if ($sortField) {
+            // Mengambil nama tabel asli dari model secara dinamis
+            $tableName = (new PosUserStore())->getTable();
+
+            switch ($sortField) {
+                case 'store_name':
+                    $query->join('stores', "$tableName.store_id", '=', 'stores.id')
+                          ->orderBy('stores.name', $direction)
+                          ->select("$tableName.*");
+                    break;
+                case 'pos_user_name':
+                    $query->join('pos_users', "$tableName.pos_user_id", '=', 'pos_users.id')
+                          ->orderBy('pos_users.name', $direction)
+                          ->select("$tableName.*");
+                    break;
+                case 'creator_name':
+                    $query->leftJoin('pos_users as creators', "$tableName.created_by", '=', 'creators.id')
+                          ->orderBy('creators.name', $direction)
+                          ->select("$tableName.*");
+                    break;
+                case 'created_at':
+                    $query->orderBy("$tableName.created_at", $direction);
+                    break;
+                default:
+                    $query->latest();
+                    break;
+            }
+        } else {
+            $query->latest();
+        }
+
         return Inertia::render('PosUserStores/Index', [
             'resource' => $query
-            ->latest()
-            ->paginate(10)
-            ->withQueryString(),
+                ->paginate(10)
+                ->withQueryString(),
             'posUsers' => PosUser::where('role', '!=', 'developer')->get(['id', 'name']),
             'stores'   => Store::all(['id', 'name']),
             'storeTypes' => \App\Models\StoreType::all(['id', 'name']),
-            'filters'  => $request->only(['search','store_id','store_type_id']),
+            'filters'   => $request->only(['search', 'store_id', 'store_type_id', 'sort', 'direction']),
         ]);
     }
 
@@ -90,7 +126,6 @@ class PosUserStoreController extends Controller
             'store_id'    => 'required|exists:stores,id',
         ]);
 
-        // FILTER: Cek apakah user sudah dipakai oleh data lain (kecuali data ini sendiri)
         $exists = PosUserStore::where('pos_user_id', $request->pos_user_id)
                               ->where('id', '!=', $id)
                               ->exists();
@@ -130,7 +165,6 @@ class PosUserStoreController extends Controller
             $akses = PosUserStore::with(['posUser', 'store'])->findOrFail($id);
             $creator = PosUser::where('username', Auth::user()->email)->first();
 
-            // LOG ACTIVITY (Sebelum hapus)
             ActivityLogger::log(
                 'delete',
                 'pos_user_stores',

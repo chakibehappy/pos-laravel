@@ -15,6 +15,10 @@ class TopupFeeRuleController extends Controller
 {
     public function index(Request $request)
     {
+        // Menangkap parameter sorting dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default sort ke tanggal dibuat
+        $sortDirection = $request->input('direction', 'desc'); // Default urutan terbaru
+
         $data = TopupFeeRule::with(['topup_trans_type', 'wallet_target', 'creator'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -22,22 +26,33 @@ class TopupFeeRuleController extends Controller
                     $q->whereHas('topup_trans_type', function ($sub) use ($search) {
                         $sub->where('name', 'like', "%{$search}%");
                     })
-                    // Cari di wallet target (hanya jika wallet_target_id tidak null)
+                    // Cari di wallet target
                     ->orWhereHas('wallet_target', function ($sub) use ($search) {
                         $sub->where('name', 'like', "%{$search}%");
                     });
                 });
             })
-            ->latest()
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection)
             ->paginate(10) 
             ->withQueryString();
 
         return Inertia::render('TopupFeeRules/Index', [
             'data' => $data,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'sort', 'direction']),
             'transTypes' => TopupTransType::all(),
             'walletTargets' => DigitalWallet::all(),
         ]);
+    }
+
+    /**
+     * Helper untuk mendapatkan ID pos_users
+     */
+    private function getPosUserId()
+    {
+        $adminEmail = Auth::user()->email;
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+        return $posUser ? $posUser->id : null;
     }
 
     public function store(Request $request)
@@ -45,7 +60,6 @@ class TopupFeeRuleController extends Controller
         $request->validate([
             'rules' => 'required|array|min:1',
             'rules.*.topup_trans_type_id' => 'required|exists:topup_trans_type,id',
-            // DIUBAH: Sekarang boleh null
             'rules.*.wallet_target_id'    => 'nullable|exists:digital_wallet,id', 
             'rules.*.min_limit'           => 'required|numeric',
             'rules.*.max_limit'           => 'required|numeric',
@@ -54,14 +68,13 @@ class TopupFeeRuleController extends Controller
         ]);
 
         try {
-            $authEmail = Auth::user()->email;
-            $posUser = DB::table('pos_users')->where('username', $authEmail)->first();
+            $posUserId = $this->getPosUserId();
 
-            if (!$posUser) {
-                return back()->withErrors(['error' => "Akun ($authEmail) tidak terdeteksi di pos_users."]);
+            if (!$posUserId) {
+                return back()->withErrors(['error' => "Akun admin tidak terdeteksi di database pos_users."]);
             }
 
-            DB::transaction(function () use ($request, $posUser) {
+            DB::transaction(function () use ($request, $posUserId) {
                 if ($request->id) {
                     $rule = TopupFeeRule::findOrFail($request->id);
                     $rule->update([
@@ -79,8 +92,8 @@ class TopupFeeRuleController extends Controller
                         'update',
                         'topup_fee_rules',
                         $rule->id,
-                        "Memperbarui aturan biaya Top Up: $typeName ",
-                        $posUser->id
+                        "Memperbarui aturan biaya Top Up: $typeName",
+                        $posUserId
                     );
                 } else {
                     foreach ($request->rules as $ruleData) {
@@ -91,7 +104,7 @@ class TopupFeeRuleController extends Controller
                             'max_limit'           => $ruleData['max_limit'],
                             'fee'                 => $ruleData['fee'],
                             'admin_fee'           => $ruleData['admin_fee'],
-                            'created_by'          => $posUser->id,
+                            'created_by'          => $posUserId,
                         ]);
 
                         // LOG ACTIVITY CREATE
@@ -101,7 +114,7 @@ class TopupFeeRuleController extends Controller
                             'topup_fee_rules',
                             $newRule->id,
                             "Membuat aturan biaya Top Up baru: $typeName",
-                            $posUser->id
+                            $posUserId
                         );
                     }
                 }
@@ -119,10 +132,7 @@ class TopupFeeRuleController extends Controller
     {
         try {
             $rule = TopupFeeRule::findOrFail($id);
-            
-            // Ambil info operator untuk log
-            $authEmail = Auth::user()->email;
-            $posUser = DB::table('pos_users')->where('username', $authEmail)->first();
+            $posUserId = $this->getPosUserId();
             $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
 
             // LOG ACTIVITY DELETE (Dicatat sebelum hapus)
@@ -131,7 +141,7 @@ class TopupFeeRuleController extends Controller
                 'topup_fee_rules',
                 $id,
                 "Menghapus aturan biaya Top Up: $typeName",
-                $posUser->id ?? auth()->user()->id
+                $posUserId ?? auth()->user()->id
             );
 
             $rule->delete();

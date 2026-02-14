@@ -18,17 +18,18 @@ const props = defineProps({
     paymentMethods: Array,
     digital_wallet_stores: Array, 
     withdrawal_source_type: Array, 
-    filters: Object 
+    filters: Object // Menangkap filter (sort, direction, search) dari backend
 });
 
 const page = usePage();
 
+// Aktifkan sortable: true pada kolom-kolom database
 const columns = [
-    { label: 'Tanggal', key: 'transaction_at' },
-    { label: 'Toko', key: 'store_name' }, 
-    { label: 'Kasir', key: 'cashier_name' },
-    { label: 'Metode', key: 'payment_name' }, 
-    { label: 'Total (Rp)', key: 'total' }
+    { label: 'Tanggal', key: 'transaction_at', sortable: true },
+    { label: 'Toko', key: 'store_id', sortable: true }, // Menggunakan ID agar sorting di DB akurat
+    { label: 'Kasir', key: 'pos_user_id', sortable: true },
+    { label: 'Metode', key: 'payment_id', sortable: true }, 
+    { label: 'Total (Rp)', key: 'total', sortable: true }
 ];
 
 const showForm = ref(false); 
@@ -74,7 +75,7 @@ const singleEntry = ref({
     withdrawal_source_id: '' 
 });
 
-// --- LOGIKA STOK & SALDO VIRTUAL (VIEW ONLY) ---
+// --- LOGIKA STOK & SALDO VIRTUAL ---
 
 const refreshProductList = () => {
     productOptions.value = []; 
@@ -193,7 +194,6 @@ const addToBatch = () => {
             type: 'topup', 
             product_id: null,
             name: s.raw_name,
-            // MENYESUAIKAN KETERANGAN DENGAN NOMINAL
             note: `${Number(singleEntry.value.nominal).toLocaleString('id-ID')} - ${singleEntry.value.account_number}`,
             price: singleEntry.value.price, 
             quantity: 1, 
@@ -213,7 +213,6 @@ const addToBatch = () => {
         const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
         form.details.push({
             type: 'tarik_tunai', product_id: null, name: `TARIK TUNAI [${wType.name}]`,
-            // MENYESUAIKAN KETERANGAN DENGAN NOMINAL
             note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
             price: combinedPrice, quantity: 1, subtotal: combinedPrice, 
             meta: { customer_name: singleEntry.value.customer_name, amount: singleEntry.value.withdrawal_amount, fee: singleEntry.value.admin_fee, withdrawal_source_id: wType.id }
@@ -284,7 +283,6 @@ const openEdit = (row) => {
         type: d.topup_transaction_id ? 'topup' : (d.cash_withdrawal_id ? 'tarik_tunai' : 'produk'),
         product_id: d.product_id,
         name: d.product?.name || (d.topup_transaction_id ? 'TOPUP' : (d.cash_withdrawal_id ? 'TARIK TUNAI' : 'PRODUK')),
-        // MENYESUAIKAN KETERANGAN PADA MODE EDIT
         note: d.topup_transaction_id ? `${Number(d.topup_transaction.nominal_request).toLocaleString('id-ID')} - ${d.topup_transaction.cust_account_number}` : (d.cash_withdrawal_id ? `${Number(d.cash_withdrawal.withdrawal_count).toLocaleString('id-ID')} - ${d.cash_withdrawal.customer_name}` : '-'),
         price: d.selling_prices,
         quantity: d.quantity,
@@ -439,15 +437,30 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                 title="Riwayat Transaksi" 
                 :resource="transactions" 
                 :columns="columns" 
+                :filters="filters"
                 :showAddButton="true" 
-                routeName="transactions.index" 
+                route-name="transactions.index" 
+                :initial-search="filters?.search || ''"
                 @on-add="openCreate"
             >
                 <template #transaction_at="{ value }"> 
                     <span class="text-gray-500 font-medium">{{ formatDate(value) }}</span> 
                 </template>
+                
+                <template #store_id="{ row }"> 
+                    <span class="font-bold text-gray-700">{{ row.store_name }}</span> 
+                </template>
+
+                <template #pos_user_id="{ row }"> 
+                    <span class="text-xs uppercase font-medium">{{ row.cashier_name }}</span> 
+                </template>
+
+                <template #payment_id="{ row }"> 
+                    <span class="px-2 py-0.5 bg-gray-100 border rounded text-[10px] font-bold uppercase">{{ row.payment_name }}</span> 
+                </template>
+
                 <template #total="{ value }"> 
-                    <span class="font-black text-gray-900 italic">Rp {{ Number(value).toLocaleString('id-ID') }}</span> 
+                    <span class="font-black text-gray-900 italic text-sm">Rp {{ Number(value).toLocaleString('id-ID') }}</span> 
                 </template>
 
                 <template #actions="{ row }">
@@ -463,7 +476,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
         <TransactionDetailView 
             ref="detailRef"
             :show="isDetailModalOpen" 
-            :transactionId="selectedTransactionId" 
+            :transaction-id="selectedTransactionId" 
             @close="isDetailModalOpen = false" 
         />
     </AuthenticatedLayout>

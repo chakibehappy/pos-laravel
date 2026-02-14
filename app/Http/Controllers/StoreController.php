@@ -24,7 +24,7 @@ class StoreController extends Controller
                 'pos_users.name as creator_name'
             );
 
-        // Filter Pencarian
+        // --- FILTER PENCARIAN ---
         if ($request->search) {
             $query->where(function($q) use ($request) {
                 $searchTerm = "%{$request->search}%";
@@ -36,19 +36,38 @@ class StoreController extends Controller
             });
         }
 
-        // Filter Tipe Toko
+        // --- FILTER TIPE TOKO ---
         if ($request->filled('type') && $request->type !== 'all') {
             $query->where('stores.store_type_id', $request->type);
         }
 
+        // --- LOGIKA SORTING DINAMIS ---
+        if ($request->filled('sort') && $request->filled('direction')) {
+            $sortField = $request->sort;
+            $direction = $request->direction === 'desc' ? 'desc' : 'asc';
+
+            // Mapping kolom alias agar query SQL tetap valid
+            $sortMapping = [
+                'type_name'    => 'store_types.name',
+                'creator_name' => 'pos_users.name',
+                'name'         => 'stores.name',
+                'keyname'      => 'stores.keyname',
+                'created_at'   => 'stores.created_at'
+            ];
+
+            $finalSort = $sortMapping[$sortField] ?? $sortField;
+            $query->orderBy($finalSort, $direction);
+        } else {
+            // Default sorting jika tidak ada request sort
+            $query->latest('stores.created_at');
+        }
+
         return Inertia::render('Stores/Index', [
-            'stores' => $query->latest('stores.created_at')
-                ->paginate(10)
-                ->withQueryString(), 
+            'stores' => $query->paginate(10)->withQueryString(), 
             
             'store_types' => StoreType::all(['id', 'name']),
             
-            'filters' => $request->only(['search', 'type']), 
+            'filters' => $request->only(['search', 'type', 'sort', 'direction']), 
         ]);
     }
 

@@ -5,17 +5,18 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
-    categories: Object, // Harus berupa LengthAwarePaginator dari Controller
+    categories: Object, 
     filters: Object
 });
 
+// Menambahkan property sortable: true agar header bisa diklik untuk sorting
 const columns = [
-    { label: 'ID', key: 'id' },
-    { label: 'Nama Kategori', key: 'name' }
+    { label: 'ID', key: 'id', sortable: true },
+    { label: 'Nama Kategori', key: 'name', sortable: true }
 ];
 
-const showInlineForm = ref(false); // Untuk Tambah
-const showModalForm = ref(false);  // Untuk Edit
+const showInlineForm = ref(false); 
+const showModalForm = ref(false);  
 
 const form = useForm({
     id: null,
@@ -126,6 +127,7 @@ const deleteCategory = (id) => {
                 :showAddButton="!showInlineForm"
                 routeName="product-categories.index" 
                 :initialSearch="filters?.search"
+                :filters="filters" 
                 @on-add="openCreate" 
             >
                 <template #id="{ value }">

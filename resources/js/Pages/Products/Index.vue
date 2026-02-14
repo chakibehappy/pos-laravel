@@ -1,10 +1,9 @@
 <script setup>
-import { ref, watch } from 'vue'; // Digabung agar tidak error
+import { ref, watch } from 'vue';
 import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
-// defineProps diletakkan di atas agar bisa diakses oleh konstanta lain
 const props = defineProps({ 
     products: Object, 
     categories: Array,
@@ -12,26 +11,25 @@ const props = defineProps({
     filters: Object
 });
 
-// State untuk filter kategori, mengambil nilai awal dari props
 const selectedCategory = ref(props.filters?.category || '');
 
-// Logika untuk otomatis refresh data saat kategori dipilih
 watch(selectedCategory, (newValue) => {
     router.get(route('products.index'), { 
         ...props.filters, 
         category: newValue,
-        page: 1 // Reset ke halaman 1 saat filter berubah
+        page: 1 
     }, { preserveState: true, replace: true });
 });
 
+// Menambahkan property sortable: true pada kolom yang ingin bisa diurutkan
 const columns = [
-    { label: 'Tanggal', key: 'created_at' },
+    { label: 'Tanggal', key: 'created_at', sortable: true },
     { label: 'Gambar', key: 'image_url' },
-    { label: 'SKU', key: 'sku' },
-    { label: 'Nama Produk', key: 'name' }, 
+    { label: 'SKU', key: 'sku', sortable: true },
+    { label: 'Nama Produk', key: 'name', sortable: true }, 
     { label: 'Kategori', key: 'category_name' },
-    { label: 'Modal', key: 'buying_price' }, 
-    { label: 'Jual', key: 'selling_price' }, 
+    { label: 'Modal', key: 'buying_price', sortable: true }, 
+    { label: 'Jual', key: 'selling_price', sortable: true }, 
     { label: 'Satuan', key: 'unit_name' },
     { label: 'Admin', key: 'created_by' }
 ];
@@ -78,7 +76,6 @@ const openEdit = (row) => {
 const handleFileChange = (e) => {
     const file = e.target.files[0];
     form.image = file;
-    // console.log(file)
     if (file) imagePreview.value = URL.createObjectURL(file);
 };
 
@@ -94,7 +91,7 @@ const submit = () => {
         },
         onError: (errors) => {
             console.error("Submit Error:", errors);
-            alert("Gagal menyimpan data. Cek console atau pastikan semua field terisi.");
+            alert("Gagal menyimpan data.");
         }
     });
 };
@@ -167,60 +164,6 @@ const destroy = (id) => {
                 </div>
             </div>
 
-           <div v-if="showModalForm" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                <div class="bg-white w-full max-w-3xl rounded-xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-                    <h2 class="text-sm font-black uppercase mb-6 flex items-center gap-2 border-b pb-4">✏️ Edit: <span class="text-blue-600">{{ form.name }}</span></h2>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div class="flex flex-col gap-2">
-                            <label class="text-[10px] font-black uppercase text-gray-400">Foto Produk</label>
-                            <div class="border-2 border-dashed border-gray-200 rounded-xl aspect-square flex items-center justify-center overflow-hidden relative bg-gray-50">
-                                <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" />
-                                <span v-else class="text-[10px] font-bold text-gray-300 uppercase text-center p-4">Tidak Ada Foto</span>
-                                <input type="file" @change="handleFileChange" class="absolute inset-0 opacity-0 cursor-pointer" />
-                            </div>
-                            <p class="text-[9px] text-gray-400 italic text-center mt-1 uppercase font-bold">Klik gambar untuk mengganti</p>
-                        </div>
-
-                        <div class="md:col-span-2 grid grid-cols-2 gap-4 uppercase text-xs font-bold text-gray-600">
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-gray-500">Nama Produk</label>
-                                <input v-model="form.name" type="text" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none uppercase text-sm" />
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-gray-500">SKU / Kode</label>
-                                <input v-model="form.sku" type="text" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none uppercase text-sm" />
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-gray-500">Kategori</label>
-                                <select v-model="form.product_category_id" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white">
-                                    <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name.toUpperCase() }}</option>
-                                </select>
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-gray-500">Satuan</label>
-                                <select v-model="form.unit_type_id" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white">
-                                    <option v-for="u in unitTypes" :key="u.id" :value="u.id">{{ u.name.toUpperCase() }}</option>
-                                </select>
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-gray-500">Harga Modal</label>
-                                <input v-model="form.buying_price" type="number" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-gray-500">Harga Jual</label>
-                                <input v-model="form.selling_price" type="number" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-8 pt-6 border-t flex gap-2">
-                        <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-6 py-2 rounded text-xs font-black uppercase disabled:opacity-50 hover:bg-blue-700 shadow-sm transition-all">Update Data Produk</button>
-                        <button @click="showModalForm = false" class="border border-gray-300 px-6 py-2 rounded text-xs font-bold uppercase text-gray-500 hover:bg-gray-50">Batal</button>
-                    </div>
-                </div>
-            </div>
-
             <DataTable 
                 title="Daftar Produk"
                 :resource="products" 
@@ -228,6 +171,7 @@ const destroy = (id) => {
                 :showAddButton="!showInlineForm"
                 routeName="products.index"
                 :initialSearch="filters?.search"
+                :filters="filters" 
                 @on-add="openCreate"
             >
                 <template #extra-filters>
@@ -240,10 +184,7 @@ const destroy = (id) => {
                             {{ c.name.toUpperCase() }}
                         </option>
                     </select>
-                
                 </template>
-
-                
 
                 <template #created_at="{ value }">
                     <span class="text-[10px] text-gray-500 font-medium whitespace-nowrap">{{ value }}</span>
@@ -261,6 +202,7 @@ const destroy = (id) => {
                 <template #buying_price="{ value }">
                     <span class="text-gray-400 text-[10px]">Rp</span>{{ Number(value).toLocaleString('id-ID') }}
                 </template>
+
                 <template #selling_price="{ value }">
                     <span class="text-gray-400 text-[10px]">Rp</span><span class="font-bold text-blue-600">{{ Number(value).toLocaleString('id-ID') }}</span>
                 </template>
@@ -278,4 +220,54 @@ const destroy = (id) => {
             </DataTable>
         </div>
     </AuthenticatedLayout>
+
+    <div v-if="showModalForm" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-3xl rounded-xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <h2 class="text-sm font-black uppercase mb-6 flex items-center gap-2 border-b pb-4">✏️ Edit: <span class="text-blue-600">{{ form.name }}</span></h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="flex flex-col gap-2">
+                    <label class="text-[10px] font-black uppercase text-gray-400">Foto Produk</label>
+                    <div class="border-2 border-dashed border-gray-200 rounded-xl aspect-square flex items-center justify-center overflow-hidden relative bg-gray-50">
+                        <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" />
+                        <span v-else class="text-[10px] font-bold text-gray-300 uppercase text-center p-4">Tidak Ada Foto</span>
+                        <input type="file" @change="handleFileChange" class="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                </div>
+                <div class="md:col-span-2 grid grid-cols-2 gap-4 uppercase text-xs font-bold text-gray-600">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-gray-500">Nama Produk</label>
+                        <input v-model="form.name" type="text" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none uppercase text-sm" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-gray-500">SKU / Kode</label>
+                        <input v-model="form.sku" type="text" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none uppercase text-sm" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-gray-500">Kategori</label>
+                        <select v-model="form.product_category_id" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white">
+                            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name.toUpperCase() }}</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-gray-500">Satuan</label>
+                        <select v-model="form.unit_type_id" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white">
+                            <option v-for="u in unitTypes" :key="u.id" :value="u.id">{{ u.name.toUpperCase() }}</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-gray-500">Harga Modal</label>
+                        <input v-model="form.buying_price" type="number" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-gray-500">Harga Jual</label>
+                        <input v-model="form.selling_price" type="number" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm" />
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 pt-6 border-t flex gap-2">
+                <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-6 py-2 rounded text-xs font-black uppercase disabled:opacity-50 hover:bg-blue-700 shadow-sm transition-all">Update Data Produk</button>
+                <button @click="showModalForm = false" class="border border-gray-300 px-6 py-2 rounded text-xs font-bold uppercase text-gray-500 hover:bg-gray-50">Batal</button>
+            </div>
+        </div>
+    </div>
 </template>
