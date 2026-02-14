@@ -25,6 +25,7 @@ use App\Http\Controllers\PosUserStoreController;
 use App\Http\Controllers\WithdrawalFeeRuleController;
 use App\Http\Controllers\TransactionDetailController;
 use App\Http\Controllers\TransactionApprovalController;
+use App\Http\Controllers\ExpenseController; //
 use App\Http\Controllers\ActivityLogController;
 
 
@@ -191,4 +192,10 @@ Route::middleware(['auth'])->group(function () {
     // Activity Logs (Read-Only)
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 
-    });
+    // --- MANAJEMEN PENGELUARAN (EXPENSES) ---
+    Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+    Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+    Route::delete('/expenses/{id}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+
+
+});

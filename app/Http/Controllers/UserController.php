@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\PosUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -40,7 +41,6 @@ class UserController extends Controller
 
         return Inertia::render('Users/Index', [
             'users' => $query->paginate(10)->withQueryString(),
-            // PENTING: Mengirim sort & direction agar icon panah menyala
             'filters' => $request->only(['search', 'sort', 'direction']),
         ]);
     }
@@ -64,30 +64,57 @@ class UserController extends Controller
             'password.min' => 'Password minimal harus 6 karakter.',
         ]);
 
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
-        } else {
-            unset($data['password']); 
-        }
+        return DB::transaction(function () use ($request, $data) {
+            $posUserId = $this->getPosUserId();
+            $logType = $request->id ? 'update' : 'create';
+            $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
 
-        $posUserId = $this->getPosUserId();
-        $logType = $request->id ? 'update' : 'create';
-        $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
+            // Simpan email lama untuk pencocokan username POS jika email diubah
+            $oldEmail = null;
+            if ($request->id) {
+                $oldEmail = User::where('id', $request->id)->value('email');
+            }
 
-        $user = User::updateOrCreate(
-            ['id' => $request->id], 
-            $data
-        );
+            // Hash password jika diisi
+            if ($request->filled('password')) {
+                $data['password'] = Hash::make($request->password);
+            } else {
+                unset($data['password']); 
+            }
 
-        ActivityLogger::log(
-            $logType,
-            'users',
-            $user->id,
-            "$actionLabel akun Admin/User: {$user->name} ({$user->email})",
-            $posUserId
-        );
+            // 1. Simpan/Update User Admin
+            $user = User::updateOrCreate(
+                ['id' => $request->id], 
+                $data
+            );
 
-        return back()->with('message', 'User berhasil disimpan');
+            // 2. Sinkronisasi ke PosUser (Email User = Username PosUser)
+            $targetUsername = $oldEmail ?? $user->email;
+
+            PosUser::updateOrCreate(
+                ['username' => $targetUsername],
+                [
+                    'name' => $user->name,
+                    'username' => $user->email, // Email terbaru
+                    'role' => 'admin',
+                    'shift' => 'pagi',
+                    'is_active' => 1,
+                    // PIN default 1234 hanya untuk user baru
+                    'pin' => $request->id ? DB::raw('pin') : Hash::make('1234'),
+                    'created_by' => $posUserId
+                ]
+            );
+
+            ActivityLogger::log(
+                $logType,
+                'users',
+                $user->id,
+                "$actionLabel akun Admin: {$user->name} ({$user->email}) dan sinkronisasi POS User.",
+                $posUserId
+            );
+
+            return back()->with('message', 'User dan Akun POS berhasil disinkronkan');
+        });
     }
 
     public function destroy($id) 
@@ -98,17 +125,22 @@ class UserController extends Controller
             return back()->withErrors(['message' => 'Anda tidak bisa menghapus akun sendiri!']);
         }
 
-        $posUserId = $this->getPosUserId();
+        return DB::transaction(function () use ($user, $id) {
+            $posUserId = $this->getPosUserId();
 
-        ActivityLogger::log(
-            'delete',
-            'users',
-            $id,
-            "Menghapus akun Admin/User: {$user->name} ({$user->email})",
-            $posUserId
-        );
+            // Hapus juga akun POS yang bersangkutan
+            PosUser::where('username', $user->email)->delete();
 
-        $user->delete();
-        return back();
+            ActivityLogger::log(
+                'delete',
+                'users',
+                $id,
+                "Menghapus akun Admin & POS User: {$user->name} ({$user->email})",
+                $posUserId
+            );
+
+            $user->delete();
+            return back()->with('message', 'User dan Akun POS berhasil dihapus');
+        });
     }
 }

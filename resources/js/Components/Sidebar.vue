@@ -70,11 +70,12 @@ const menuItems = [
     },
     { 
         label: 'Transaksi', icon: '🔄', isDropdown: true,
-        activeOn: ['transactions.*', 'topup-transactions.*', 'cash-withdrawals.*', 'topup-fee-rules.*', 'withdrawal-fee-rules.*'],
+        activeOn: ['transactions.*', 'topup-transactions.*', 'cash-withdrawals.*', 'expenses.*', 'topup-fee-rules.*', 'withdrawal-fee-rules.*'],
         children: [
             { label: 'Riwayat Transaksi', name: 'transactions.index', route: route('transactions.index') },
             { label: 'Riwayat Top Up', name: 'topup-transactions.index', route: route('topup-transactions.index') },
             { label: 'Riwayat Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
+            { label: 'Biaya Pengeluaran', name: 'expenses.index', route: route('expenses.index') },
             { label: 'Aturan Biaya', name: 'topup-fee-rules.index', route: route('topup-fee-rules.index') },
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') },
         ]
