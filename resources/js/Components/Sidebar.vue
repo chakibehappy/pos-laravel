@@ -75,7 +75,7 @@ const menuItems = [
             { label: 'Riwayat Transaksi', name: 'transactions.index', route: route('transactions.index') },
             { label: 'Riwayat Top Up', name: 'topup-transactions.index', route: route('topup-transactions.index') },
             { label: 'Riwayat Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
-            { label: 'Biaya Pengeluaran', name: 'expenses.index', route: route('expenses.index') },
+            { label: 'Riwayat Pengeluaran', name: 'expenses.index', route: route('expenses.index') },
             { label: 'Aturan Biaya', name: 'topup-fee-rules.index', route: route('topup-fee-rules.index') },
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') },
         ]
