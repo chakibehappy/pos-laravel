@@ -3,13 +3,14 @@ import { router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import debounce from 'lodash/debounce';
 
-const emit = defineEmits(['on-add'])
+const emit = defineEmits(['on-add', 'on-export']) // Tambahkan emit untuk export
 
 const props = defineProps({
     resource: Object, 
     columns: Array,
     title: String,
     showAddButton: Boolean,
+    showExportButton: Boolean, // Prop baru untuk mengontrol tombol export
     routeName: String, 
     placeholder: { type: String, default: 'Cari data...' },
     initialSearch: { type: String, default: '' },
@@ -67,8 +68,18 @@ watch(search, debounce(() => {
                 <slot name="table-actions" />
 
                 <button 
+                    v-if="showExportButton"    
+                    @click="emit('on-export')"
+                    type="button"
+                    class="bg-white text-black px-6 py-2 font-bold uppercase border-2 border-black hover:bg-emerald-500 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] flex items-center"
+                >
+                    <span class="mr-2">📥</span> Export
+                </button>
+
+                <button 
                     v-if="showAddButton"    
                     @click="emit('on-add')"
+                    type="button"
                     class="bg-[#fdc702] text-black px-6 py-2 font-bold uppercase border-2 border-black hover:bg-blue-600 hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
                 >
                     Tambahkan
@@ -77,7 +88,7 @@ watch(search, debounce(() => {
         </div>
 
         <div class="flex flex-col md:flex-row gap-4 items-center mb-6">
-            <div v-if="routeName" class="mb-6 flex flex-col md:flex-row gap-3 items-center w-full">
+            <div v-if="routeName" class="flex flex-col md:flex-row gap-3 items-center w-full">
                 <div class="relative w-full md:w-80">
                     <input 
                         v-model="search"
@@ -154,7 +165,7 @@ watch(search, debounce(() => {
 
             <div class="p-4 flex flex-col md:flex-row justify-between items-center border-t border-gray-200 bg-gray-50/50">
                 <span class="text-xs text-gray-500 font-medium mb-4 md:mb-0">
-                    Menampilkan <span class="font-semibold text-gray-800">{{ resource.from }}</span> - <span class="font-semibold text-gray-800">{{ resource.to }}</span> dari <span class="font-semibold text-gray-800">{{ resource.total }}</span> data
+                    Menampilkan <span class="font-semibold text-gray-800">{{ resource.from || 0 }}</span> - <span class="font-semibold text-gray-800">{{ resource.to || 0 }}</span> dari <span class="font-semibold text-gray-800">{{ resource.total }}</span> data
                 </span>
                 
                 <div class="flex items-center gap-1">
