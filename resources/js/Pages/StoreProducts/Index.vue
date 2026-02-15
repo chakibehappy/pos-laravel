@@ -14,7 +14,16 @@ const props = defineProps({
     filters: Object
 });
 
-// Logic Current Stock
+// --- HELPER UNTUK FIX ERROR setTimeout DI TEMPLATE ---
+const closeStoreDropdown = () => {
+    setTimeout(() => { showStoreDropdown.value = false; }, 200);
+};
+
+const closeProductDropdown = () => {
+    setTimeout(() => { showDropdown.value = false; }, 200);
+};
+
+// --- LOGIC CURRENT STOCK ---
 const currentStockInfo = computed(() => {
     if (!form.store_id || !searchQuery.value) return 0;
     const targetProductName = searchQuery.value.toLowerCase().trim();
@@ -25,15 +34,14 @@ const currentStockInfo = computed(() => {
     return existingData ? existingData.stock : 0;
 });
 
-// Filter State (Reactive)
+// --- FILTER STATE ---
 const selectedStore = ref(props.filters?.store_id || '');
 const selectedStoreType = ref(props.filters?.store_type_id || '');
 const selectedProductCategories = ref(props.filters?.product_category_id || '');
 
-// Fungsi Helper untuk mendapatkan filter terbaru saat ini
 const getCurrentParams = () => {
     return {
-        ...props.filters, // search, sort, direction dari DataTable.vue
+        ...props.filters,
         store_id: selectedStore.value,
         store_type_id: (selectedStoreType.value === 'all' || selectedStoreType.value === '') ? null : selectedStoreType.value,
         product_category_id: selectedProductCategories.value,
@@ -50,7 +58,7 @@ watch(selectedStoreType, () => { selectedStore.value = ''; });
 watch([selectedStore, selectedStoreType, selectedProductCategories], () => {
     router.get(route('store-products.index'), getCurrentParams(), { 
         preserveState: true, 
-        replace: true,
+        replace: true, 
         preserveScroll: true 
     });
 });
@@ -99,18 +107,21 @@ const selectProduct = (p) => { form.product_id = p.id; searchQuery.value = p.nam
 const selectStore = (s) => { form.store_id = s.id; storeSearchQuery.value = s.name; showStoreDropdown.value = false; };
 
 const submit = () => {
+    // FIX: Selalu gunakan route 'store-products.store' karena Anda tidak punya route PUT/Update
+    // Controller Anda sudah menggunakan updateOrCreate, jadi ini akan otomatis mengupdate jika ID/kombinasi produk ada.
     form.post(route('store-products.store'), {
         onSuccess: () => { showInlineForm.value = false; showModalForm.value = false; form.reset(); },
     });
 };
 
 const destroy = (id) => {
-    if (confirm('Apakah Anda yakin ingin menghapus data stok ini?')) {
-        router.delete(route('store-products.destroy', id));
+    if (confirm('Apakah Anda yakin ingin menghapus data stok ini? (Data akan diarsipkan)')) {
+        router.delete(route('store-products.destroy', id), {
+            preserveScroll: true
+        });
     }
 };
 
-// Fungsi Handle Export
 const handleExport = () => {
     window.location.href = route('store-products.export', getCurrentParams());
 };
@@ -130,14 +141,14 @@ const handleExport = () => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="flex flex-col gap-1 relative">
                             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cabang Tujuan</label>
-                            <input v-model="storeSearchQuery" @focus="showStoreDropdown = true" @blur="setTimeout(() => showStoreDropdown = false, 200)" type="text" placeholder="CARI CABANG..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none" />
+                            <input v-model="storeSearchQuery" @focus="showStoreDropdown = true" @blur="closeStoreDropdown" type="text" placeholder="CARI CABANG..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none" />
                             <div v-if="showStoreDropdown" class="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-14 max-h-40 overflow-y-auto shadow-xl">
                                 <div v-for="s in filteredStores" :key="s.id" @mousedown="selectStore(s)" class="p-2.5 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50">{{ s.name }}</div>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1 relative">
                             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Produk</label>
-                            <input v-model="searchQuery" @focus="showDropdown = true" @blur="setTimeout(() => showDropdown = false, 200)" type="text" placeholder="CARI PRODUK..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none" />
+                            <input v-model="searchQuery" @focus="showDropdown = true" @blur="closeProductDropdown" type="text" placeholder="CARI PRODUK..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none" />
                             <div v-if="showDropdown" class="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-14 max-h-60 overflow-y-auto shadow-xl">
                                 <div v-for="p in filteredProducts" :key="p.id" @mousedown="selectProduct(p)" class="p-3 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50 flex justify-between items-center">
                                     <div class="flex flex-col text-gray-800">
@@ -198,8 +209,8 @@ const handleExport = () => {
                 :columns="columns"
                 :showAddButton="!showInlineForm"
                 :showExportButton="true"
-                routeName="store-products.index" 
-                :initialSearch="filters.search"
+                route-name="store-products.index" 
+                :initialSearch="filters?.search || ''"
                 :filters="filters"
                 @on-add="openCreate" 
                 @on-export="handleExport"

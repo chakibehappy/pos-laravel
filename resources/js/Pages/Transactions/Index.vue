@@ -18,15 +18,14 @@ const props = defineProps({
     paymentMethods: Array,
     digital_wallet_stores: Array, 
     withdrawal_source_type: Array, 
-    filters: Object // Menangkap filter (sort, direction, search) dari backend
+    filters: Object 
 });
 
 const page = usePage();
 
-// Aktifkan sortable: true pada kolom-kolom database
 const columns = [
     { label: 'Tanggal', key: 'transaction_at', sortable: true },
-    { label: 'Toko', key: 'store_id', sortable: true }, // Menggunakan ID agar sorting di DB akurat
+    { label: 'Toko', key: 'store_id', sortable: true }, 
     { label: 'Kasir', key: 'pos_user_id', sortable: true },
     { label: 'Metode', key: 'payment_id', sortable: true }, 
     { label: 'Total (Rp)', key: 'total', sortable: true }
@@ -311,7 +310,7 @@ const handleOpenDetail = (id) => {
 };
 
 const confirmDelete = (row) => {
-    if (confirm(`Apakah Anda yakin ingin membatalkan transaksi #${row.id}?`)) {
+    if (confirm(`Apakah Anda yakin ingin membatalkan transaksi #${row.id}?\nStok dan saldo akan otomatis dikembalikan.`)) {
         router.delete(route('transactions.destroy', row.id));
     }
 };

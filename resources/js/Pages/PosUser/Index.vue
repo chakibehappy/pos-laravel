@@ -10,7 +10,6 @@ const props = defineProps({
     filters: Object 
 });
 
-// Menambahkan properti sortable: true pada kolom yang bisa diurutkan
 const columns = [
     { label: 'Nama Lengkap', key: 'name', sortable: true }, 
     { label: 'Username', key: 'username', sortable: true },
@@ -119,8 +118,14 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('APAKAH ANDA YAKIN INGIN MENGHAPUS USER INI?')) {
-        router.delete(route('pos_users.destroy', id));
+    // Pesan konfirmasi yang lebih tegas untuk Soft Delete
+    if (confirm('APAKAH ANDA YAKIN INGIN MENGHAPUS USER INI? DATA AKAN DIPINDAHKAN KE ARSIP.')) {
+        router.delete(route('pos_users.destroy', id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Notifikasi sukses otomatis dari flash message session
+            }
+        });
     }
 };
 </script>
@@ -132,8 +137,8 @@ const destroy = (id) => {
             
             <div v-if="showForm" class="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
                 <div class="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                    <h3 class="text-sm font-bold text-gray-700 uppercase">➕ Tambah Pengguna Baru</h3>
-                    <button @click="showForm = false" class="text-xs text-gray-400 hover:text-red-500 font-bold uppercase transition-colors italic">❌</button>
+                    <h3 class="text-sm font-bold text-gray-700 uppercase italic tracking-tighter">➕ Tambah Pengguna Baru</h3>
+                    <button @click="showForm = false" class="text-xs text-gray-400 hover:text-red-500 font-bold uppercase transition-colors italic">Tutup [X]</button>
                 </div>
                 <div class="p-4 grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                     <div class="flex flex-col">
@@ -157,7 +162,7 @@ const destroy = (id) => {
                         <option value="collector">KOLEKTOR</option>
                         <option value="admin">ADMIN</option>
                     </select>
-                    <button @click="submit" :disabled="form.processing" class="bg-black text-white h-[42px] rounded-lg font-bold text-xs uppercase hover:bg-gray-800 transition-all shadow-sm active:scale-95">
+                    <button @click="submit" :disabled="form.processing" class="bg-black text-white h-[42px] rounded-lg font-bold text-xs uppercase hover:bg-gray-800 transition-all shadow-sm active:scale-95 disabled:opacity-50">
                         Simpan
                     </button>
                 </div>
@@ -167,7 +172,7 @@ const destroy = (id) => {
                 <div class="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
                     <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                         <h3 class="font-black text-gray-800 uppercase italic">✏️ Edit Informasi User</h3>
-                        <button @click="showModal = false" class="text-gray-400 hover:text-black font-bold">❌</button>
+                        <button @click="showModal = false" class="text-gray-400 hover:text-black font-bold text-lg">❌</button>
                     </div>
                     <div class="p-6 space-y-4">
                         <div class="space-y-1">
@@ -213,7 +218,7 @@ const destroy = (id) => {
                     </div>
                     <div class="p-6 bg-gray-50 flex gap-3 border-t border-gray-100">
                         <button @click="showModal = false" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-bold text-xs uppercase hover:bg-white transition-all">Batal</button>
-                        <button @click="submit" :disabled="form.processing" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase hover:bg-blue-700 shadow-md transition-all active:scale-95 disabled:opacity-50">
+                        <button @click="submit" :disabled="form.processing" class="flex-1 px-4 py-3 bg-black text-white rounded-lg font-bold text-xs uppercase hover:bg-gray-800 shadow-lg transition-all active:translate-y-1 disabled:opacity-50">
                             Update Data
                         </button>
                     </div>
@@ -221,7 +226,7 @@ const destroy = (id) => {
             </div>
 
             <DataTable 
-                title="Daftar Staff"
+                title="Daftar Staff POS"
                 :resource="resource" 
                 :columns="columns"
                 :filters="filters"
@@ -235,7 +240,7 @@ const destroy = (id) => {
                 </template>
                 
                 <template #pin_status="{ row }">
-                    <span class="font-mono text-[10px] bg-gray-50 px-2 py-1 rounded border border-gray-200 text-gray-400 italic">
+                    <span class="font-mono text-[10px] bg-gray-50 px-2 py-1 rounded border border-gray-200 text-gray-400 italic tracking-widest">
                         {{ row.pin ? '••••••' : 'KOSONG' }}
                     </span>
                 </template>
@@ -247,16 +252,18 @@ const destroy = (id) => {
                             ? 'bg-green-50 text-green-600 border-green-200' 
                             : 'bg-red-50 text-red-600 border-red-200'"
                     >
-                        {{ row.is_active ? '● Aktif' : '○ Tidak Aktif' }}
+                        {{ row.is_active ? '● Aktif' : '○ Non-Aktif' }}
                     </span>
                 </template>
 
                 <template #created_by="{ row }">
-                    <span class="text-[10px] font-semibold text-gray-400 uppercase italic tracking-tighter">👤 {{ row.creator?.name || 'System' }}</span>
+                    <span class="text-[10px] font-semibold text-gray-400 uppercase italic tracking-tighter">
+                        👤 {{ row.creator?.name || 'System' }}
+                    </span>
                 </template>
 
                 <template #actions="{ row }">
-                    <div class="flex flex-row gap-4 justify-end items-center">
+                    <div class="flex flex-row gap-4 justify-end items-center px-4">
                         <button @click="openEdit(row)" class="text-lg hover:scale-125 transition-transform" title="Edit Data">✏️</button>
                         <button @click="destroy(row.id)" class="text-lg hover:scale-125 transition-transform" title="Hapus User">❌</button>
                     </div>

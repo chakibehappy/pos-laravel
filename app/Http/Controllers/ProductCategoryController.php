@@ -22,6 +22,7 @@ class ProductCategoryController extends Controller
 
         return Inertia::render('ProductCategories/Index', [
             'categories' => ProductCategory::query()
+                ->where('status', 0) // Hanya tampilkan yang aktif
                 ->with(['creator']) // Load relasi creator dari pos_users
                 ->when($request->search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%");
@@ -68,7 +69,9 @@ class ProductCategoryController extends Controller
             ['id' => $request->id],
             [
                 'name' => $request->name,
-                'created_by' => $posUserId
+                'created_by' => $posUserId,
+                'status' => 0,      // Pastikan status aktif
+                'deleted_at' => null // Reset deleted_at jika data dipulihkan
             ]
         );
 
@@ -85,30 +88,39 @@ class ProductCategoryController extends Controller
     }
 
     /**
-     * Menghapus kategori.
+     *   kategori (status diubah menjadi 2 dan deleted_at diisi).
      */
     public function destroy($id)
     {
         $category = ProductCategory::findOrFail($id);
         
-        // Cek jika kategori masih dipakai produk
-        if ($category->products()->exists()) {
-            return back()->with('error', 'Gagal! Kategori masih digunakan oleh produk.');
+        // Cek jika kategori masih dipakai oleh produk yang AKTIF (status 0)
+        $hasProducts = DB::table('products')
+            ->where('product_category_id', $id)
+            ->where('status', 0)
+            ->exists();
+
+        if ($hasProducts) {
+            return back()->withErrors(['error' => 'Gagal! Kategori masih digunakan oleh produk aktif.']);
         }
 
         $posUserId = $this->getPosUserId();
 
-        // LOG ACTIVITY (Sebelum hapus)
+        // LOG ACTIVITY
         ActivityLogger::log(
             'delete',
             'product_categories',
             $id,
-            "Menghapus kategori produk: {$category->name}",
+            "Menghapus kategori produk  : {$category->name}",
             $posUserId
         );
 
-        $category->delete();
+        // Ubah status menjadi 2 DAN isi deleted_at secara manual
+        $category->update([
+            'status' => 2,
+            'deleted_at' => now()
+        ]);
 
-        return back()->with('message', 'Kategori berhasil dihapus!');
+        return back()->with('message', 'Kategori berhasil diarsipkan!');
     }
 }

@@ -6,17 +6,19 @@ use App\Models\WithdrawalFeeRule;
 use App\Models\PosUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
 
 class WithdrawalFeeRuleController extends Controller
 {
     public function index(Request $request)
     {
         // Menangkap parameter sorting dari DataTable.vue
-        $sortField = $request->input('sort', 'created_at'); // Default sort field
-        $sortDirection = $request->input('direction', 'desc'); // Default direction
+        $sortField = $request->input('sort', 'created_at'); 
+        $sortDirection = $request->input('direction', 'desc'); 
 
+        // Global Scope di model otomatis memfilter status != 2
         $query = WithdrawalFeeRule::with(['creator']);
 
         // Logika Pencarian
@@ -53,50 +55,64 @@ class WithdrawalFeeRuleController extends Controller
             'fee'       => 'required|numeric|min:0',
         ]);
 
-        $finalId = $this->getOperatorId();
-        $actionLabel = $request->id ? "Memperbarui" : "Membuat";
-        $logType = $request->id ? "update" : "create";
+        try {
+            return DB::transaction(function () use ($request) {
+                $finalId = $this->getOperatorId();
+                $actionLabel = $request->id ? "Memperbarui" : "Membuat";
+                $logType = $request->id ? "update" : "create";
 
-        $rule = WithdrawalFeeRule::updateOrCreate(
-            ['id' => $request->id],
-            [
-                'min_limit'  => $request->min_limit,
-                'max_limit'  => $request->max_limit,
-                'fee'        => $request->fee,
-                'created_by' => $finalId, 
-            ]
-        );
+                $rule = WithdrawalFeeRule::updateOrCreate(
+                    ['id' => $request->id],
+                    [
+                        'min_limit'  => $request->min_limit,
+                        'max_limit'  => $request->max_limit,
+                        'fee'        => $request->fee,
+                        'created_by' => $finalId, 
+                        'status'     => 0, // Reset ke aktif jika diupdate
+                        'deleted_at' => null
+                    ]
+                );
 
-        // LOG ACTIVITY
-        ActivityLogger::log(
-            $logType, 
-            'withdrawal_fee_rules', 
-            $rule->id, 
-            "$actionLabel aturan biaya penarikan ID: {$rule->id}", 
-            $finalId
-        );
+                // LOG ACTIVITY
+                ActivityLogger::log(
+                    $logType, 
+                    'withdrawal_fee_rules', 
+                    $rule->id, 
+                    "$actionLabel aturan biaya penarikan ", 
+                    $finalId
+                );
 
-        return back()->with('message', 'Aturan biaya penarikan berhasil disimpan!');
+                return back()->with('message', 'Aturan biaya penarikan berhasil disimpan!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Gagal menyimpan: ' . $e->getMessage()]);
+        }
     }
 
     public function destroy($id)
     {
         try {
-            $rule = WithdrawalFeeRule::findOrFail($id);
-            $userOperatorId = $this->getOperatorId();
+            return DB::transaction(function () use ($id) {
+                $rule = WithdrawalFeeRule::findOrFail($id);
+                $userOperatorId = $this->getOperatorId();
 
-            // LOG ACTIVITY DELETE (Sebelum dihapus)
-            ActivityLogger::log(
-                'delete', 
-                'withdrawal_fee_rules', 
-                $id, 
-                "Menghapus aturan biaya penarikan ID: $id", 
-                $userOperatorId
-            );
+                //   Manual (status 2 + deleted_at)
+                $rule->update([
+                    'status' => 2,
+                    'deleted_at' => now()
+                ]);
 
-            $rule->delete();
+                // LOG ACTIVITY DELETE
+                ActivityLogger::log(
+                    'delete', 
+                    'withdrawal_fee_rules', 
+                    $id, 
+                    "Menghapus   aturan biaya penarikan ", 
+                    $userOperatorId
+                );
 
-            return back()->with('message', 'Aturan biaya berhasil dihapus.');
+                return back()->with('message', 'Aturan biaya berhasil diarsipkan.');
+            });
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Gagal menghapus: ' . $e->getMessage()]);
         }

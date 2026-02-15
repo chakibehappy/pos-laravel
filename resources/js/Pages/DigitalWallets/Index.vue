@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { useForm, Head } from '@inertiajs/vue3';
+import { useForm, Head, router } from '@inertiajs/vue3'; // Tambahkan router untuk navigasi delete
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
@@ -45,8 +45,14 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('Hapus master platform ini?')) {
-        form.delete(route('digital-wallets.destroy', id));
+    // Pesan konfirmasi disesuaikan menjadi "Arsip" agar konsisten dengan logika backend
+    if (confirm('Arsip master platform ini? Data tidak akan muncul di aplikasi namun tetap tersimpan di database.')) {
+        router.delete(route('digital-wallets.destroy', id), {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (errors.error) alert(errors.error);
+            }
+        });
     }
 };
 
@@ -82,6 +88,7 @@ const columns = [
                                 placeholder="MISAL: DANA, OVO, GOPAY..."
                                 required
                             />
+                            <span v-if="form.errors.name" class="text-red-500 text-[10px] font-black uppercase mt-2 not-italic">{{ form.errors.name }}</span>
                         </div>
                     </div>
 

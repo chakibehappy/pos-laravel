@@ -13,9 +13,13 @@ use App\Helpers\ActivityLogger;
 
 class UserController extends Controller
 {
+    /**
+     * Menampilkan daftar user yang belum dihapus.
+     */
     public function index(Request $request) 
     {
-        $query = User::query();
+        // Filter status != 2  
+        $query = User::where('status', '!=', 2);
 
         // Logika Pencarian
         if ($request->search) {
@@ -42,6 +46,12 @@ class UserController extends Controller
         return Inertia::render('Users/Index', [
             'users' => $query->paginate(10)->withQueryString(),
             'filters' => $request->only(['search', 'sort', 'direction']),
+            // Kolom status tidak ditampilkan agar konsisten dengan DataTable
+            'columns' => [
+                ['key' => 'name', 'label' => 'Nama User', 'sortable' => true],
+                ['key' => 'email', 'label' => 'Email / Username', 'sortable' => true],
+                ['key' => 'created_at', 'label' => 'Terdaftar Pada', 'sortable' => true],
+            ]
         ]);
     }
 
@@ -52,17 +62,26 @@ class UserController extends Controller
         return $posUser ? $posUser->id : null;
     }
 
+    /**
+     * Simpan atau update data user.
+     */
     public function store(Request $request) 
     {
+        $messages = [
+            'name.required' => 'Nama lengkap wajib diisi.',
+            'name.unique' => 'Nama ini sudah digunakan, silakan gunakan nama lain.',
+            'email.required' => 'Email wajib diisi.',
+            'email.email' => 'Format email tidak valid.',
+            'email.unique' => 'Email ini sudah terdaftar.',
+            'password.required' => 'Password wajib diisi untuk user baru.',
+            'password.min' => 'Password minimal harus 6 karakter.',
+        ];
+
         $data = $request->validate([
             'name' => 'required|string|max:255|unique:users,name,' . $request->id,
             'email' => 'required|email|unique:users,email,' . $request->id,
             'password' => $request->id ? 'nullable|min:6' : 'required|min:6',
-        ], [
-            'name.unique' => 'Nama ini sudah digunakan, silakan gunakan nama lain.',
-            'email.unique' => 'Email ini sudah terdaftar.',
-            'password.min' => 'Password minimal harus 6 karakter.',
-        ]);
+        ], $messages);
 
         return DB::transaction(function () use ($request, $data) {
             $posUserId = $this->getPosUserId();
@@ -82,6 +101,11 @@ class UserController extends Controller
                 unset($data['password']); 
             }
 
+            // Pastikan status aktif jika user baru
+            if (!$request->id) {
+                $data['status'] = 0;
+            }
+
             // 1. Simpan/Update User Admin
             $user = User::updateOrCreate(
                 ['id' => $request->id], 
@@ -99,6 +123,7 @@ class UserController extends Controller
                     'role' => 'admin',
                     'shift' => 'pagi',
                     'is_active' => 1,
+                    'status' => 0, // Reset status jika terupdate
                     // PIN default 1234 hanya untuk user baru
                     'pin' => $request->id ? DB::raw('pin') : Hash::make('1234'),
                     'created_by' => $posUserId
@@ -117,6 +142,9 @@ class UserController extends Controller
         });
     }
 
+    /**
+     *   Manual (User & PosUser).
+     */
     public function destroy($id) 
     {
         $user = User::findOrFail($id);
@@ -128,8 +156,16 @@ class UserController extends Controller
         return DB::transaction(function () use ($user, $id) {
             $posUserId = $this->getPosUserId();
 
-            // Hapus juga akun POS yang bersangkutan
-            PosUser::where('username', $user->email)->delete();
+            // 1.   Akun POS
+            PosUser::where('username', $user->email)->update([
+                'status' => 2,
+                'deleted_at' => now()
+            ]);
+
+            // 2.   User Admin (Gunakan cara ini agar lebih "galak" ke database)
+            $user->status = 2;
+            $user->deleted_at = now();
+            $user->save(); // Menggunakan save() seringkali lebih aman daripada update()
 
             ActivityLogger::log(
                 'delete',
@@ -139,7 +175,6 @@ class UserController extends Controller
                 $posUserId
             );
 
-            $user->delete();
             return back()->with('message', 'User dan Akun POS berhasil dihapus');
         });
     }

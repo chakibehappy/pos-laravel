@@ -18,23 +18,21 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        // Ambil parameter sort, default ke 'updated_at' dan 'desc'
         $sortField = $request->input('sort', 'updated_at');
         $sortDirection = $request->input('direction', 'desc');
 
+        // Mengambil data dengan status 0 (Aktif)
         $products = Product::with(['category', 'store', 'unitType'])
-            // Filter Pencarian
+            ->where('status', 0) 
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('sku', 'like', "%{$search}%");
                 });
             })
-            // Filter Kategori
             ->when($request->category, function ($query, $categoryId) {
                 $query->where('product_category_id', $categoryId);
             })
-            // Logika Sorting Dinamis
             ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
@@ -62,10 +60,9 @@ class ProductController extends Controller
 
         return Inertia::render('Products/Index', [
             'products' => $products,
-            'stores' => Store::all(['id', 'name']),
-            'categories' => ProductCategory::all(['id', 'name']),
+            'stores' => Store::where('status', 0)->get(['id', 'name']),
+            'categories' => ProductCategory::where('status', 0)->get(['id', 'name']),
             'unitTypes' => UnitType::all(['id', 'name']),
-            // Kirim filters kembali ke frontend agar icon sorting menyala sesuai state
             'filters' => $request->only(['search', 'category', 'sort', 'direction'])
         ]);
     }
@@ -92,6 +89,10 @@ class ProductController extends Controller
                 'buying_price', 
                 'selling_price',
             ]);
+
+            // Set status ke 0 (Aktif) dan reset deleted_at
+            $data['status'] = 0;
+            $data['deleted_at'] = null;
 
             $product = $request->id ? Product::find($request->id) : null;
 
@@ -152,14 +153,22 @@ class ProductController extends Controller
             'delete',
             'products',
             $id,
-            "Menghapus produk: {$product->name}",
+            "Menghapus produk  : {$product->name}",
             $posUserAudit ? $posUserAudit->id : null
         );
 
+        // Opsional: Jika ingin gambar tetap ada saat diarsip, hapus bagian Storage::delete ini
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
+            $product->image = null;
         }
-        $product->delete();
-        return back()->with('message', 'Product deleted!');
+
+        //   Manual: Ubah status ke 2 DAN isi deleted_at
+        $product->update([
+            'status' => 2,
+            'deleted_at' => now()
+        ]);
+
+        return back()->with('message', 'Product archived!');
     }
 }

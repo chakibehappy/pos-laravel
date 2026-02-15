@@ -22,16 +22,15 @@ class UnitTypeController extends Controller
 
         return Inertia::render('UnitTypes/Index', [
             'units' => UnitType::query()
-                ->with(['creator']) // Load relasi creator dari pos_users
+                // Global Scope di Model otomatis memfilter status 0
+                ->with(['creator']) 
                 ->when($request->search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%");
                 })
-                // Logika Sorting Dinamis
                 ->orderBy($sortField, $sortDirection)
                 ->paginate(10)
                 ->withQueryString(),
             
-            // Sertakan parameter sort & direction di filters agar state UI konsisten
             'filters' => $request->only(['search', 'sort', 'direction'])
         ]);
     }
@@ -68,7 +67,9 @@ class UnitTypeController extends Controller
             ['id' => $request->id],
             [
                 'name' => $request->name,
-                'created_by' => $posUserId
+                'created_by' => $posUserId,
+                'status' => 0,       // Pastikan status aktif
+                'deleted_at' => null // Reset deleted_at jika data lama dipulihkan
             ]
         );
 
@@ -85,28 +86,40 @@ class UnitTypeController extends Controller
     }
 
     /**
-     * Menghapus satuan.
+     *   satuan (status diubah menjadi 2 dan deleted_at diisi).
      */
     public function destroy($id)
     {
         $unit = UnitType::findOrFail($id);
         
+        // Cek jika satuan masih dipakai oleh produk yang AKTIF (status 0)
+        $hasProducts = DB::table('products')
+            ->where('unit_type_id', $id)
+            ->where('status', 0)
+            ->exists();
+
+        if ($hasProducts) {
+            return back()->withErrors(['error' => 'Gagal! Satuan masih digunakan oleh produk aktif.']);
+        }
+
         $posUserId = $this->getPosUserId();
 
-        // LOG ACTIVITY (Sebelum hapus)
+        // LOG ACTIVITY
         ActivityLogger::log(
             'delete',
             'unit_types',
             $id,
-            "Menghapus satuan: {$unit->name}",
+            "Menghapus satuan  : {$unit->name}",
             $posUserId
         );
 
-        // Update created_by sebelum delete agar log audit mencatat siapa yang menghapus
-        $unit->update(['created_by' => $posUserId]);
-        
-        $unit->delete();
+        //   Manual: Ubah status ke 2 dan isi deleted_at
+        $unit->update([
+            'status' => 2,
+            'deleted_at' => now(),
+            'created_by' => $posUserId // Opsional: catat siapa yang menghapus di kolom created_by
+        ]);
 
-        return back()->with('message', 'Satuan berhasil dihapus!');
+        return back()->with('message', 'Satuan berhasil diarsipkan!');
     }
 }

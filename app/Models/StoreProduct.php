@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StoreProduct extends Model
 {
@@ -12,17 +13,39 @@ class StoreProduct extends Model
 
     protected $table = 'store_products';
 
-    protected $fillable = [
-        'store_id',
-        'product_id',
-        'stock',
-        'created_by', // Ditambahkan sesuai struktur tabel di gambar
+    /**
+     * Menggunakan guarded kosong agar konsisten dengan sistem sebelumnya.
+     * Kolom tambahan: status (0: active, 2: deleted), deleted_at.
+     */
+    protected $guarded = [];
+
+    /**
+     * Casting kolom ke tipe data tertentu.
+     */
+    protected $casts = [
+        'deleted_at' => 'datetime',
+        'stock' => 'integer',
     ];
+
+    /**
+     * Boot function untuk logika otomatis status saat create.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (!isset($model->status)) {
+                $model->status = 0;
+            }
+        });
+    }
+
     public function buyingPrice(): HasOne
     {
-        // Parameter kedua 'product_id' memastikan Laravel mencari kolom tersebut di tb buying_price
-        return $this->hasOne(BuyingPrice::class, 'product_id');
+        return $this->hasOne(BuyingPrice::class, 'product_id', 'product_id');
     }
+
     /**
      * Relasi ke Cabang/Store
      */
@@ -41,11 +64,9 @@ class StoreProduct extends Model
 
     /**
      * Relasi ke User POS yang menginput data ini.
-     * Mengarah ke tabel pos_users melalui kolom created_by.
      */
     public function creator(): BelongsTo
     {
-        // Pastikan model PosUser sudah ada, jika nama modelnya berbeda silakan sesuaikan
         return $this->belongsTo(PosUser::class, 'created_by');
     }
 }

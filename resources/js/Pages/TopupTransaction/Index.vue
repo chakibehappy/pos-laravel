@@ -196,12 +196,6 @@ const formatIDR = (val) => new Intl.NumberFormat('id-ID').format(val);
                     <span class="text-green-600 font-bold">{{ formatIDR(value) }}</span>
                 </template>
 
-                <template #actions="{ row }">
-                    <div class="flex gap-4 justify-end">
-                        <button @click="openEdit(row)" class="text-gray-400 hover:text-blue-600 transition-colors">✏️</button>
-                        <button @click="destroy(row.id)" class="text-gray-400 hover:text-red-600 transition-colors">❌</button>
-                    </div>
-                </template>
             </DataTable>
 
         </div>

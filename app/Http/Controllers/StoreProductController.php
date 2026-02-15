@@ -23,6 +23,8 @@ class StoreProductController extends Controller
             ->join('stores', 'store_products.store_id', '=', 'stores.id')
             ->join('products', 'store_products.product_id', '=', 'products.id')
             ->leftJoin('pos_users', 'store_products.created_by', '=', 'pos_users.id')
+            // Tambahkan filter status aktif (bukan 2)
+            ->where('store_products.status', '!=', 2)
             ->select(
                 'store_products.*', 
                 'stores.name as store_name', 
@@ -58,8 +60,7 @@ class StoreProductController extends Controller
             });
         }
 
-        // 3. LOGIKA SORTING DINAMIS (Disesuaikan dengan DataTable.vue)
-        // DataTable.vue mengirim 'sort', bukan 'field'
+        // 3. LOGIKA SORTING DINAMIS
         $sort = $request->input('sort');
         $direction = $request->input('direction', 'desc');
 
@@ -75,18 +76,15 @@ class StoreProductController extends Controller
         if (isset($allowedSorts[$sort])) {
             $query->orderBy($allowedSorts[$sort], $direction);
         } else {
-            // Default sorting jika tidak ada sortir yang dipilih
             $query->orderBy('store_products.updated_at', 'desc');
         }
 
         return Inertia::render('StoreProducts/Index', [
-            // withQueryString() sangat penting agar parameter sort tidak hilang saat pindah halaman
             'stocks' => $query->paginate(10)->withQueryString(),
-            'stores' => Store::all(['id', 'name', 'store_type_id']),
+            'stores' => Store::where('status', '!=', 2)->get(['id', 'name', 'store_type_id']),
             'storeTypes' => StoreType::all(['id', 'name']),
-            'products' => Product::all(['id', 'name', 'sku', 'buying_price']),
+            'products' => Product::where('status', '!=', 2)->get(['id', 'name', 'sku', 'buying_price']),
             'categories' => ProductCategory::all(['id', 'name']),
-            // Kirim balik filters agar UI DataTable.vue tetap sinkron (panah sortir tetap muncul)
             'filters' => $request->only(['search', 'store_id', 'store_type_id', 'product_category_id', 'sort', 'direction']),
         ]);
     }
@@ -103,16 +101,25 @@ class StoreProductController extends Controller
         $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
         $createdBy = $posUser ? $posUser->id : null;
 
+        // Cek apakah relasi produk-toko sudah ada (termasuk yang statusnya 2/deleted)
         $existing = StoreProduct::where('store_id', $request->store_id)
             ->where('product_id', $request->product_id)
             ->first();
 
-        $actionLabel = $existing ? "Memperbarui" : "Menambah";
-        $logType = $existing ? "update" : "create";
+        // Jika data ada dan statusnya 2, maka ini adalah pemulihan (create kembali)
+        // Jika data ada dan statusnya 0, maka ini adalah update stok biasa
+        $isRestoring = ($existing && $existing->status == 2);
+        $actionLabel = ($existing && !$isRestoring) ? "Memperbarui" : "Menambah";
+        $logType = ($existing && !$isRestoring) ? "update" : "create";
 
         $sp = StoreProduct::updateOrCreate(
             ['store_id' => $request->store_id, 'product_id' => $request->product_id],
-            ['stock' => $request->stock, 'created_by' => $createdBy]
+            [
+                'stock' => $request->stock, 
+                'created_by' => $createdBy,
+                'status' => 0, // Pastikan status kembali 0 (aktif)
+                'deleted_at' => null // Reset deleted_at jika ada
+            ]
         );
 
         $product = Product::find($request->product_id);
@@ -131,36 +138,44 @@ class StoreProductController extends Controller
 
     public function update(Request $request, $id)
     {
+        // Tetap arahkan ke fungsi store karena menggunakan updateOrCreate
         return $this->store($request);
     }
 
     public function destroy($id)
     {
-        try {
-            $sp = StoreProduct::with(['product', 'store'])->findOrFail($id);
-            
-            $adminEmail = auth()->user()->email;
-            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-            $userId = $posUser ? $posUser->id : null;
+        return DB::transaction(function () use ($id) {
+            try {
+                $sp = StoreProduct::with(['product', 'store'])->findOrFail($id);
+                
+                $adminEmail = auth()->user()->email;
+                $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+                $userId = $posUser ? $posUser->id : null;
 
-            ActivityLogger::log(
-                'delete',
-                'store_products',
-                $id,
-                "Menghapus record stok produk: {$sp->product->name} dari toko {$sp->store->name}",
-                $userId
-            );
+                //   Manual (Ubah status ke 2)
+                $sp->update([
+                    'status' => 2,
+                    'deleted_at' => now()
+                ]);
 
-            $sp->delete();
-            return back()->with('message', 'Data stok cabang berhasil dihapus.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['message' => 'Gagal menghapus data stok.']);
-        }
+                ActivityLogger::log(
+                    'delete',
+                    'store_products',
+                    $id,
+                    "Menghapus record stok produk: {$sp->product->name} dari toko {$sp->store->name} (Archived)",
+                    $userId
+                );
+
+                return back()->with('message', 'Data stok cabang berhasil dihapus.');
+            } catch (\Exception $e) {
+                return back()->withErrors(['message' => 'Gagal menghapus data stok.']);
+            }
+        });
     }
     
     public function export(Request $request)
     {
-        $query = StoreProduct::query();
+        $query = StoreProduct::where('status', '!=', 2);
 
         if ($request->filled('store_id')) {
             $query->where('store_id', $request->store_id);

@@ -183,12 +183,7 @@ const getSourceName = (id) => {
                     <span class="text-green-600 font-bold">Rp {{ formatIDR(value) }}</span>
                 </template>
 
-                <template #actions="{ row }">
-                    <div class="flex gap-4 justify-end">
-                        <button @click="openEdit(row)" class="text-gray-400 hover:text-blue-600 transition-colors" title="Edit">✏️</button>
-                        <button @click="destroy(row.id)" class="text-gray-400 hover:text-red-600 transition-colors" title="Hapus">❌</button>
-                    </div>
-                </template>
+                
             </DataTable>
 
         </div>

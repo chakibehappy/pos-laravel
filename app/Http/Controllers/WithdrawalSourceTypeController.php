@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
 
 class WithdrawalSourceTypeController extends Controller
 {
@@ -21,6 +21,7 @@ class WithdrawalSourceTypeController extends Controller
         $sortDirection = $request->input('direction', 'desc');
 
         $data = WithdrawalSourceType::query()
+            ->where('status', 0) // Hanya tampilkan yang aktif (Manual Filter)
             ->with(['creator']) // Eager load relasi ke pos_users
             ->when($request->search, function ($query, $search) {
                 $query->where('name', 'LIKE', '%' . $search . '%');
@@ -41,13 +42,8 @@ class WithdrawalSourceTypeController extends Controller
      */
     private function getPosUserId()
     {
-        // Ambil email dari user yang sedang login di tabel 'users'
         $adminEmail = Auth::user()->email;
-
-        // Cari di tabel 'pos_users' yang username-nya sama dengan email admin tersebut
         $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-
-        // Kembalikan ID jika ditemukan, jika tidak ada kirim null
         return $posUser ? $posUser->id : null;
     }
 
@@ -69,7 +65,8 @@ class WithdrawalSourceTypeController extends Controller
                     $name = strtoupper($item['name']);
                     $source = WithdrawalSourceType::create([
                         'name'       => $name,
-                        'created_by' => $posUserId // Simpan ID pos_users
+                        'created_by' => $posUserId,
+                        'status'     => 0 // Default Aktif
                     ]);
 
                     // LOG ACTIVITY BATCH
@@ -85,13 +82,14 @@ class WithdrawalSourceTypeController extends Controller
             return back()->with('message', 'Batch data berhasil disimpan.');
         }
 
-        // Simpan Single (Fallback jika form tidak menggunakan array items)
+        // Simpan Single
         $request->validate(['name' => 'required|string|max:255']);
         $name = strtoupper($request->name);
         
         $source = WithdrawalSourceType::create([
             'name'       => $name,
-            'created_by' => $posUserId
+            'created_by' => $posUserId,
+            'status'     => 0
         ]);
 
         // LOG ACTIVITY SINGLE
@@ -119,7 +117,9 @@ class WithdrawalSourceTypeController extends Controller
         
         $sourceType->update([
             'name'       => $newName,
-            'created_by' => $posUserId // Update pengedit terakhir
+            'created_by' => $posUserId,
+            'status'     => 0,      // Pastikan tetap aktif
+            'deleted_at' => null    // Reset jika sebelumnya terarsip
         ]);
 
         // LOG ACTIVITY UPDATE
@@ -135,7 +135,7 @@ class WithdrawalSourceTypeController extends Controller
     }
 
     /**
-     * Hapus Data
+     * Hapus Data (  Manual)
      */
     public function destroy($id)
     {
@@ -143,18 +143,27 @@ class WithdrawalSourceTypeController extends Controller
             $sourceType = WithdrawalSourceType::findOrFail($id);
             $posUserId = $this->getPosUserId();
 
-            // LOG ACTIVITY DELETE (Sebelum hapus)
+            // Cek apakah sumber dana ini pernah digunakan di transaksi (opsional namun disarankan)
+            if ($sourceType->withdrawals()->exists()) {
+                return back()->withErrors(['error' => 'Gagal! Sumber dana ini sudah memiliki riwayat transaksi dan tidak bisa dihapus, hanya bisa diarsip.']);
+            }
+
+            // LOG ACTIVITY DELETE (Archive)
             ActivityLogger::log(
                 'delete',
                 'withdrawal_source_types',
                 $id,
-                "Menghapus sumber dana penarikan: {$sourceType->name}",
+                "Menghapus/Mengarsipkan sumber dana penarikan: {$sourceType->name}",
                 $posUserId
             );
 
-            $sourceType->delete();
+            // Manual  
+            $sourceType->update([
+                'status' => 2,
+                'deleted_at' => now()
+            ]);
             
-            return back()->with('message', 'Data berhasil dihapus.');
+            return back()->with('message', 'Data berhasil diarsipkan.');
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Gagal menghapus data.']);
         }

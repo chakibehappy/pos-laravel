@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,6 +16,10 @@ class Product extends Model
 
     public $timestamps = true;
 
+    /**
+     * Kolom yang dapat diisi secara massal.
+     * Ditambahkan 'deleted_at' agar bisa diupdate secara manual di controller.
+     */
     protected $fillable = [
         'product_category_id',
         'name',
@@ -24,15 +29,39 @@ class Product extends Model
         'selling_price',
         'stock',
         'unit_type_id',
-        'created_by', // Sesuai kolom di gambar
+        'created_by',
+        'status',      // 0: Aktif, 2: Dihapus
+        'deleted_at',  // Kolom catatan waktu penghapusan
     ];
 
     /**
-     * Relasi ke User yang membuat produk.
+     * Casting kolom ke tipe data tertentu.
+     * Mengubah string deleted_at menjadi objek Carbon (datetime).
      */
-    public function user(): BelongsTo
+    protected $casts = [
+        'deleted_at' => 'datetime',
+        'buying_price' => 'float',
+        'selling_price' => 'float',
+        'stock' => 'integer',
+    ];
+
+    /**
+     * Boot function untuk Global Scope.
+     * Secara default hanya mengambil produk dengan status 0 (Aktif).
+     */
+    protected static function booted()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        static::addGlobalScope('active', function (Builder $builder) {
+            $builder->where('status', 0);
+        });
+    }
+
+    /**
+     * Relasi ke User yang membuat produk (Admin/Operator).
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 
     /**
@@ -61,7 +90,6 @@ class Product extends Model
 
     /**
      * Relasi ke Model Store (Gudang/Toko Utama).
-     * Catatan: Pastikan kolom store_id ada di database jika ingin menggunakan relasi ini.
      */
     public function store(): BelongsTo
     {

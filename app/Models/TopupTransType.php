@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TopupTransType extends Model
 {
@@ -11,19 +13,42 @@ class TopupTransType extends Model
 
     protected $table = 'topup_trans_type';
 
+    /**
+     * Kolom yang dapat diisi secara massal.
+     * Menambahkan status dan deleted_at untuk sistem pengarsipan.
+     */
     protected $fillable = [
         'name',
         'type',
-        'created_by', // WAJIB ditambahkan agar bisa diisi oleh Controller
+        'created_by',
+        'status',     // 0 = Aktif, 2 = Dihapus
+        'deleted_at', // Catatan waktu penghapusan
     ];
 
     /**
-     * Relasi ke tabel pos_users
-     * Logika: Mencocokkan created_by dengan id di pos_users
+     * Casting kolom ke tipe data tertentu.
      */
-    public function creator()
+    protected $casts = [
+        'deleted_at' => 'datetime',
+        'status' => 'integer',
+    ];
+
+    /**
+     * Boot function untuk Global Scope.
+     * Secara default hanya mengambil tipe transaksi yang aktif (status 0).
+     */
+    protected static function booted()
     {
-        // Parameter: NamaModel, foreign_key_di_tabel_ini, owner_key_di_tabel_tujuan
+        static::addGlobalScope('active', function (Builder $builder) {
+            $builder->where('status', 0);
+        });
+    }
+
+    /**
+     * Relasi ke tabel pos_users.
+     */
+    public function creator(): BelongsTo
+    {
         return $this->belongsTo(PosUser::class, 'created_by', 'id');
     }
 

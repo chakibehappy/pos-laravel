@@ -9,7 +9,7 @@ const props = defineProps({
     filters: Object // Berisi search, sort, dan direction
 });
 
-// Tambahkan properti sortable: true pada kolom yang diizinkan
+// Kolom yang diizinkan untuk sorting
 const columns = [
     { label: 'ID', key: 'id', sortable: true },
     { label: 'Nama Satuan', key: 'name', sortable: true }
@@ -50,8 +50,14 @@ const submit = () => {
 };
 
 const deleteUnit = (id) => {
-    if (confirm('Hapus Satuan ini? Semua produk terkait mungkin akan kehilangan Satuannya.')) {
-        router.delete(route('unit-types.destroy', id));
+    // Pesan disesuaikan dengan sistem pengarsipan/soft delete
+    if (confirm('Arsip Satuan ini? Data tidak akan muncul di aplikasi namun tetap tersimpan di database.')) {
+        router.delete(route('unit-types.destroy', id), {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (errors.error) alert(errors.error);
+            }
+        });
     }
 };
 </script>

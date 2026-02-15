@@ -9,30 +9,28 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use App\Helpers\ActivityLogger; // Import ActivityLogger
+use App\Helpers\ActivityLogger;
 
 class TopupFeeRuleController extends Controller
 {
     public function index(Request $request)
     {
         // Menangkap parameter sorting dari DataTable.vue
-        $sortField = $request->input('sort', 'created_at'); // Default sort ke tanggal dibuat
-        $sortDirection = $request->input('direction', 'desc'); // Default urutan terbaru
+        $sortField = $request->input('sort', 'created_at'); 
+        $sortDirection = $request->input('direction', 'desc'); 
 
+        // Global Scope di model sudah memfilter status != 2 secara otomatis
         $data = TopupFeeRule::with(['topup_trans_type', 'wallet_target', 'creator'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
-                    // Cari di tipe transaksi
                     $q->whereHas('topup_trans_type', function ($sub) use ($search) {
                         $sub->where('name', 'like', "%{$search}%");
                     })
-                    // Cari di wallet target
                     ->orWhereHas('wallet_target', function ($sub) use ($search) {
                         $sub->where('name', 'like', "%{$search}%");
                     });
                 });
             })
-            // Logika Sorting Dinamis
             ->orderBy($sortField, $sortDirection)
             ->paginate(10) 
             ->withQueryString();
@@ -84,9 +82,10 @@ class TopupFeeRuleController extends Controller
                         'max_limit'           => $request->rules[0]['max_limit'],
                         'fee'                 => $request->rules[0]['fee'],
                         'admin_fee'           => $request->rules[0]['admin_fee'],
+                        'status'              => 0, // Pastikan tetap aktif
+                        'deleted_at'          => null
                     ]);
 
-                    // LOG ACTIVITY UPDATE
                     $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
                     ActivityLogger::log(
                         'update',
@@ -105,9 +104,10 @@ class TopupFeeRuleController extends Controller
                             'fee'                 => $ruleData['fee'],
                             'admin_fee'           => $ruleData['admin_fee'],
                             'created_by'          => $posUserId,
+                            'status'              => 0,
+                            'deleted_at'          => null
                         ]);
 
-                        // LOG ACTIVITY CREATE
                         $typeName = TopupTransType::find($newRule->topup_trans_type_id)->name ?? 'Unknown';
                         ActivityLogger::log(
                             'create',
@@ -131,22 +131,27 @@ class TopupFeeRuleController extends Controller
     public function destroy($id)
     {
         try {
-            $rule = TopupFeeRule::findOrFail($id);
-            $posUserId = $this->getPosUserId();
-            $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
+            return DB::transaction(function () use ($id) {
+                $rule = TopupFeeRule::findOrFail($id);
+                $posUserId = $this->getPosUserId();
+                $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
 
-            // LOG ACTIVITY DELETE (Dicatat sebelum hapus)
-            ActivityLogger::log(
-                'delete',
-                'topup_fee_rules',
-                $id,
-                "Menghapus aturan biaya Top Up: $typeName",
-                $posUserId ?? auth()->user()->id
-            );
+                //   Manual (Sesuai keinginan Anda: status 2 + deleted_at)
+                $rule->update([
+                    'status' => 2,
+                    'deleted_at' => now()
+                ]);
 
-            $rule->delete();
-            
-            return back()->with('message', 'Rule berhasil dihapus.');
+                ActivityLogger::log(
+                    'delete',
+                    'topup_fee_rules',
+                    $id,
+                    "Menghapus aturan biaya Top Up: $typeName (Archived)",
+                    $posUserId
+                );
+
+                return back()->with('message', 'Rule berhasil diarsipkan.');
+            });
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Gagal menghapus data: ' . $e->getMessage()]);
         }

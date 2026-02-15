@@ -19,7 +19,7 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Inisialisasi Query dengan Join untuk keperluan Sorting & Search
+        // 1. Inisialisasi Query dengan Prefix Tabel untuk menghindari Ambiguous Column
         $query = Transaction::with(['details.product', 'details.cashWithdrawal', 'details.topupTransaction'])
             ->join('stores', 'transactions.store_id', '=', 'stores.id')
             ->join('pos_users', 'transactions.pos_user_id', '=', 'pos_users.id')
@@ -31,7 +31,10 @@ class TransactionController extends Controller
                 'payment_methods.name as payment_name'
             );
 
-        // 2. Logic Pencarian (Search)
+        // Tambahkan filter status spesifik ke tabel transactions
+        $query->where('transactions.status', 0);
+
+        // 2. Logic Pencarian dengan Prefix
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('stores.name', 'LIKE', "%{$request->search}%")
@@ -42,11 +45,9 @@ class TransactionController extends Controller
         }
 
         // 3. Logic Dynamic Sorting
-        // Mengambil field sort dan direction (asc/desc) dari request DataTable
-        $sortField = $request->get('sort', 'transactions.transaction_at'); // Default sort
-        $sortDirection = $request->get('direction', 'desc'); // Default direction
+        $sortField = $request->get('sort', 'transactions.transaction_at'); 
+        $sortDirection = $request->get('direction', 'desc'); 
 
-        // Mapping field jika key dari frontend berbeda dengan nama kolom DB hasil Join
         $sortMapping = [
             'transaction_at' => 'transactions.transaction_at',
             'store_id'       => 'stores.name',
@@ -60,7 +61,7 @@ class TransactionController extends Controller
 
         return Inertia::render('Transactions/Index', [
             'transactions' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search', 'sort', 'direction']), // Kirim balik ke frontend
+            'filters' => $request->only(['search', 'sort', 'direction']),
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
             'products' => Product::all(['id', 'name', 'selling_price as price']),
@@ -96,22 +97,30 @@ class TransactionController extends Controller
                     ->where('store_id', $transaction->store_id)
                     ->decrement('cash', $transaction->subtotal);
 
-                // 3. Catat Activity Log
+                // 3. Identifikasi Admin (PosUser ID) yang menghapus
+                $adminEmail = auth()->user()->email;
+                $matchPosUser = PosUser::where('username', $adminEmail)->first();
+                $adminPosUserId = $matchPosUser ? $matchPosUser->id : null;
+
+                // 4. Catat Activity Log
                 $storeName = Store::find($transaction->store_id)->name ?? 'Unknown Store';
                 ActivityLogger::log(
                     'delete', 
                     'transactions', 
                     $id, 
-                    "Membatalkan & menghapus transaksi ID: #$id Toko: $storeName", 
-                    auth()->user()->posUser->id
+                    "Membatalkan & mengarsipkan transaksi Toko $storeName", 
+                    $adminPosUserId
                 );
 
-                // 4. Hapus data
-                $transaction->details()->delete();
-                $transaction->delete();
+                // 5. Update Status & Admin Approved By (Menggunakan ID PosUser)
+                $transaction->update([
+                    'status' => 2,
+                    'deleted_at' => now(),
+                    'admin_approved_by' => $adminPosUserId
+                ]);
             });
 
-            return redirect()->back()->with('message', 'Transaksi berhasil dihapus.');
+            return redirect()->back()->with('message', 'Transaksi berhasil diarsipkan  .');
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['message' => 'Gagal menghapus: ' . $e->getMessage()]);
         }
@@ -134,7 +143,6 @@ class TransactionController extends Controller
         $matchPosUser = PosUser::where('username', $adminEmail)->first();
         $automatedCreatedBy = $matchPosUser ? $matchPosUser->id : $request->pos_user_id;
 
-        // Hitung ulang subtotal untuk keamanan
         $calcSubtotal = 0;
         foreach ($request->details as $item) {
             if ($item['type'] !== 'tarik_tunai') {
@@ -164,6 +172,8 @@ class TransactionController extends Controller
                         'subtotal'       => $calcSubtotal,
                         'tax'            => $request->tax ?? 0,
                         'total'          => $calcTotal,
+                        'status'         => 0,
+                        'deleted_at'     => null
                     ]
                 );
 
@@ -186,14 +196,13 @@ class TransactionController extends Controller
                     }
 
                     if ($item['type'] === 'topup') {
-                        $typeId = isset($item['meta']['topup_trans_type_id']) ? $item['meta']['topup_trans_type_id'] : $item['product_id'];
                         $topupTransId = DB::table('topup_transactions')->insertGetId([
                             'store_id'                => $storeId,
                             'digital_wallet_store_id' => $item['meta']['digital_wallet_store_id'],
                             'cust_account_number'     => $item['meta']['target'],
                             'nominal_request'         => $item['meta']['nominal_topup'],
                             'nominal_pay'             => $item['price'],
-                            'topup_trans_type_id'     => $typeId,
+                            'topup_trans_type_id'     => $item['meta']['topup_trans_type_id'] ?? $item['product_id'],
                             'created_by'              => $automatedCreatedBy,
                             'created_at'              => $request->transaction_at,
                             'updated_at'              => now(),
@@ -229,13 +238,12 @@ class TransactionController extends Controller
                 return $transaction;
             });
 
-            $storeName = Store::find($request->store_id)->name;
             ActivityLogger::log(
                 $id ? "update" : "create", 
                 'transactions', 
                 $transaction->id, 
-                ($id ? "Memperbarui" : "Mencatat") . " transaksi penjualan Toko: $storeName", 
-                auth()->user()->posUser->id
+                ($id ? "Memperbarui" : "Mencatat") . " transaksi penjualan Toko: " . Store::find($request->store_id)->name, 
+                auth()->user()->posUser->id ?? null
             );
 
             return redirect()->route('transactions.index')->with('message', 'Transaksi Berhasil Disimpan!');

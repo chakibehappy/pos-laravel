@@ -24,6 +24,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'status',      // Tambahkan untuk Soft Delete manual
+        'deleted_at',  // Tambahkan untuk Soft Delete manual
     ];
 
     /**
@@ -46,6 +48,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'deleted_at' => 'datetime', // Cast agar menjadi objek Carbon/Date
         ];
     }
 

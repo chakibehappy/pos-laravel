@@ -5,7 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
-    methods: Object, // Menggunakan Object untuk Paginasi
+    methods: Object, // Menggunakan Object untuk Paginasi dari Controller
     filters: Object
 });
 
@@ -101,14 +101,24 @@ const submit = () => {
             },
             onError: (err) => {
                 if(err.name) errorMessage.value = err.name;
+                if(err.error) errorMessage.value = err.error;
             }
         });
     }
 };
 
 const destroy = (row) => {
-    if (confirm(`Hapus metode pembayaran "${row.name}"?`)) {
-        router.delete(route('payment-methods.destroy', row.id));
+    // Pesan disesuaikan dengan sistem pengarsipan
+    if (confirm(`Arsip metode pembayaran "${row.name}"? Metode ini tidak akan bisa digunakan lagi untuk transaksi baru.`)) {
+        router.delete(route('payment-methods.destroy', row.id), {
+            onSuccess: () => {
+                // Berhasil diarsip
+            },
+            onError: (err) => {
+                // Menampilkan error jika data gagal diarsip (misal: ada relasi transaksi)
+                if (err.error) alert(err.error);
+            }
+        });
     }
 };
 </script>
@@ -205,18 +215,18 @@ const destroy = (row) => {
                 <template #creator="{ row }">
                     <div class="flex items-center gap-2">
                         <div class="w-5 h-5 rounded bg-blue-600 text-white flex items-center justify-center text-[8px] font-bold uppercase shadow-sm">
-                            {{ row.creator?.name?.charAt(0) || row.user?.name?.charAt(0) || 'U' }}
+                            {{ row.creator?.name?.charAt(0) || 'U' }}
                         </div>
                         <span class="text-[10px] font-bold uppercase text-gray-600 tracking-tight">
-                            {{ row.creator?.name || row.user?.name || 'Admin' }}
+                            {{ row.creator?.name || 'Admin' }}
                         </span>
                     </div>
                 </template>
 
                 <template #actions="{ row }">
                     <div class="flex gap-4 justify-end items-center">
-                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
-                        <button @click="destroy(row)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
+                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125" title="Edit">✏️</button>
+                        <button @click="destroy(row)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125" title="Arsip">❌</button>
                     </div>
                 </template>
             </DataTable>

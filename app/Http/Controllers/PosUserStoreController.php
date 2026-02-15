@@ -8,13 +8,16 @@ use App\Models\PosUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
+use Illuminate\Support\Facades\DB;
 
 class PosUserStoreController extends Controller
 {
     public function index(Request $request)
     {
+        // Tambahkan filter status != 2 untuk menyembunyikan data yang dihapus
         $query = PosUserStore::with(['posUser', 'store', 'creator'])
+            ->where('status', '!=', 2) 
             ->whereHas('posUser', function($q) {
                 $q->where('role', '!=', 'developer'); 
             });
@@ -47,7 +50,6 @@ class PosUserStoreController extends Controller
         $direction = $request->input('direction', 'asc');
 
         if ($sortField) {
-            // Mengambil nama tabel asli dari model secara dinamis
             $tableName = (new PosUserStore())->getTable();
 
             switch ($sortField) {
@@ -70,7 +72,7 @@ class PosUserStoreController extends Controller
                     $query->orderBy("$tableName.created_at", $direction);
                     break;
                 default:
-                    $query->latest();
+                    $query->latest("$tableName.created_at");
                     break;
             }
         } else {
@@ -78,11 +80,9 @@ class PosUserStoreController extends Controller
         }
 
         return Inertia::render('PosUserStores/Index', [
-            'resource' => $query
-                ->paginate(10)
-                ->withQueryString(),
+            'resource' => $query->paginate(10)->withQueryString(),
             'posUsers' => PosUser::where('role', '!=', 'developer')->get(['id', 'name']),
-            'stores'   => Store::all(['id', 'name']),
+            'stores'   => Store::where('status', '!=', 2)->get(['id', 'name']), // Hanya toko aktif
             'storeTypes' => \App\Models\StoreType::all(['id', 'name']),
             'filters'   => $request->only(['search', 'store_id', 'store_type_id', 'sort', 'direction']),
         ]);
@@ -95,14 +95,29 @@ class PosUserStoreController extends Controller
             'store_id'    => 'required|exists:stores,id',
         ]);
 
+        // Cek jika relasi ini sudah pernah ada namun statusnya 2 (terhapus), kita aktifkan kembali
+        $existing = PosUserStore::where('pos_user_id', $request->pos_user_id)
+                                ->where('store_id', $request->store_id)
+                                ->first();
+
         $creator = PosUser::where('username', Auth::user()->email)->first();
         $creatorId = $creator ? $creator->id : null;
 
-        $assignment = PosUserStore::create([
-            'pos_user_id' => $request->pos_user_id,
-            'store_id'    => $request->store_id,
-            'created_by'  => $creatorId,
-        ]);
+        if ($existing) {
+            $existing->update([
+                'status' => 0,
+                'created_by' => $creatorId,
+                'deleted_at' => null
+            ]);
+            $assignment = $existing;
+        } else {
+            $assignment = PosUserStore::create([
+                'pos_user_id' => $request->pos_user_id,
+                'store_id'    => $request->store_id,
+                'created_by'  => $creatorId,
+                'status'      => 0
+            ]);
+        }
 
         // LOG ACTIVITY
         $targetUser = PosUser::find($request->pos_user_id);
@@ -126,21 +141,24 @@ class PosUserStoreController extends Controller
             'store_id'    => 'required|exists:stores,id',
         ]);
 
+        // Cek duplikasi akses yang aktif
         $exists = PosUserStore::where('pos_user_id', $request->pos_user_id)
+                              ->where('store_id', $request->store_id)
+                              ->where('status', '!=', 2)
                               ->where('id', '!=', $id)
                               ->exists();
 
         if ($exists) {
             return back()->withErrors([
-                'pos_user_id' => 'USER INI SUDAH TERDAFTAR DI TOKO LAIN!'
+                'pos_user_id' => 'USER INI SUDAH MEMILIKI AKSES KE TOKO TERSEBUT!'
             ]);
         }
 
         $akses = PosUserStore::findOrFail($id);
-        
         $akses->update([
             'pos_user_id' => $request->pos_user_id,
             'store_id'    => $request->store_id,
+            'status'      => 0 // Reset status ke normal
         ]);
 
         // LOG ACTIVITY
@@ -161,22 +179,29 @@ class PosUserStoreController extends Controller
 
     public function destroy($id)
     {
-        try {
-            $akses = PosUserStore::with(['posUser', 'store'])->findOrFail($id);
-            $creator = PosUser::where('username', Auth::user()->email)->first();
+        return DB::transaction(function () use ($id) {
+            try {
+                $akses = PosUserStore::with(['posUser', 'store'])->findOrFail($id);
+                $creator = PosUser::where('username', Auth::user()->email)->first();
 
-            ActivityLogger::log(
-                'delete',
-                'pos_user_stores',
-                $id,
-                "Mencabut akses user {$akses->posUser->name} dari toko {$akses->store->name}",
-                $creator ? $creator->id : null
-            );
+                //   Manual (Status 2)
+                $akses->update([
+                    'status' => 2,
+                    'deleted_at' => now()
+                ]);
 
-            $akses->delete();
-            return back()->with('message', 'Akses user ke toko telah dicabut.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['message' => 'Gagal menghapus data']);
-        }
+                ActivityLogger::log(
+                    'delete',
+                    'pos_user_stores',
+                    $id,
+                    "Mencabut akses user {$akses->posUser->name} dari toko {$akses->store->name} (Archived)",
+                    $creator ? $creator->id : null
+                );
+
+                return back()->with('message', 'Akses user ke toko telah dicabut.');
+            } catch (\Exception $e) {
+                return back()->withErrors(['message' => 'Gagal mencabut akses']);
+            }
+        });
     }
 }

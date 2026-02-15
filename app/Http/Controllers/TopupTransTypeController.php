@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
 
 class TopupTransTypeController extends Controller
 {
@@ -17,11 +17,11 @@ class TopupTransTypeController extends Controller
     public function index(Request $request)
     {
         // Menangkap parameter sorting dari DataTable.vue
-        $sortField = $request->input('sort', 'created_at'); // Default sort ke tanggal
-        $sortDirection = $request->input('direction', 'desc'); // Default urutan terbaru
+        $sortField = $request->input('sort', 'created_at'); 
+        $sortDirection = $request->input('direction', 'desc');
 
         $data = TopupTransType::query()
-            // Mengambil relasi creator (yang terhubung ke tabel pos_users)
+            ->where('status', 0) // Hanya tampilkan yang aktif
             ->with(['creator']) 
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -29,7 +29,6 @@ class TopupTransTypeController extends Controller
                       ->orWhere('type', 'like', "%{$search}%");
                 });
             })
-            // Logika Sorting Dinamis
             ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
@@ -41,17 +40,12 @@ class TopupTransTypeController extends Controller
     }
 
     /**
-     * Logika Privat: Mencocokkan Email Admin dengan Username di pos_users.
+     * Logika Privat: Mapping User Admin ke ID PosUser.
      */
     private function getPosUserId()
     {
-        // 1. Ambil email dari user (admin) yang sedang login di tabel users
         $adminEmail = Auth::user()->email;
-
-        // 2. Cari di tabel pos_users yang username-nya cocok dengan email admin tersebut
         $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-
-        // 3. Jika ketemu ambil id-nya, jika tidak ada return null
         return $posUser ? $posUser->id : null;
     }
 
@@ -60,26 +54,24 @@ class TopupTransTypeController extends Controller
      */
     public function store(Request $request)
     {
-        // Validasi input array 'items'
         $request->validate([
             'items' => 'required|array|min:1',
             'items.*.name' => 'required|string|max:255',
             'items.*.type' => 'required|string|max:50',
         ]);
 
-        // Dapatkan ID dari pos_users berdasarkan logika mapping
         $posUserId = $this->getPosUserId();
 
-        // Gunakan Database Transaction agar data tersimpan semua atau tidak sama sekali
         DB::transaction(function () use ($request, $posUserId) {
             foreach ($request->items as $item) {
                 $newType = TopupTransType::create([
                     'name'       => $item['name'],
                     'type'       => $item['type'],
                     'created_by' => $posUserId,
+                    'status'     => 0, // Pastikan status aktif
                 ]);
 
-                // LOG ACTIVITY (Batch)
+                // LOG ACTIVITY
                 ActivityLogger::log(
                     'create',
                     'topup_trans_types',
@@ -104,14 +96,14 @@ class TopupTransTypeController extends Controller
         ]);
 
         $item = TopupTransType::findOrFail($id);
-        
-        // Dapatkan ID dari pos_users untuk mencatat siapa yang melakukan update
         $posUserId = $this->getPosUserId();
 
         $item->update([
             'name'       => $request->name,
             'type'       => $request->type,
-            'created_by' => $posUserId, 
+            'created_by' => $posUserId,
+            'status'     => 0,      // Pastikan status tetap aktif saat update
+            'deleted_at' => null    // Reset jika sebelumnya pernah diarsip
         ]);
 
         // LOG ACTIVITY
@@ -127,7 +119,7 @@ class TopupTransTypeController extends Controller
     }
 
     /**
-     * Hapus data.
+     * Hapus data (  Manual).
      */
     public function destroy($id)
     {
@@ -135,19 +127,24 @@ class TopupTransTypeController extends Controller
             $item = TopupTransType::findOrFail($id);
             $posUserId = $this->getPosUserId();
 
-            // LOG ACTIVITY (Sebelum hapus)
+            // LOG ACTIVITY
             ActivityLogger::log(
                 'delete',
                 'topup_trans_types',
                 $id,
-                "Menghapus tipe transaksi topup: {$item->name} ({$item->type})",
+                "Menghapus tipe transaksi topup  : {$item->name} ({$item->type})",
                 $posUserId
             );
 
-            $item->delete();
-            return back()->with('message', 'Data berhasil dihapus.');
+            // Manual  : Ubah status ke 2 dan isi deleted_at
+            $item->update([
+                'status' => 2,
+                'deleted_at' => now()
+            ]);
+
+            return back()->with('message', 'Data berhasil diarsipkan.');
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Gagal menghapus! Data mungkin terikat dengan transaksi lain.']);
+            return back()->withErrors(['error' => 'Gagal menghapus data.']);
         }
     }
 }
