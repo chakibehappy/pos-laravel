@@ -188,11 +188,13 @@ const addToBatch = () => {
             errorMessage.value = `Saldo dompet tidak mencukupi! (Sisa secara view: Rp ${Number(w.balance).toLocaleString('id-ID')})`;
             return;
         }
+        const cleanWalletName = w.name.split(' (Sisa:')[0];
 
         form.details.push({
             type: 'topup', 
             product_id: null,
             name: s.raw_name,
+            wallet_name: cleanWalletName,
             note: `${Number(singleEntry.value.nominal).toLocaleString('id-ID')} - ${singleEntry.value.account_number}`,
             price: singleEntry.value.price, 
             quantity: 1, 
@@ -404,7 +406,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                                     <td class="p-3">
                                         <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[9px] uppercase font-bold text-gray-600">{{ item.type.replace('_', ' ') }}</span>
                                     </td>
-                                    <td class="p-3 font-bold uppercase">{{ item.name }}</td>
+                                    <td class="p-3 font-bold uppercase">{{ item.name }}/{{ item.wallet_name }}</td>
                                     <td class="p-3 text-gray-500 italic">{{ item.note }}</td>
                                     <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
                                     <td class="p-3 text-center">{{ item.quantity }}</td>

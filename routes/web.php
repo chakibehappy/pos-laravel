@@ -26,6 +26,7 @@ use App\Http\Controllers\WithdrawalFeeRuleController;
 use App\Http\Controllers\TransactionDetailController;
 use App\Http\Controllers\TransactionApprovalController;
 use App\Http\Controllers\ExpenseController; //
+use App\Http\Controllers\StockFlowController;
 use App\Http\Controllers\ActivityLogController;
 
 
@@ -197,5 +198,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
     Route::delete('/expenses/{id}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
 
+    // --- LAPORAN MUTASI STOK (STOCK FLOW) ---
+    Route::get('/stock-flow', [StockFlowController::class, 'index'])->name('stock-flow.index');
 
 });

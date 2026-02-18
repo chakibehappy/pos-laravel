@@ -60,8 +60,9 @@ const menuItems = [
     },
     { 
         label: 'Master Kategori', icon: '🗂️', isDropdown: true,
-        activeOn: ['digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
+        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
         children: [
+            { label: 'Mutasi Stok', name: 'stock-flow.index', route: route('stock-flow.index') }, // TAMBAHAN DISINI
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
             { label: 'Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
