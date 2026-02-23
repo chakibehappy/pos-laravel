@@ -20,6 +20,10 @@ class UnitTypeController extends Controller
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
 
+        if (empty($sortField)) {
+            $sortField = 'id';
+        }
+        
         return Inertia::render('UnitTypes/Index', [
             'units' => UnitType::query()
                 // Global Scope di Model otomatis memfilter status 0
