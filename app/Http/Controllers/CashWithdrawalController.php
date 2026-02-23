@@ -21,6 +21,13 @@ class CashWithdrawalController extends Controller
         $sortField = $request->input('sort', 'created_at'); // Default field
         $sortDirection = $request->input('direction', 'desc'); // Default urutan
 
+
+        // fallback if empty
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+
+
         $withdrawals = CashWithdrawal::with(['store'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function($q) use ($search) {
