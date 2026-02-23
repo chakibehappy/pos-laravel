@@ -20,6 +20,10 @@ class TopupTransTypeController extends Controller
         $sortField = $request->input('sort', 'created_at'); 
         $sortDirection = $request->input('direction', 'desc');
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+        
         $data = TopupTransType::query()
             ->where('status', 0) // Hanya tampilkan yang aktif
             ->with(['creator']) 

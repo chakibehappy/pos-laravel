@@ -20,6 +20,10 @@ class WithdrawalSourceTypeController extends Controller
         $sortField = $request->input('sort', 'created_at');
         $sortDirection = $request->input('direction', 'desc');
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+        
         $data = WithdrawalSourceType::query()
             ->where('status', 0) // Hanya tampilkan yang aktif (Manual Filter)
             ->with(['creator']) // Eager load relasi ke pos_users
