@@ -47,6 +47,11 @@ class TransactionController extends Controller
         // 3. Logic Dynamic Sorting
         $sortField = $request->get('sort', 'transactions.transaction_at'); 
         $sortDirection = $request->get('direction', 'desc'); 
+        
+        // fallback if empty
+        if (empty($sortField)) {
+            $sortField = 'transactions.transaction_at';
+        }
 
         $sortMapping = [
             'transaction_at' => 'transactions.transaction_at',

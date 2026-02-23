@@ -20,13 +20,10 @@ class CashWithdrawalController extends Controller
         // Menangkap parameter sorting dari DataTable.vue
         $sortField = $request->input('sort', 'created_at'); // Default field
         $sortDirection = $request->input('direction', 'desc'); // Default urutan
-
-
         // fallback if empty
         if (empty($sortField)) {
             $sortField = 'created_at';
         }
-
 
         $withdrawals = CashWithdrawal::with(['store'])
             ->when($request->search, function ($query, $search) {
