@@ -19,6 +19,10 @@ class PaymentMethodController extends Controller
         $sortField = $request->input('sort', 'created_at'); 
         $sortDirection = $request->input('direction', 'desc'); 
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+        
         $methods = PaymentMethod::query()
             ->with(['creator'])
             ->when($request->search, function ($query, $search) {

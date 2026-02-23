@@ -18,6 +18,10 @@ class WithdrawalFeeRuleController extends Controller
         $sortField = $request->input('sort', 'created_at'); 
         $sortDirection = $request->input('direction', 'desc'); 
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+        
         // Global Scope di model otomatis memfilter status != 2
         $query = WithdrawalFeeRule::with(['creator']);
 
