@@ -15,6 +15,10 @@ class StockFlowController extends Controller
         $sortField = $request->input('sort', 'created_at');
         $sortDirection = $request->input('direction', 'desc');
         
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+        
         // Query Dasar dengan Eager Loading agar tidak N+1
         $query = StockFlow::with(['product.product', 'creator']);
 
