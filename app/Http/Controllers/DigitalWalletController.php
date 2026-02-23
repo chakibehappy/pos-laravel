@@ -20,6 +20,10 @@ class DigitalWalletController extends Controller
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
 
+        if (empty($sortField)) {
+            $sortField = 'id';
+        }
+        
         $resource = DigitalWallet::query()
             ->where('status', 0) // Pastikan hanya mengambil yang aktif
             ->when($request->search, function ($query, $search) {
