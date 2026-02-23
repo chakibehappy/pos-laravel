@@ -26,6 +26,10 @@ class TransactionApprovalController extends Controller
             $sortField = 'delete_requested_by';
         }
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+
         // 3. Query dengan filter dan sorting
         $requests = Transaction::with(['store', 'posUser', 'details', 'requester'])
             ->where('status', 1) // Hanya yang berstatus "Request Delete"
