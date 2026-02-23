@@ -21,6 +21,9 @@ class ProductController extends Controller
         $sortField = $request->input('sort', 'updated_at');
         $sortDirection = $request->input('direction', 'desc');
 
+        if (empty($sortField)) {
+            $sortField = 'updated_at';
+        }
         // Mengambil data dengan status 0 (Aktif)
         $products = Product::with(['category', 'store', 'unitType'])
             ->where('products.status', 0) 

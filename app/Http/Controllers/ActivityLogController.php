@@ -22,6 +22,10 @@ class ActivityLogController extends Controller
             $sortField = 'created_by';
         }
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+
         $query = ActivityLog::with(['user']);
 
         // Fitur Pencarian Global

@@ -22,6 +22,9 @@ class TopupTransactionController extends Controller
         $sortField = $request->input('sort', 'created_at'); // Default field
         $sortDirection = $request->input('direction', 'desc'); // Default urutan
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
         // 1. Query dengan Filter Search & Paginasi
         $transactions = TopupTransaction::with(['store', 'transType'])
             ->when($request->search, function ($query, $search) {
