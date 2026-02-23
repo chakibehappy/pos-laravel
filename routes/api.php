@@ -84,6 +84,26 @@ Route::post('/pos-user-login', function (Request $request) {
     ]);
 });
 
+Route::middleware('auth:sanctum')->post('/logout', function (Request $request) {
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+    ]);
+    $user = $request->user();
+    $storeId = $request->store_id;
+    ActivityLogger::log(
+        'logout',
+        'stores',
+        $storeId,
+        'Logout Aplikasi POS',
+        $user->id
+    );
+    // Delete current token only (logout this device)
+    $user->currentAccessToken()->delete();
+    return response()->json([
+        'message' => 'Logged out successfully'
+    ]);
+});
+
 // Protected Routes (Requires Token)
 Route::middleware('auth:sanctum')->get('/products', function (Request $request) {
 
