@@ -16,12 +16,12 @@ class StockFlowController extends Controller
         $sortDirection = $request->input('direction', 'desc');
         
         // Query Dasar dengan Eager Loading agar tidak N+1
-        $query = StockFlow::with(['product', 'creator']);
+        $query = StockFlow::with(['product.product', 'creator']);
 
         // Filter: Pencarian (Berdasarkan Nama Produk atau Tipe Transaksi)
         if ($request->search) {
             $query->where(function($q) use ($request) {
-                $q->whereHas('product', function($pq) use ($request) {
+                $q->whereHas('product.product', function($pq) use ($request) {
                     $pq->where('name', 'like', "%{$request->search}%");
                 })
                 ->orWhere('transaction_type', 'like', "%{$request->search}%")
