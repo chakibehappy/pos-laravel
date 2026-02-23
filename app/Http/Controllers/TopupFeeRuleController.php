@@ -19,6 +19,10 @@ class TopupFeeRuleController extends Controller
         $sortField = $request->input('sort', 'created_at'); 
         $sortDirection = $request->input('direction', 'desc'); 
 
+        if (empty($sortField)) {
+            $sortField = 'created_at';
+        }
+        
         // Global Scope di model sudah memfilter status != 2 secara otomatis
         $data = TopupFeeRule::with(['topup_trans_type', 'wallet_target', 'creator'])
             ->when($request->search, function ($query, $search) {
