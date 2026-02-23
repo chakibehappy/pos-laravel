@@ -106,17 +106,15 @@ const formatNumber = (value) => new Intl.NumberFormat('id-ID').format(value);
                 </template>
 
                 <template #store_product_id="{ row }">
-                    <!-- <div class="flex flex-col">
+                    <div class="flex flex-col">
                         <span class="text-[11px] font-black text-gray-800 uppercase leading-none mb-1">
-                            {{ row.product?.name || 'Produk Tidak Dikenal' }}
+                            {{ row.product?.product.name || 'Produk Tidak Dikenal' }}
                         </span>
                         <span class="text-[9px] text-gray-400 font-bold tracking-widest italic">
-                            SKU: {{ row.product?.sku || '---' }}
+                            SKU: {{ row.product?.product.sku || '---' }}
                         </span>
-                    </div> -->
-                    {{ row.product.product.id }}
-                    <br/>
-                    {{ row }}
+                    </div>
+                    
                 </template>
 
                 <template #transaction_type="{ value }">
