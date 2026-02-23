@@ -47,7 +47,7 @@ class UnitType extends Model
     protected static function booted()
     {
         static::addGlobalScope('active', function (Builder $builder) {
-            $builder->where('status', 0);
+            $builder->where('unit_types.status', 0);
         });
     }
 

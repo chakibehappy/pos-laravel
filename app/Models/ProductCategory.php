@@ -48,7 +48,7 @@ class ProductCategory extends Model
     protected static function booted()
     {
         static::addGlobalScope('active', function (Builder $builder) {
-            $builder->where('status', 0);
+            $builder->where('product_categories.status', 0);
         });
     }
 

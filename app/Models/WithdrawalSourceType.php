@@ -40,7 +40,7 @@ class WithdrawalSourceType extends Model
     protected static function booted()
     {
         static::addGlobalScope('active', function (Builder $builder) {
-            $builder->where('status', 0);
+            $builder->where('withdrawal_source_type.status', 0);
         });
     }
 

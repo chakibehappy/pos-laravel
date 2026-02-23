@@ -40,7 +40,7 @@ class TopupTransType extends Model
     protected static function booted()
     {
         static::addGlobalScope('active', function (Builder $builder) {
-            $builder->where('status', 0);
+            $builder->where('topup_trans_type.status', 0);
         });
     }
 

@@ -49,12 +49,12 @@ class Product extends Model
      * Boot function untuk Global Scope.
      * Secara default hanya mengambil produk dengan status 0 (Aktif).
      */
-    // protected static function booted()
-    // {
-    //     static::addGlobalScope('active', function (Builder $builder) {
-    //         $builder->where('status', 0);
-    //     });
-    // }
+    protected static function booted()
+    {
+        static::addGlobalScope('active', function (Builder $builder) {
+            $builder->where('products.status', 0);
+        });
+    }
 
     /**
      * Relasi ke User yang membuat produk (Admin/Operator).
