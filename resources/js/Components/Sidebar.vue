@@ -163,7 +163,7 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
                     <Transition name="jelly">
                         <div v-if="currentDisplayed === item.label" 
                             class="absolute top-0 right-0 h-14 bg-yellow-400 rounded-l-[35px] z-0 w-full origin-right">
-                            <div class="absolute -top-[25px] right-0 w-[25px] h-[25px] bg-yellow-400"></div>
+                            <div class="absolute -top-[24px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-br-[25px]"></div>
                             <!-- <div class="absolute -bottom-[25px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-tr-[25px]"></div> -->
                         </div>
                     </Transition>
