@@ -14,7 +14,7 @@ const props = defineProps({
 // Konfigurasi kolom laporan
 const columns = [
     { label: 'Waktu', key: 'created_at', sortable: true },
-    { label: 'Produk', key: 'product.store_product_id', sortable: false },
+    { label: 'Produk', key: 'product.product.id', sortable: false },
     { label: 'Tipe', key: 'transaction_type', sortable: true },
     { label: 'Referensi ID', key: 'reference_id', sortable: true },
     { label: 'Perubahan Stok', key: 'quantity_change', sortable: true },
@@ -114,7 +114,9 @@ const formatNumber = (value) => new Intl.NumberFormat('id-ID').format(value);
                             SKU: {{ row.product?.sku || '---' }}
                         </span>
                     </div> -->
-                    {{ row.store_product_id }}
+                    {{ row.product.product.id }}
+                    <br/>
+                    {{ row }}
                 </template>
 
                 <template #transaction_type="{ value }">
