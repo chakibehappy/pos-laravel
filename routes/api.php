@@ -289,7 +289,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
             'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
-        ->where('status', 0)
+        ->where('transactions.status', 0)
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
@@ -327,7 +327,7 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
             'details.cashWithdrawal'
         ])
         ->where('store_id', $storeId)
-        ->where('status', $status)
+        ->where('transactions.status', $status)
         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
