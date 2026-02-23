@@ -18,6 +18,7 @@ class PosHelper
         // Products
         $products = Product::join('store_products', 'products.id', '=', 'store_products.product_id')
             ->where('store_products.store_id', $storeId)
+            ->where('products.status', 0)
             ->select('products.*', 'store_products.stock as store_stock')
             ->get();
 
