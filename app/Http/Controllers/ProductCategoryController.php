@@ -20,6 +20,10 @@ class ProductCategoryController extends Controller
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
 
+        if (empty($sortField)) {
+            $sortField = 'id';
+        }
+        
         return Inertia::render('ProductCategories/Index', [
             'categories' => ProductCategory::query()
                 ->where('status', 0) // Hanya tampilkan yang aktif
