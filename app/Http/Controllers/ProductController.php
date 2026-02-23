@@ -23,7 +23,7 @@ class ProductController extends Controller
 
         // Mengambil data dengan status 0 (Aktif)
         $products = Product::with(['category', 'store', 'unitType'])
-            ->where('status', 0) 
+            ->where('products.status', 0) 
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
