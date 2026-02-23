@@ -13,18 +13,25 @@ use Inertia\Inertia;
 class CashWithdrawalController extends Controller
 {
     /**
-     * Menampilkan daftar transaksi tarik tunai dengan Paginasi & Search.
+     * Menampilkan daftar transaksi tarik tunai dengan Paginasi, Search, & Dynamic Sorting.
      */
     public function index(Request $request)
     {
+        // Menangkap parameter sorting dari DataTable.vue
+        $sortField = $request->input('sort', 'created_at'); // Default field
+        $sortDirection = $request->input('direction', 'desc'); // Default urutan
+
         $withdrawals = CashWithdrawal::with(['store'])
             ->when($request->search, function ($query, $search) {
-                $query->where('customer_name', 'like', "%{$search}%")
-                      ->orWhereHas('store', function ($q) use ($search) {
-                          $q->where('name', 'like', "%{$search}%");
+                $query->where(function($q) use ($search) {
+                    $q->where('customer_name', 'like', "%{$search}%")
+                      ->orWhereHas('store', function ($sq) use ($search) {
+                          $sq->where('name', 'like', "%{$search}%");
                       });
+                });
             })
-            ->latest()
+            // Logika Sorting Dinamis
+            ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
@@ -32,7 +39,7 @@ class CashWithdrawalController extends Controller
             'withdrawals' => $withdrawals,
             'stores'      => Store::all(['id', 'name', 'store_type_id']),
             'storeTypes'  => StoreType::all(['id', 'name']),
-            'filters'     => $request->only(['search']),
+            'filters'     => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -104,7 +111,7 @@ class CashWithdrawalController extends Controller
                 $oldCashStore->increment('cash', $withdrawal->withdrawal_count);
             }
 
-            // 2. CEK ketersediaan kas di toko yang baru (atau toko yang sama setelah di-reset)
+            // 2. CEK ketersediaan kas di toko yang baru
             $newCashStore = CashStore::where('store_id', $request->store_id)->lockForUpdate()->first();
 
             if (!$newCashStore || $newCashStore->cash < $request->withdrawal_count) {
@@ -125,7 +132,7 @@ class CashWithdrawalController extends Controller
             $newCashStore->decrement('cash', $request->withdrawal_count);
 
             DB::commit();
-            return back()->with('message', 'Data transaksi berhasil diperbarui dan saldo kas telah disesuaikan.');
+            return back()->with('message', 'Data transaksi berhasil diperbarui.');
 
         } catch (\Exception $e) {
             DB::rollBack();

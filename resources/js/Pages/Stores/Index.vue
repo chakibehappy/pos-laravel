@@ -77,8 +77,14 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('Hapus toko ini?')) {
-        router.delete(route('stores.destroy', id));
+    // Penyesuaian pesan konfirmasi untuk Soft Delete (Status 2)
+    if (confirm('APAKAH ANDA YAKIN INGIN MENGHAPUS TOKO INI? DATA AKAN DIPINDAHKAN KE ARSIP.')) {
+        router.delete(route('stores.destroy', id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Notifikasi sukses akan muncul via flash message
+            }
+        });
     }
 };
 
@@ -98,11 +104,11 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
             </div>
 
             <div v-if="showAddForm" class="mb-8 p-6 bg-white rounded-xl border border-gray-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                <h2 class="text-lg font-black text-gray-800 mb-6 uppercase tracking-tighter">Tambah Toko Baru</h2>
+                <h2 class="text-lg font-black text-gray-800 mb-6 uppercase tracking-tighter italic">➕ Tambah Toko Baru</h2>
                 <form @submit.prevent="submit" class="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div class="flex flex-col gap-1">
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Nama Toko</label>
-                        <input v-model="form.name" type="text" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
+                        <input v-model="form.name" type="text" placeholder="NAMA TOKO..." class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
                         <span v-if="form.errors.name" class="text-red-500 text-[10px] font-bold mt-1 uppercase">{{ form.errors.name }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
@@ -112,7 +118,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                     </div>
                     <div class="flex flex-col gap-1">
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipe Bisnis</label>
-                        <select v-model="form.store_type_id" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none">
+                        <select v-model="form.store_type_id" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none cursor-pointer">
                             <option value="">PILIH TIPE</option>
                             <option v-for="t in store_types" :key="t.id" :value="t.id">{{ t.name.toUpperCase() }}</option>
                         </select>
@@ -124,13 +130,13 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                     </div>
                     <div class="md:col-span-2 flex flex-col gap-1">
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Alamat</label>
-                        <input v-model="form.address" type="text" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
+                        <input v-model="form.address" type="text" placeholder="ALAMAT LENGKAP..." class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
                     </div>
                     <div class="md:col-span-3 flex gap-3 mt-2 border-t pt-5">
-                        <button type="submit" :disabled="form.processing" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100">
-                            {{ form.processing ? 'MENYIMPAN...' : 'SIMPAN TOKO' }}
+                        <button type="submit" :disabled="form.processing" class="bg-black text-white px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-800 shadow-sm active:scale-95 disabled:opacity-50 transition-all">
+                            {{ form.processing ? 'Sedang Menyimpan...' : 'Simpan Toko' }}
                         </button>
-                        <button type="button" @click="showAddForm = false" class="bg-gray-100 text-gray-500 px-6 py-2 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-200">BATAL</button>
+                        <button type="button" @click="showAddForm = false" class="bg-gray-100 text-gray-500 px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">BATAL</button>
                     </div>
                 </form>
             </div>
@@ -139,10 +145,10 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
                     <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
                         <div class="flex flex-col">
-                            <h2 class="text-xl font-black text-gray-800 uppercase tracking-tighter">Edit Data Toko</h2>
+                            <h2 class="text-xl font-black text-gray-800 uppercase tracking-tighter italic">✏️ Edit Data Toko</h2>
                             <span class="text-[9px] font-bold text-gray-400 uppercase italic">Dibuat oleh: {{ form.created_by || 'System' }}</span>
                         </div>
-                        <button @click="closeForms" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                        <button @click="closeForms" class="text-gray-400 hover:text-black text-2xl font-bold">×</button>
                     </div>
                     <form @submit.prevent="submit" class="p-6">
                         <div class="space-y-5">
@@ -158,7 +164,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipe Bisnis</label>
-                                <select v-model="form.store_type_id" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none">
+                                <select v-model="form.store_type_id" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none cursor-pointer">
                                     <option v-for="t in store_types" :key="t.id" :value="t.id">{{ t.name.toUpperCase() }}</option>
                                 </select>
                             </div>
@@ -175,10 +181,10 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                             </div>
                         </div>
                         <div class="flex gap-3 mt-8">
-                            <button type="submit" :disabled="form.processing" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-100 active:scale-95">
+                            <button type="submit" :disabled="form.processing" class="flex-1 bg-black text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50">
                                 UPDATE DATA
                             </button>
-                            <button type="button" @click="closeForms" class="flex-1 bg-gray-100 text-gray-500 py-3 rounded-xl font-black text-xs uppercase tracking-widest">BATAL</button>
+                            <button type="button" @click="closeForms" class="flex-1 bg-gray-100 text-gray-500 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">BATAL</button>
                         </div>
                     </form>
                 </div>
@@ -186,8 +192,8 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
             <div class="mb-6">
                 <div class="inline-flex bg-white p-1.5 rounded-xl border border-gray-200 items-center gap-3 shadow-sm">
-                    <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Jenis Usaha</label>
-                    <select @change="filterByType($event.target.value)" v-model="activeType" class="bg-transparent border-none text-gray-800 text-xs rounded-lg focus:ring-0 px-4 py-2 font-black outline-none min-w-[180px] uppercase">
+                    <label class="pl-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">Filter Tipe Bisnis</label>
+                    <select @change="filterByType($event.target.value)" v-model="activeType" class="bg-transparent border-none text-gray-800 text-xs rounded-lg focus:ring-0 px-4 py-2 font-black outline-none min-w-[180px] uppercase cursor-pointer">
                         <option value="all"> SEMUA TIPE</option>
                         <option v-for="type in store_types" :key="type.id" :value="type.id.toString()">🏷️ {{ type.name }}</option>
                     </select>
@@ -195,27 +201,26 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
             </div>
 
             <DataTable 
-                title="Daftar Toko"
+                title="Daftar Cabang Toko"
                 :resource="stores" 
                 :columns="[
-                    { label: 'Identitas Toko', key: 'name' }, 
-                    { label: 'Tipe', key: 'type_name' }, 
+                    { label: 'Identitas Toko', key: 'name', sortable: true }, 
+                    { label: 'Tipe Bisnis', key: 'type_name', sortable: true }, 
                     { label: 'Password', key: 'password' }, 
-                    { label: 'Alamat', key: 'address' },
-                    { label: 'Tanggal', key: 'created_at' },
-                    { label: 'Admin', key: 'creator_name' }
+                    { label: 'Lokasi / Alamat', key: 'address' },
+                    { label: 'Tgl Registrasi', key: 'created_at', sortable: true },
+                    { label: 'Daftar Oleh', key: 'creator_name', sortable: true }
                 ]"
-                routeName="stores.index" 
+                route-name="stores.index" 
                 :initialSearch="filters?.search || ''"
                 :showAddButton="!showAddForm"
                 @on-add="openCreate"
-                @on-edit="openEdit" 
             >
                 <template #name="{ row }">
                     <div class="flex flex-col leading-tight">
                         <span class="font-black text-gray-800 text-sm uppercase">{{ row.name }}</span>
                         <div class="flex items-center gap-1.5 mt-0.5">
-                            <span class="text-[9px] text-blue-500 font-black uppercase tracking-widest bg-blue-50 px-1.5 rounded">ID: {{ row.keyname || '-' }}</span>
+                            <span class="text-[9px] text-blue-500 font-black uppercase tracking-widest bg-blue-50 px-1.5 rounded border border-blue-100">ID: {{ row.keyname || '-' }}</span>
                         </div>
                     </div>
                 </template>
@@ -225,36 +230,37 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                         <span class="text-[10px] font-mono tracking-tighter" :class="showPasswordIds.includes(row.id) ? 'text-blue-600 font-bold' : 'text-gray-300'">
                             {{ showPasswordIds.includes(row.id) ? (row.password_plain || '******') : '••••••••' }}
                         </span>
-                        <button @click="togglePassword(row.id)" class="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button @click="togglePassword(row.id)" class="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity bg-gray-50 p-1 rounded hover:bg-gray-100">
                             {{ showPasswordIds.includes(row.id) ? '🙈' : '👁️' }}
                         </button>
                     </div>
                 </template>
 
                 <template #type_name="{ row }">
-                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-blue-100 shadow-sm">
                         {{ row.type_name }}
                     </span>
                 </template>
 
                 <template #created_at="{ row }">
-                    <span class="text-gray-400 text-[10px] font-black uppercase">{{ formatDate(row.created_at) }}</span>
+                    <span class="text-gray-400 text-[10px] font-black uppercase tracking-tighter italic">
+                        📅 {{ formatDate(row.created_at) }}
+                    </span>
                 </template>
 
                 <template #creator_name="{ row }">
                     <div class="flex flex-col">
                         <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[8px]">👤</div>
-                            <span class="text-gray-600 text-[10px] font-black uppercase">{{ row.creator_name || 'System' }}</span>
+                            <span class="text-gray-600 text-[10px] font-black uppercase tracking-tighter">👤 {{ row.creator_name || 'System' }}</span>
                         </div>
-                        <span class="text-[8px] text-gray-300 font-bold uppercase ml-6">Creator</span>
+                        <span class="text-[8px] text-gray-300 font-bold uppercase ml-4 italic">Administrator</span>
                     </div>
                 </template>
 
                 <template #actions="{ row }">
-                    <div class="flex gap-4 justify-end items-center mr-2">
-                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
-                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
+                    <div class="flex gap-4 justify-end items-center px-4">
+                        <button @click="openEdit(row)" class="text-lg hover:scale-125 transition-transform" title="Edit Data">✏️</button>
+                        <button @click="destroy(row.id)" class="text-lg hover:scale-125 transition-transform" title="Hapus Toko">❌</button>
                     </div>
                 </template>
             </DataTable>

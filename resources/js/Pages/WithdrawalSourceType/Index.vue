@@ -10,10 +10,10 @@ const props = defineProps({
     filters: Object 
 });
 
-// Menambahkan kolom creator setelah created_at
+// Definisi kolom tabel dengan fitur sortable: true
 const columns = [
-    { label: 'Nama Sumber Penarikan', key: 'name' }, 
-    { label: 'Tanggal', key: 'created_at' },
+    { label: 'Nama Sumber Penarikan', key: 'name', sortable: true }, 
+    { label: 'Tanggal', key: 'created_at', sortable: true },
     { label: 'Dibuat Oleh', key: 'creator' },
 ];
 
@@ -25,8 +25,8 @@ const search = ref(props.filters.search || '');
 // Form utama untuk pengiriman data
 const form = useForm({
     id: null,
-    name: '',     // Reactive field untuk Edit
-    items: []     // Untuk Batch Store
+    name: '',     
+    items: []     
 });
 
 // Entry sementara untuk input satu per satu ke antrian
@@ -90,15 +90,17 @@ const submit = () => {
     errorMessage.value = '';
 
     if (isEditMode.value) {
-        // Sinkronisasi ke objek form sebelum PATCH
         form.name = singleEntry.value.name;
         
-        // MENGGUNAKAN .patch sesuai Route::patch di web.php
+        // PERBAIKAN: Menggunakan .patch sesuai dengan rute Laravel yang tersedia
         form.patch(route('withdrawal-source-types.update', form.id), {
             onSuccess: () => {
                 showForm.value = false;
                 form.reset();
             },
+            onError: (errors) => {
+                if (errors.error) errorMessage.value = errors.error;
+            }
         });
     } else {
         if (form.items.length === 0) {
@@ -119,8 +121,13 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
-        router.delete(route('withdrawal-source-types.destroy', id));
+    if (confirm('Arsip sumber dana ini? Data tidak akan muncul di form transaksi namun tetap ada di riwayat laporan.')) {
+        router.delete(route('withdrawal-source-types.destroy', id), {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (errors.error) alert(errors.error);
+            }
+        });
     }
 };
 
@@ -152,11 +159,11 @@ const formatDate = (dateString) => {
                         </div>
                     </div>
 
-                    <div :class="isEditMode ? 'p-8 grid grid-cols-1 md:grid-cols-1 gap-6' : 'grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200'">
+                    <div :class="isEditMode ? 'p-8 grid grid-cols-1 gap-6' : 'grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200'">
                         
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nama Sumber Dana</label>
-                            <input v-model="singleEntry.name" type="text" placeholder="MASUKKAN NAMA (CONTOH: KAS TOKO)..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase" />
+                            <input v-model="singleEntry.name" type="text" placeholder="MASUKKAN NAMA (CONTOH: KAS TOKO)..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase" @keyup.enter="isEditMode ? submit() : addToBatch()" />
                         </div>
 
                         <div v-if="!isEditMode" class="flex flex-col gap-1">
@@ -206,8 +213,13 @@ const formatDate = (dateString) => {
 
             <DataTable 
                 title="Master Sumber Penarikan"
-                :resource="data" :columns="columns" :showAddButton="!showForm"
-                routeName="withdrawal-source-types.index" :initialSearch="filters.search" @on-add="openCreate" 
+                :resource="data" 
+                :columns="columns" 
+                :showAddButton="!showForm"
+                routeName="withdrawal-source-types.index" 
+                :filters="filters"
+                :initialSearch="filters.search" 
+                @on-add="openCreate" 
             >
                 <template #name="{ row }">
                     <div class="flex flex-col">
@@ -223,10 +235,10 @@ const formatDate = (dateString) => {
                 <template #creator="{ row }">
                     <div class="flex items-center gap-2">
                         <div class="w-5 h-5 rounded bg-blue-600 text-white flex items-center justify-center text-[8px] font-bold uppercase shadow-sm">
-                            {{ row.creator?.name?.charAt(0) || row.user?.name?.charAt(0) || 'U' }}
+                            {{ row.creator?.name?.charAt(0) || 'U' }}
                         </div>
                         <span class="text-[10px] font-bold uppercase text-gray-600 tracking-tight">
-                            {{ row.creator?.name || row.user?.name || 'Admin' }}
+                            {{ row.creator?.name || 'Admin' }}
                         </span>
                     </div>
                 </template>
@@ -234,7 +246,7 @@ const formatDate = (dateString) => {
                 <template #actions="{ row }">
                     <div class="flex flex-row gap-4 justify-end items-center">
                         <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125" title="Edit">✏️</button>
-                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125" title="Hapus">❌</button>
+                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125" title="Arsip">❌</button>
                     </div>
                 </template>
             </DataTable>

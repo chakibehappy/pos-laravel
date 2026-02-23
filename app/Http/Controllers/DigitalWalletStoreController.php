@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\ActivityLogger; // Import Helper
 
 class DigitalWalletStoreController extends Controller
 {
@@ -17,7 +18,7 @@ class DigitalWalletStoreController extends Controller
     {
         $konterTypeIds = StoreType::where('name', 'LIKE', 'konter')->pluck('id');
 
-        // 1. SYNC DATA (Tetap sama)
+        // 1. SYNC DATA
         if ($konterTypeIds->isNotEmpty()) {
             $konterStores = Store::whereIn('store_type_id', $konterTypeIds)->get();
             $allWallets = DigitalWallet::all();
@@ -42,21 +43,18 @@ class DigitalWalletStoreController extends Controller
         }
 
         // 2. QUERY UTAMA
-        // Kita mulai dari Store agar pencarian nama Toko lebih akurat saat di-grouping
         $query = DigitalWalletStore::with(['store', 'wallet'])
             ->whereHas('store', function ($q) use ($konterTypeIds) {
                 $q->whereIn('store_type_id', $konterTypeIds);
             });
 
-        // 3. LOGIC PENCARIAN (Filter di tingkat Database)
+        // 3. LOGIC PENCARIAN
         if ($request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                // Cari berdasarkan Nama Toko
                 $q->whereHas('store', function ($sq) use ($search) {
                     $sq->where('name', 'like', "%{$search}%");
                 })
-                // ATAU Cari berdasarkan Nama Wallet (Misal: ketik 'Gopay')
                 ->orWhereHas('wallet', function ($wq) use ($search) {
                     $wq->where('name', 'like', "%{$search}%");
                 });
@@ -85,10 +83,20 @@ class DigitalWalletStoreController extends Controller
             ];
         })->values();
 
-        // 5. MANUAL PAGINATION (Menjaga agar filter ?search tetap ada di URL)
+        // --- LOGIKA SORTING (Hanya Tambahan) ---
+        $sort = $request->input('sort', 'store_name');
+        $direction = $request->input('direction', 'asc');
+        
+        if ($direction === 'asc') {
+            $groupedData = $groupedData->sortBy($sort);
+        } else {
+            $groupedData = $groupedData->sortByDesc($sort);
+        }
+
+        // 5. MANUAL PAGINATION
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $perPage = 10;
-        $currentItems = $groupedData->slice(($currentPage - 1) * $perPage, $perPage)->all();
+        $currentItems = $groupedData->values()->slice(($currentPage - 1) * $perPage, $perPage)->all();
 
         $paginatedItems = new LengthAwarePaginator(
             $currentItems, 
@@ -105,7 +113,7 @@ class DigitalWalletStoreController extends Controller
             'resource' => $paginatedItems,
             'stores'   => Store::whereIn('store_type_id', $konterTypeIds)->get(['id', 'name']),
             'wallets'  => DigitalWallet::all(['id', 'name']),
-            'filters'  => $request->only(['search']),
+            'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -117,7 +125,7 @@ class DigitalWalletStoreController extends Controller
             'action_type' => 'required|in:add,subtract,reset',
         ]);
 
-        $walletStore = DB::table('digital_wallet_store')->where('id', $request->id)->first();
+        $walletStore = DigitalWalletStore::with(['store', 'wallet'])->where('id', $request->id)->first();
         
         if (!$walletStore) {
             return back()->withErrors(['message' => 'Data tidak ditemukan']);
@@ -136,21 +144,60 @@ class DigitalWalletStoreController extends Controller
         }
 
         $posUser = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+        $operatorId = $posUser ? $posUser->id : $walletStore->created_by;
 
         DB::table('digital_wallet_store')
             ->where('id', $request->id)
             ->update([
                 'balance'    => max(0, $finalBalance),
-                'created_by' => $posUser ? $posUser->id : $walletStore->created_by,
+                'created_by' => $operatorId,
                 'updated_at' => now(),
             ]);
+
+        // LOG ACTIVITY
+        $storeName = $walletStore->store->name ?? 'Unknown Store';
+        $walletName = $walletStore->wallet->name ?? 'Unknown Wallet';
+        $formattedAmount = number_format($inputAmount, 0, ',', '.');
+        
+        $desc = "Update saldo $walletName di $storeName: ";
+        if ($request->action_type === 'add') $desc .= "Tambah Rp $formattedAmount";
+        elseif ($request->action_type === 'subtract') $desc .= "Kurang Rp $formattedAmount";
+        else $desc .= "Reset saldo ke 0";
+
+        ActivityLogger::log(
+            'update',
+            'digital_wallet_store',
+            $walletStore->id,
+            $desc,
+            $operatorId
+        );
 
         return back()->with('message', 'Saldo berhasil diperbarui!');
     }
 
     public function destroy($id)
     {
-        DB::table('digital_wallet_store')->where('id', $id)->delete();
-        return back()->with('message', 'Data berhasil dihapus!');
+        try {
+            $walletStore = DigitalWalletStore::with(['store', 'wallet'])->find($id);
+            
+            if ($walletStore) {
+                $posUser = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+                $storeName = $walletStore->store->name ?? 'Unknown Store';
+                $walletName = $walletStore->wallet->name ?? 'Unknown Wallet';
+
+                ActivityLogger::log(
+                    'delete',
+                    'digital_wallet_store',
+                    $id,
+                    "Menghapus record saldo $walletName di $storeName",
+                    $posUser ? $posUser->id : null
+                );
+            }
+
+            DB::table('digital_wallet_store')->where('id', $id)->delete();
+            return back()->with('message', 'Data berhasil dihapus!');
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => 'Gagal menghapus data']);
+        }
     }
 }

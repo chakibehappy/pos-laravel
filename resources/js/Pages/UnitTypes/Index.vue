@@ -5,12 +5,14 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
 const props = defineProps({
-    units: Object // Pastikan dari Controller dikirim sebagai LengthAwarePaginator
+    units: Object, // Dari Controller sebagai LengthAwarePaginator
+    filters: Object // Berisi search, sort, dan direction
 });
 
+// Kolom yang diizinkan untuk sorting
 const columns = [
-    { label: 'ID', key: 'id' },
-    { label: 'Nama Satuan', key: 'name' }
+    { label: 'ID', key: 'id', sortable: true },
+    { label: 'Nama Satuan', key: 'name', sortable: true }
 ];
 
 const showInlineForm = ref(false); // Untuk Tambah
@@ -48,8 +50,14 @@ const submit = () => {
 };
 
 const deleteUnit = (id) => {
-    if (confirm('Hapus Satuan ini? Semua produk terkait mungkin akan kehilangan Satuannya.')) {
-        router.delete(route('unit-types.destroy', id));
+    // Pesan disesuaikan dengan sistem pengarsipan/soft delete
+    if (confirm('Arsip Satuan ini? Data tidak akan muncul di aplikasi namun tetap tersimpan di database.')) {
+        router.delete(route('unit-types.destroy', id), {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (errors.error) alert(errors.error);
+            }
+        });
     }
 };
 </script>
@@ -91,7 +99,7 @@ const deleteUnit = (id) => {
             </div>
 
             <div v-if="showModalForm" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-                <div class="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
+                <div class="bg-white w-full max-md rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in zoom-in-95 duration-200">
                     <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
                         <h2 class="text-sm font-black text-gray-700 uppercase">✏️ Edit Satuan</h2>
                         <button @click="showModalForm = false" class="text-gray-400 hover:text-red-500">✕</button>
@@ -124,6 +132,8 @@ const deleteUnit = (id) => {
                 :columns="columns"
                 :showAddButton="!showInlineForm"
                 routeName="unit-types.index" 
+                :initialSearch="filters?.search"
+                :filters="filters"
                 @on-add="openCreate" 
             >
                 <template #id="{ value }">

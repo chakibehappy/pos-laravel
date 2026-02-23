@@ -7,7 +7,6 @@ use App\Models\Store;
 use App\Models\StoreType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-
 use App\Helpers\ActivityLogger;
 
 class CashStoreController extends Controller
@@ -29,27 +28,56 @@ class CashStoreController extends Controller
         }
 
         // 2. QUERY DATA: Ambil saldo kas dengan pencarian dan FILTER TIPE
-        $cashBalances = CashStore::with('store')
-            ->when($request->search, function ($query, $search) {
-                $query->whereHas('store', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                });
-            })
-            // Tambahan Filter Tipe Usaha
-            ->when($request->type, function ($query, $type) {
-                $query->whereHas('store', function ($q) use ($type) {
-                    $q->where('store_type_id', $type);
-                });
-            })
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+        $query = CashStore::with('store');
+
+        // Filter Pencarian
+        if ($request->filled('search')) {
+            $query->whereHas('store', function ($q) use ($request) {
+                $q->where('name', 'like', "%{$request->search}%");
+            });
+        }
+
+        // Filter Tipe Usaha
+        if ($request->filled('type')) {
+            $query->whereHas('store', function ($q) use ($request) {
+                $q->where('store_type_id', $request->type);
+            });
+        }
+
+        // --- LOGIKA SORTING DINAMIS ---
+        $sortField = $request->input('sort');
+        $direction = $request->input('direction', 'asc');
+
+        if ($sortField) {
+            $tableName = (new CashStore())->getTable();
+
+            switch ($sortField) {
+                case 'store_name':
+                    $query->join('stores', "$tableName.store_id", '=', 'stores.id')
+                          ->orderBy('stores.name', $direction)
+                          ->select("$tableName.*");
+                    break;
+                case 'cash':
+                    $query->orderBy('cash', $direction);
+                    break;
+                case 'updated_at':
+                    $query->orderBy('updated_at', $direction);
+                    break;
+                default:
+                    $query->latest();
+                    break;
+            }
+        } else {
+            $query->latest();
+        }
+
+        $cashBalances = $query->paginate(10)->withQueryString();
 
         return Inertia::render('CashStores/Index', [
             'cashBalances' => $cashBalances,
             'stores' => Store::all(['id', 'name', 'store_type_id']),
             'storeTypes' => StoreType::all(['id', 'name']),
-            'filters' => $request->only(['search', 'type']), // Tambahkan 'type' ke filters
+            'filters' => $request->only(['search', 'type', 'sort', 'direction']),
         ]);
     }
 
@@ -84,7 +112,8 @@ class CashStoreController extends Controller
 
         // Simpan hasil kalkulasi ke database
         $cashStore->update([
-            'cash' => $finalCash
+            'cash' => $finalCash,
+            'created_by' => auth()->user()->posUser->id,
         ]);
 
         $statusLabel = [
@@ -92,9 +121,11 @@ class CashStoreController extends Controller
             'subtract' => 'dikurangi',
             'reset' => 'direset ke 0'
         ];
+        
         $store_name = Store::where('id', $request->store_id)->first()->name;
-        // TODO : connect created by
+        
         ActivityLogger::log('update', 'cash_store', $cashStore->id, $label . $store_name, auth()->user()->posUser->id);
+        
         return back()->with('message', "Saldo kas berhasil {$statusLabel[$request->action_type]}!");
     }
 

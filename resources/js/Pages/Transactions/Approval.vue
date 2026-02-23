@@ -7,7 +7,8 @@ import DataTable from '@/Components/DataTable.vue';
 import TransactionDetailModal from '@/Pages/TransactionsDetails/Index.vue';
 
 const props = defineProps({
-    requests: Object
+    requests: Object,
+    filters: Object // Tambahkan props filters untuk menangkap state dari backend
 });
 
 // State untuk Modal Detail
@@ -42,11 +43,13 @@ const handleAction = (id, action) => {
     }
 };
 
+// Aktifkan sortable: true pada kolom yang diinginkan
 const columns = [
-    { label: 'TOKO', key: 'store_name' },
-    { label: 'OPERATOR', key: 'operator_name' },
-    { label: 'DETAIL', key: 'transaction_details' },
-    { label: 'ALASAN', key: 'delete_reason' },
+    { label: 'TOKO', key: 'store_id', sortable: true }, // Menggunakan key ID agar mudah di-sort di DB
+    { label: 'OPERATOR', key: 'requested_by', sortable: true },
+    { label: 'DETAIL', key: 'transaction_details', sortable: false },
+    { label: 'ALASAN', key: 'delete_reason', sortable: true },
+    { label: 'WAKTU', key: 'created_at', sortable: true }, // Tambahan kolom waktu biasanya penting di sini
 ];
 </script>
 
@@ -59,13 +62,17 @@ const columns = [
                 title="Permintaan Penghapusan"
                 :resource="requests" 
                 :columns="columns"
+                :filters="filters"
+                :showAddButton="false"
+                route-name="transactions.delete-requests" 
+                :initial-search="filters?.search || ''"
             >
-                <template #store_name="{ row }">
-                    {{ row.store?.name || '-' }}
+                <template #store_id="{ row }">
+                    <span class="font-bold text-gray-800">{{ row.store?.name || '-' }}</span>
                 </template>
 
-                <template #operator_name="{ row }">
-                    {{ row.requester?.name || '-' }}
+                <template #requested_by="{ row }">
+                    <span class="text-xs font-medium text-gray-600">{{ row.requester?.name || '-' }}</span>
                 </template>
 
                 <template #transaction_details="{ row }">
@@ -85,6 +92,10 @@ const columns = [
                             }}
                         </p>
                     </button>
+                </template>
+
+                <template #created_at="{ value }">
+                    <span class="text-[10px] text-gray-500 font-mono">{{ value }}</span>
                 </template>
 
                 <template #actions="{ row }">

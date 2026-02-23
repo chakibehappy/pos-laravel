@@ -20,11 +20,14 @@ class PosUser extends Model
         'role',
         'shift',
         'is_active',
-        'created_by'
+        'created_by',
+        'status',      // Tambahkan untuk Soft Delete manual
+        'deleted_at',  // Tambahkan untuk Soft Delete manual
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'deleted_at' => 'datetime', // Cast agar menjadi objek Carbon/Date
     ];
 
     /**

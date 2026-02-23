@@ -13,11 +13,16 @@ class CashStore extends Model
 
     protected $fillable = [
         'store_id',
-        'cash'
+        'cash',
+        'created_by',
     ];
 
     public function store()
     {
         return $this->belongsTo(Store::class);
+    }
+    public function creator()
+    {
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 }

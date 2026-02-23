@@ -13,11 +13,12 @@ const props = defineProps({
 
 const showForm = ref(false);
 
+// Menambahkan properti sortable: true pada kolom yang didukung oleh backend
 const columns = [
-    { label: 'Pelanggan & Unit', key: 'customer' },
-    { label: 'Sumber Dana', key: 'source' },
-    { label: 'Nominal Tarik', key: 'withdrawal_count' },
-    { label: 'Fee Admin', key: 'admin_fee' }
+    { label: 'Pelanggan & Unit', key: 'customer_name', sortable: true },
+    { label: 'Sumber Dana', key: 'withdrawal_source_id', sortable: true },
+    { label: 'Nominal Tarik', key: 'withdrawal_count', sortable: true },
+    { label: 'Fee Admin', key: 'admin_fee', sortable: true }
 ];
 
 const page = usePage();
@@ -49,7 +50,6 @@ const openEdit = (row) => {
 
 const submit = () => {
     if (form.id) {
-        // Ganti form.put menjadi form.patch
         form.patch(route('cash-withdrawals.update', form.id), {
             onSuccess: () => { 
                 showForm.value = false; 
@@ -157,18 +157,19 @@ const getSourceName = (id) => {
                 title="Riwayat Tarik Tunai"
                 :resource="withdrawals" 
                 :columns="columns"
+                :filters="filters"
                 :showAddButton="false" 
                 route-name="cash-withdrawals.index" 
                 :initial-search="filters?.search || ''"
             >
-                <template #customer="{ row }">
+                <template #customer_name="{ row }">
                     <div class="flex flex-col">
                         <span class="text-xs font-black uppercase italic tracking-tight text-blue-600">{{ row.customer_name }}</span>
                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{{ row.store?.name }}</span>
                     </div>
                 </template>
 
-                <template #source="{ row }">
+                <template #withdrawal_source_id="{ row }">
                     <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[9px] font-black uppercase">
                         {{ getSourceName(row.withdrawal_source_id) }}
                     </span>

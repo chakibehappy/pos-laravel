@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+
 // WAJIB: Import model-model terkait agar relasi tidak null
 use App\Models\TopupTransType;
 use App\Models\DigitalWallet;
@@ -22,16 +24,32 @@ class TopupFeeRule extends Model
         'max_limit',
         'fee',
         'admin_fee',
-        'created_by'
+        'created_by',
+        'status',      // 0 = Active, 2 = Deleted/Archived
+        'deleted_at'   // Timestamp penghapusan manual
     ];
 
     protected $casts = [
-        'min_limit' => 'double',
-        'max_limit' => 'double',
-        'fee'       => 'double',
-        'admin_fee' => 'double',
-        'created_by'=> 'integer',
+        'min_limit'  => 'double',
+        'max_limit'  => 'double',
+        'fee'        => 'double',
+        'admin_fee'  => 'double',
+        'created_by' => 'integer',
+        'status'     => 'integer',
+        'deleted_at' => 'datetime',
     ];
+
+    /**
+     * Boot function untuk Global Scope.
+     * Menggunakan prefix 'topup_fee_rules.' untuk menghindari error 'ambiguous column'.
+     * Konsisten dengan StoreProduct: Mengambil data yang statusnya BUKAN 2.
+     */
+    protected static function booted()
+    {
+        static::addGlobalScope('active', function (Builder $builder) {
+            $builder->where('topup_fee_rules.status', '!=', 2);
+        });
+    }
 
     /**
      * Relasi ke Tipe Transaksi.

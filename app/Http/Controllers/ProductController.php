@@ -12,25 +12,28 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use App\Helpers\ActivityLogger;
 
 class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        // Query standar tanpa join berat atau sinkronisasi massal
+        $sortField = $request->input('sort', 'updated_at');
+        $sortDirection = $request->input('direction', 'desc');
+
+        // Mengambil data dengan status 0 (Aktif)
         $products = Product::with(['category', 'store', 'unitType'])
+            ->where('status', 0) 
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('sku', 'like', "%{$search}%");
                 });
             })
-            // --- TAMBAHKAN LOGIKA INI ---
             ->when($request->category, function ($query, $categoryId) {
                 $query->where('product_category_id', $categoryId);
             })
-            // -
-            ->latest('updated_at')
+            ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
@@ -48,7 +51,7 @@ class ProductController extends Controller
                 'sku' => $product->sku,
                 'buying_price' => $product->buying_price,
                 'selling_price' => $product->selling_price,
-                'stock' => $product->stock, // Menampilkan nilai apa adanya dari database
+                'stock' => $product->stock,
                 'image_url' => $product->image ? asset('storage/' . $product->image) : null,
                 'created_at' => $product->updated_at->format('d/m/Y H:i'),
                 'created_by' => $posUser->name ?? 'System',
@@ -57,10 +60,10 @@ class ProductController extends Controller
 
         return Inertia::render('Products/Index', [
             'products' => $products,
-            'stores' => Store::all(['id', 'name']),
-            'categories' => ProductCategory::all(['id', 'name']),
+            'stores' => Store::where('status', 0)->get(['id', 'name']),
+            'categories' => ProductCategory::where('status', 0)->get(['id', 'name']),
             'unitTypes' => UnitType::all(['id', 'name']),
-            'filters' => $request->only(['search', 'category'])
+            'filters' => $request->only(['search', 'category', 'sort', 'direction'])
         ]);
     }
 
@@ -87,36 +90,20 @@ class ProductController extends Controller
                 'selling_price',
             ]);
 
+            // Set status ke 0 (Aktif) dan reset deleted_at
+            $data['status'] = 0;
+            $data['deleted_at'] = null;
+
             $product = $request->id ? Product::find($request->id) : null;
 
-            // Jika TAMBAH BARU
             if (!$product) {
                 $userEmail = auth()->user()->email;
                 $posUser = DB::table('pos_users')->where('username', $userEmail)->first();
                 if ($posUser) {
                     $data['created_by'] = $posUser->id;
                 }
-                // Set stok ke nilai default 0 agar tidak error database
                 $data['stock'] = 0; 
             }
-
-            // Upload Gambar
-            // if ($request->hasFile('image')) {
-            //     if ($product && $product->image) {
-            //         Storage::disk('public')->delete($product->image);
-            //     }
-
-            //     $file = $request->file('image');
-            //     $filename = time() . '_' . uniqid() . '.webp';
-            //     $manager = new ImageManager(new Driver());
-            //     $image = $manager->read($file);
-            //     $image->scale(width: 800);
-            //     $encoded = $image->toWebp(70);
-
-            //     $path = 'products/' . $filename;
-            //     Storage::disk('public')->put($path, (string) $encoded);
-            //     $data['image'] = $path;
-            // }
 
             if ($request->hasFile('image')) {
                 if ($product && $product->image) {
@@ -124,19 +111,11 @@ class ProductController extends Controller
                 }
 
                 $file = $request->file('image');
-                // 1. Change extension to .png
                 $filename = time() . '_' . uniqid() . '.png';
                 
                 $manager = new ImageManager(new Driver());
                 $image = $manager->read($file);
-                
-                // 2. Scale it down (800 is good for performance)
                 $image->scale(width: 800);
-                
-                // 3. Encode to PNG. 
-                // For Unity compatibility, standard PNG encoding is safest.
-                // Note: PNG is lossless, so there isn't a "quality 70" like WebP, 
-                // but Intervention handles the optimization.
                 $encoded = $image->toPng(); 
 
                 $path = 'products/' . $filename;
@@ -144,7 +123,19 @@ class ProductController extends Controller
                 $data['image'] = $path;
             }
 
-            Product::updateOrCreate(['id' => $request->id], $data);
+            $logType = $request->id ? 'update' : 'create';
+            $logDesc = ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $request->name;
+
+            $savedProduct = Product::updateOrCreate(['id' => $request->id], $data);
+
+            $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+            ActivityLogger::log(
+                $logType,
+                'products',
+                $savedProduct->id,
+                $logDesc,
+                $posUserAudit ? $posUserAudit->id : null
+            );
 
             return back()->with('message', 'Data berhasil diproses!');
 
@@ -156,10 +147,28 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
+
+        $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+        ActivityLogger::log(
+            'delete',
+            'products',
+            $id,
+            "Menghapus produk  : {$product->name}",
+            $posUserAudit ? $posUserAudit->id : null
+        );
+
+        // Opsional: Jika ingin gambar tetap ada saat diarsip, hapus bagian Storage::delete ini
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
+            $product->image = null;
         }
-        $product->delete();
-        return back()->with('message', 'Product deleted!');
+
+        //   Manual: Ubah status ke 2 DAN isi deleted_at
+        $product->update([
+            'status' => 2,
+            'deleted_at' => now()
+        ]);
+
+        return back()->with('message', 'Product archived!');
     }
 }

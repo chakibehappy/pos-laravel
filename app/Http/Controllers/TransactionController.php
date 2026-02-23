@@ -13,11 +13,13 @@ use App\Models\DigitalWalletStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger;
 
 class TransactionController extends Controller
 {
     public function index(Request $request)
     {
+        // 1. Inisialisasi Query dengan Prefix Tabel untuk menghindari Ambiguous Column
         $query = Transaction::with(['details.product', 'details.cashWithdrawal', 'details.topupTransaction'])
             ->join('stores', 'transactions.store_id', '=', 'stores.id')
             ->join('pos_users', 'transactions.pos_user_id', '=', 'pos_users.id')
@@ -29,17 +31,37 @@ class TransactionController extends Controller
                 'payment_methods.name as payment_name'
             );
 
+        // Tambahkan filter status spesifik ke tabel transactions
+        $query->where('transactions.status', 0);
+
+        // 2. Logic Pencarian dengan Prefix
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('stores.name', 'LIKE', "%{$request->search}%")
                     ->orWhere('pos_users.name', 'LIKE', "%{$request->search}%")
+                    ->orWhere('payment_methods.name', 'LIKE', "%{$request->search}%")
                     ->orWhere('transactions.id', 'LIKE', "%{$request->search}%");
             });
         }
 
+        // 3. Logic Dynamic Sorting
+        $sortField = $request->get('sort', 'transactions.transaction_at'); 
+        $sortDirection = $request->get('direction', 'desc'); 
+
+        $sortMapping = [
+            'transaction_at' => 'transactions.transaction_at',
+            'store_id'       => 'stores.name',
+            'pos_user_id'    => 'pos_users.name',
+            'payment_id'     => 'payment_methods.name',
+            'total'          => 'transactions.total'
+        ];
+
+        $orderColumn = $sortMapping[$sortField] ?? $sortField;
+        $query->orderBy($orderColumn, $sortDirection);
+
         return Inertia::render('Transactions/Index', [
-            'transactions' => $query->latest('transactions.created_at')->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search']),
+            'transactions' => $query->paginate(10)->withQueryString(),
+            'filters' => $request->only(['search', 'sort', 'direction']),
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
             'products' => Product::all(['id', 'name', 'selling_price as price']),
@@ -75,12 +97,30 @@ class TransactionController extends Controller
                     ->where('store_id', $transaction->store_id)
                     ->decrement('cash', $transaction->subtotal);
 
-                // 3. Hapus data
-                $transaction->details()->delete();
-                $transaction->delete();
+                // 3. Identifikasi Admin (PosUser ID) yang menghapus
+                $adminEmail = auth()->user()->email;
+                $matchPosUser = PosUser::where('username', $adminEmail)->first();
+                $adminPosUserId = $matchPosUser ? $matchPosUser->id : null;
+
+                // 4. Catat Activity Log
+                $storeName = Store::find($transaction->store_id)->name ?? 'Unknown Store';
+                ActivityLogger::log(
+                    'delete', 
+                    'transactions', 
+                    $id, 
+                    "Membatalkan & mengarsipkan transaksi Toko $storeName", 
+                    $adminPosUserId
+                );
+
+                // 5. Update Status & Admin Approved By (Menggunakan ID PosUser)
+                $transaction->update([
+                    'status' => 2,
+                    'deleted_at' => now(),
+                    'admin_approved_by' => $adminPosUserId
+                ]);
             });
 
-            return redirect()->back()->with('message', 'Transaksi berhasil dihapus dan aset telah dikembalikan.');
+            return redirect()->back()->with('message', 'Transaksi berhasil diarsipkan  .');
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['message' => 'Gagal menghapus: ' . $e->getMessage()]);
         }
@@ -103,7 +143,6 @@ class TransactionController extends Controller
         $matchPosUser = PosUser::where('username', $adminEmail)->first();
         $automatedCreatedBy = $matchPosUser ? $matchPosUser->id : $request->pos_user_id;
 
-        // Hitung ulang subtotal untuk keamanan (hanya produk & topup yang menambah kas masuk)
         $calcSubtotal = 0;
         foreach ($request->details as $item) {
             if ($item['type'] !== 'tarik_tunai') {
@@ -113,7 +152,7 @@ class TransactionController extends Controller
         $calcTotal = $calcSubtotal + ($request->tax ?? 0);
 
         try {
-            DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal) {
+            $transaction = DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal) {
                 $storeId = $request->store_id;
 
                 if ($id) {
@@ -133,6 +172,8 @@ class TransactionController extends Controller
                         'subtotal'       => $calcSubtotal,
                         'tax'            => $request->tax ?? 0,
                         'total'          => $calcTotal,
+                        'status'         => 0,
+                        'deleted_at'     => null
                     ]
                 );
 
@@ -145,7 +186,6 @@ class TransactionController extends Controller
                     $buyingPrice = 0;
                     $itemSubtotal = ($item['type'] === 'tarik_tunai') ? 0 : $item['subtotal'];
 
-                    // LOGIKA PRODUK
                     if ($item['type'] === 'produk') {
                         $productMaster = Product::find($item['product_id']);
                         if ($productMaster) $buyingPrice = $productMaster->buying_price;
@@ -155,18 +195,14 @@ class TransactionController extends Controller
                         $sp->decrement('stock', $item['quantity']);
                     }
 
-                    // LOGIKA TOPUP (PERBAIKAN DI SINI)
                     if ($item['type'] === 'topup') {
-                        // Ambil ID tipe dari meta (sesuai saran perbaikan Vue sebelumnya) atau fallback ke product_id
-                        $typeId = isset($item['meta']['topup_trans_type_id']) ? $item['meta']['topup_trans_type_id'] : $item['product_id'];
-
                         $topupTransId = DB::table('topup_transactions')->insertGetId([
                             'store_id'                => $storeId,
                             'digital_wallet_store_id' => $item['meta']['digital_wallet_store_id'],
                             'cust_account_number'     => $item['meta']['target'],
                             'nominal_request'         => $item['meta']['nominal_topup'],
                             'nominal_pay'             => $item['price'],
-                            'topup_trans_type_id'     => $typeId, // Menggunakan ID yang benar
+                            'topup_trans_type_id'     => $item['meta']['topup_trans_type_id'] ?? $item['product_id'],
                             'created_by'              => $automatedCreatedBy,
                             'created_at'              => $request->transaction_at,
                             'updated_at'              => now(),
@@ -174,7 +210,6 @@ class TransactionController extends Controller
                         DigitalWalletStore::where('id', $item['meta']['digital_wallet_store_id'])->decrement('balance', $item['meta']['nominal_topup']);
                     }
 
-                    // LOGIKA TARIK TUNAI
                     if ($item['type'] === 'tarik_tunai') {
                         $cashWithId = DB::table('cash_withdrawals')->insertGetId([
                             'store_id'             => $storeId,
@@ -200,7 +235,16 @@ class TransactionController extends Controller
                         'created_by'           => $automatedCreatedBy
                     ]);
                 }
+                return $transaction;
             });
+
+            ActivityLogger::log(
+                $id ? "update" : "create", 
+                'transactions', 
+                $transaction->id, 
+                ($id ? "Memperbarui" : "Mencatat") . " transaksi penjualan Toko: " . Store::find($request->store_id)->name, 
+                auth()->user()->posUser->id ?? null
+            );
 
             return redirect()->route('transactions.index')->with('message', 'Transaksi Berhasil Disimpan!');
         } catch (\Exception $e) {
@@ -211,14 +255,12 @@ class TransactionController extends Controller
     private function rollbackAssets($transaction)
     {
         foreach ($transaction->details as $detail) {
-            // 1. Rollback Stok
             if ($detail->product_id) {
                 StoreProduct::where('store_id', $transaction->store_id)
                     ->where('product_id', $detail->product_id)
                     ->increment('stock', $detail->quantity);
             }
 
-            // 2. Rollback Saldo Wallet (Topup)
             if ($detail->topup_transaction_id) {
                 $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
                 if ($topup) {
@@ -228,7 +270,6 @@ class TransactionController extends Controller
                 }
             }
 
-            // 3. Rollback Kas Toko (Tarik Tunai)
             if ($detail->cash_withdrawal_id) {
                 $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
                 if ($withdraw) {

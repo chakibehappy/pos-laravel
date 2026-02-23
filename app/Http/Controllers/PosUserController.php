@@ -7,14 +7,19 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use App\Helpers\ActivityLogger;
 
 class PosUserController extends Controller
 {
     public function index(Request $request)
     {
-        // Tetap menggunakan with('creator') agar relasi terbawa
-        $query = PosUser::with('creator')->where('role', '!=', 'developer');
+        // Filter status != 2 agar data yang di-  tidak muncul
+        $query = PosUser::with('creator')
+            ->where('role', '!=', 'developer')
+            ->where('status', '!=', 2);
 
+        // --- LOGIKA SEARCH ---
         if ($request->filled('search')) {
             $term = "%{$request->search}%";
             $query->where(function($q) use ($term) {
@@ -23,9 +28,18 @@ class PosUserController extends Controller
             });
         }
 
+        // --- LOGIKA SORTING DINAMIS ---
+        if ($request->filled('sort') && $request->filled('direction')) {
+            $sortField = $request->sort;
+            $direction = $request->direction === 'desc' ? 'desc' : 'asc';
+            $query->orderBy($sortField, $direction);
+        } else {
+            $query->latest();
+        }
+
         return Inertia::render('PosUser/Index', [
-            'resource' => $query->latest()->paginate(10)->withQueryString(),
-            'filters'  => $request->only(['search']),
+            'resource' => $query->paginate(10)->withQueryString(),
+            'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -47,42 +61,81 @@ class PosUserController extends Controller
         $data = $request->validate($rules);
 
         // --- LOGIKA IDENTIFIKASI PENGEDIT/PEMBUAT ---
-        // Cari ID pengguna POS berdasarkan email admin yang sedang login
         $adminEmail = Auth::user()->email;
         $currentUserPos = PosUser::where('username', $adminEmail)->first();
         $currentEditorId = $currentUserPos ? $currentUserPos->id : null;
 
-        if ($request->id) {
-            // --- PROSES UPDATE ---
-            $user = PosUser::findOrFail($request->id);
-            
-            if (empty($data['pin']) || $data['pin'] === '****') {
-                unset($data['pin']);
+        return DB::transaction(function () use ($request, $data, $currentEditorId) {
+            if ($request->id) {
+                // --- PROSES UPDATE ---
+                $user = PosUser::findOrFail($request->id);
+                
+                if (empty($data['pin']) || $data['pin'] === '****') {
+                    unset($data['pin']);
+                } else {
+                    $data['pin'] = Hash::make($data['pin']);
+                }
+
+                $data['created_by'] = $currentEditorId;
+                // Pastikan status kembali 0 jika sebelumnya terhapus tapi diupdate
+                $data['status'] = 0; 
+
+                $user->update($data);
+
+                ActivityLogger::log(
+                    'update',
+                    'pos_users',
+                    $user->id,
+                    "Memperbarui data user POS: {$user->name} (Username: {$user->username})",
+                    $currentEditorId
+                );
             } else {
-                $data['pin'] = Hash::make($data['pin']);
+                // --- PROSES CREATE ---
+                $data['pin']        = Hash::make($data['pin']);
+                $data['is_active']  = 1;
+                $data['status']     = 0; 
+                $data['created_by'] = $currentEditorId;
+                
+                $newUser = PosUser::create($data);
+
+                ActivityLogger::log(
+                    'create',
+                    'pos_users',
+                    $newUser->id,
+                    "Membuat user POS baru: {$newUser->name} sebagai {$newUser->role}",
+                    $currentEditorId
+                );
             }
 
-            // Update created_by dengan ID pengedit terakhir sesuai permintaan Anda
-            $data['created_by'] = $currentEditorId;
-
-            $user->update($data);
-        } else {
-            // --- PROSES CREATE ---
-            $data['pin']        = Hash::make($data['pin']);
-            $data['is_active']  = 1;
-            
-            // Isi created_by untuk user baru
-            $data['created_by'] = $currentEditorId;
-            
-            PosUser::create($data);
-        }
-
-        return back()->with('message', 'Data Berhasil Diperbarui!');
+            return back()->with('message', 'Data Berhasil Disimpan!');
+        });
     }
 
     public function destroy($id)
     {
-        PosUser::findOrFail($id)->delete();
-        return back()->with('message', 'User Berhasil Dihapus.');
+        return DB::transaction(function () use ($id) {
+            $user = PosUser::findOrFail($id);
+
+            // Identifikasi admin yang menghapus
+            $adminEmail = Auth::user()->email;
+            $currentUserPos = PosUser::where('username', $adminEmail)->first();
+            $currentEditorId = $currentUserPos ? $currentUserPos->id : null;
+
+            //   Manual
+            $user->status = 2;
+            $user->deleted_at = now();
+            $user->save();
+
+            // LOG ACTIVITY DELETE
+            ActivityLogger::log(
+                'delete',
+                'pos_users',
+                $id,
+                "Menghapus user POS: {$user->name}  ",
+                $currentEditorId
+            );
+
+            return back()->with('message', 'User Berhasil Dihapus.');
+        });
     }
 }

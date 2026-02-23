@@ -10,11 +10,12 @@ const props = defineProps({
     filters: Object 
 });
 
+// Konfigurasi kolom dengan properti sortable
 const columns = [
-    { label: 'Min Limit', key: 'min_limit' }, 
-    { label: 'Max Limit', key: 'max_limit' },
-    { label: 'Biaya (Fee)', key: 'fee' },
-    { label: 'Dibuat Oleh', key: 'creator' }
+    { label: 'Min Limit', key: 'min_limit', sortable: true }, 
+    { label: 'Max Limit', key: 'max_limit', sortable: true },
+    { label: 'Biaya (Fee)', key: 'fee', sortable: true },
+    { label: 'Dibuat Oleh', key: 'created_by', sortable: true }
 ];
 
 const search = ref(props.filters.search || '');
@@ -24,7 +25,11 @@ const errorMessage = ref('');
 watch(search, debounce((value) => {
     router.get(
         route('withdrawal-fee-rules.index'), 
-        { search: value }, 
+        { 
+            search: value,
+            sort: props.filters.sort,
+            direction: props.filters.direction
+        }, 
         { preserveState: true, replace: true }
     );
 }, 500));
@@ -57,7 +62,6 @@ const openEdit = (row) => {
 const submit = () => {
     errorMessage.value = '';
 
-    // Alert jika data kosong saat mencoba mengirim
     if (!form.min_limit || !form.max_limit || !form.fee) {
         errorMessage.value = "Semua kolom wajib diisi agar data dapat disimpan!";
         return;
@@ -72,7 +76,7 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('Apakah Anda yakin ingin menghapus aturan ini?')) {
+    if (confirm('Apakah Anda yakin ingin menghapus/mengarsipkan aturan ini?')) {
         router.delete(route('withdrawal-fee-rules.destroy', id));
     }
 };
@@ -86,45 +90,54 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
     <AuthenticatedLayout>
         <div class="p-8">
             
-            <div v-if="showForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+            <div v-if="showForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                    <h2 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                    <h2 class="text-xs font-black text-gray-700 uppercase tracking-widest">
                         {{ form.id ? '✏️ Edit Aturan Biaya' : '➕ Tambah Aturan Baru' }}
                     </h2>
-                    <button @click="showForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
+                    <button @click="showForm = false" class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-100 text-gray-400 hover:text-red-500 hover:shadow-sm transition-all">✕</button>
                 </div>
 
-                <div class="p-6">
-                    <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 animate-pulse">
+                <div class="p-8">
+                    <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-center gap-3 animate-pulse">
                         <span class="text-red-500 font-bold">⚠️</span>
-                        <p class="text-xs font-bold text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
+                        <p class="text-[10px] font-black text-red-700 uppercase tracking-tight">{{ errorMessage }}</p>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Min Limit</label>
-                            <input v-model="form.min_limit" type="number" 
-                                class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Minimal Limit</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">Rp</span>
+                                <input v-model="form.min_limit" type="number" 
+                                    class="w-full border border-gray-200 rounded-xl pl-10 p-3 text-sm font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" />
+                            </div>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Max Limit</label>
-                            <input v-model="form.max_limit" type="number" 
-                                class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Maksimal Limit</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">Rp</span>
+                                <input v-model="form.max_limit" type="number" 
+                                    class="w-full border border-gray-200 rounded-xl pl-10 p-3 text-sm font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" />
+                            </div>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Biaya (Fee)</label>
-                            <input v-model="form.fee" type="number" 
-                                class="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2.5 text-sm font-bold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Biaya (Fee)</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-xs font-bold">Rp</span>
+                                <input v-model="form.fee" type="number" 
+                                    class="w-full border border-blue-100 bg-blue-50/30 rounded-xl pl-10 p-3 text-sm font-black text-blue-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" />
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-8 flex gap-3 border-t border-gray-100 pt-6">
+                    <div class="mt-10 flex gap-3 border-t border-gray-50 pt-8">
                         <button @click="submit" :disabled="form.processing" 
-                            class="bg-blue-600 text-white px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm active:scale-95 disabled:opacity-50">
-                            {{ form.id ? 'Simpan Perubahan' : 'Simpan Aturan' }}
+                            class="bg-blue-600 text-white px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50">
+                            {{ form.processing ? 'Menyimpan...' : 'Simpan Data' }}
                         </button>
                         <button @click="showForm = false" 
-                            class="bg-white border border-gray-300 text-gray-600 px-8 py-2.5 rounded-lg text-xs font-bold uppercase hover:bg-gray-50 transition-all">
+                            class="bg-white border border-gray-200 text-gray-500 px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-gray-50 transition-all">
                             Batal
                         </button>
                     </div>
@@ -135,31 +148,40 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
                 title="Aturan Biaya Tarik Tunai"
                 :resource="resource" 
                 :columns="columns"
+                :filters="filters"
                 :showAddButton="!showForm"
                 routeName="withdrawal-fee-rules.index" 
                 :initialSearch="filters.search"
                 @on-add="openCreate" 
             >
                 <template #min_limit="{ value }">
-                    <span class="text-gray-500">Rp {{ formatCurrency(value) }}</span>
+                    <span class="text-gray-400 text-[11px] font-bold">Rp {{ formatCurrency(value) }}</span>
                 </template>
+                
                 <template #max_limit="{ value }">
-                    <span class="font-bold text-gray-800">Rp {{ formatCurrency(value) }}</span>
+                    <span class="font-black text-gray-800 text-[11px]">Rp {{ formatCurrency(value) }}</span>
                 </template>
+                
                 <template #fee="{ value }">
-                    <span class="text-blue-600 font-black">Rp {{ formatCurrency(value) }}</span>
+                    <div class="inline-flex items-center px-3 py-1 rounded-lg bg-blue-50 border border-blue-100">
+                        <span class="text-blue-600 font-black text-[11px]">Rp {{ formatCurrency(value) }}</span>
+                    </div>
                 </template>
 
-                <template #creator="{ row }">
-                    <span class="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-600">
-                        👤 {{ row.creator?.name || 'SYSTEM' }}
+                <template #created_by="{ row }">
+                    <span class="text-[10px] font-black uppercase tracking-tighter text-gray-500 italic">
+                        BY {{ row.creator?.name || 'SYSTEM' }}
                     </span>
                 </template>
 
                 <template #actions="{ row }">
-                    <div class="flex flex-row gap-4 justify-end">
-                        <button @click="openEdit(row)" class="text-gray-400 hover:text-blue-600 transition-colors" title="Edit">✏️</button>
-                        <button @click="destroy(row.id)" class="text-gray-400 hover:text-red-600 transition-colors" title="Hapus">❌</button>
+                    <div class="flex flex-row gap-5 justify-end items-center px-2">
+                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-all transform hover:scale-125" title="Edit">
+                            ✏️
+                        </button>
+                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-all transform hover:scale-125" title="Hapus">
+                            ❌
+                        </button>
                     </div>
                 </template>
             </DataTable>

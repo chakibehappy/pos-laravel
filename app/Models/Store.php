@@ -12,9 +12,16 @@ class Store extends Model
 {
     /**
      * Kolom yang bisa diisi secara mass-assignment.
-     * Berdasarkan gambar database: account_id, name, keyname, password, store_type_id, address, created_by.
+     * Menggunakan guarded kosong sesuai preferensi Anda.
      */
     protected $guarded = [];
+
+    /**
+     * Casting kolom ke tipe data tertentu.
+     */
+    protected $casts = [
+        'deleted_at' => 'datetime', // Cast agar menjadi objek Carbon/Date
+    ];
 
     /**
      * Boot function untuk menangani logika otomatis sebelum data disimpan.
@@ -32,6 +39,11 @@ class Store extends Model
             // Set default password jika database mewajibkan namun tidak diisi di form
             if (empty($store->password)) {
                 $store->password = bcrypt('password123'); 
+            }
+
+            // Pastikan status default adalah 0 saat membuat toko baru
+            if (!isset($store->status)) {
+                $store->status = 0;
             }
         });
     }
@@ -66,5 +78,13 @@ class Store extends Model
     public function operators(): BelongsToMany
     {
         return $this->belongsToMany(PosUser::class, 'pos_user_store', 'store_id', 'pos_user_id');
+    }
+
+    /**
+     * Relasi ke pembuat toko (admin).
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(PosUser::class, 'created_by');
     }
 }

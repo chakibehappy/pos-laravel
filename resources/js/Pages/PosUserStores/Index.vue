@@ -16,7 +16,7 @@ const props = defineProps({
 const showForm = ref(false);
 const errorMessage = ref('');
 
-
+// --- FILTERING LOGIC ---
 const selectedStore = ref(props.filters?.store_id || '');
 const selectedStoreType = ref(props.filters?.store_type_id || '');
 
@@ -33,6 +33,7 @@ watch([selectedStore, selectedStoreType], ([newStore, newType]) => {
     });
 });
 
+// --- FORM LOGIC ---
 const form = useForm({
     id: null,
     pos_user_id: '',
@@ -72,14 +73,18 @@ const submit = () => {
             form.reset();
         },
         onError: (errors) => {
-            errorMessage.value = errors.pos_user_id || errors.store_id || "Gagal menyimpan data.";
+            // Menampilkan error dari backend (termasuk validasi duplikasi akses)
+            errorMessage.value = Object.values(errors)[0] || "Gagal menyimpan data.";
         }
     });
 };
 
 const destroy = (id) => {
-    if (confirm('Cabut akses user ini dari toko?')) {
-        router.delete(route('pos-user-stores.destroy', id));
+    // Sesuai sistem soft delete, ini hanya akan mengubah status menjadi 2 di backend
+    if (confirm('Cabut akses user ini dari toko? (Data akan diarsipkan)')) {
+        router.delete(route('pos-user-stores.destroy', id), {
+            preserveScroll: true
+        });
     }
 };
 
@@ -112,6 +117,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                         <div class="flex flex-col gap-1">
                             <SearchableSelect 
                                 label="Unit Toko Tujuan"
+                                v-slot:default
                                 v-model="form.store_id"
                                 :options="stores"
                                 placeholder="Cari atau pilih unit toko..."
@@ -145,13 +151,14 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 title="Pegawai Toko"
                 :resource="resource" 
                 :columns="[
-                    { label: 'Unit Toko', key: 'store_name' }, 
-                    { label: 'Nama User', key: 'pos_user_name' }, 
-                    { label: 'Tanggal', key: 'created_at' }, 
-                    { label: 'Diberikan Oleh', key: 'creator_name' }
+                    { label: 'Unit Toko', key: 'store_name', sortable: true }, 
+                    { label: 'Nama User', key: 'pos_user_name', sortable: true }, 
+                    { label: 'Tanggal', key: 'created_at', sortable: true }, 
+                    { label: 'Diberikan Oleh', key: 'creator_name', sortable: true }
                 ]"
                 route-name="pos-user-stores.index" 
                 :initialSearch="filters?.search || ''"
+                :filters="filters"
                 :showAddButton="!showForm"
                 @on-add="openCreate"
             >
@@ -178,12 +185,12 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 
                 <template #store_name="{ row }">
                     <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-blue-100 shadow-sm">
-                        {{ row.pos_user?.role == 'admin' ? 'ALL STORES' : row.store?.name }}
+                        {{ row.pos_user?.role == 'admin' ? 'ALL STORES' : (row.store?.name || 'STORE NOT FOUND') }}
                     </span>
                 </template>
 
                 <template #pos_user_name="{ row }">
-                    <span class="font-bold text-gray-800 uppercase text-xs tracking-tight italic">{{ row.pos_user?.name }}</span>
+                    <span class="font-bold text-gray-800 uppercase text-xs tracking-tight italic">{{ row.pos_user?.name || 'USER NOT FOUND' }}</span>
                 </template>
 
                 <template #created_at="{ row }">
@@ -197,9 +204,9 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                 </template>
 
                 <template #actions="{ row }">
-                    <div class="flex flex-row gap-4 justify-end">
-                        <button @click="openEdit(row)" title="Edit" class="text-gray-400 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
-                        <button @click="destroy(row.id)" title="Hapus" class="text-gray-400 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
+                    <div class="flex flex-row gap-4 justify-end items-center mr-2">
+                        <button @click="openEdit(row)" title="Edit" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
+                        <button @click="destroy(row.id)" title="Hapus" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
                     </div>
                 </template>
             </DataTable>

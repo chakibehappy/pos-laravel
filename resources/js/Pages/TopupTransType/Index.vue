@@ -10,11 +10,11 @@ const props = defineProps({
     filters: Object 
 });
 
-// Definisi kolom tabel - Dibuat Oleh diletakkan SETELAH Tanggal
+// Definisi kolom tabel dengan fitur sortable: true
 const columns = [
-    { label: 'Nama Layanan', key: 'name' }, 
-    { label: 'Kategori (Type)', key: 'type' },
-    { label: 'Tanggal', key: 'created_at' },
+    { label: 'Nama Layanan', key: 'name', sortable: true }, 
+    { label: 'Kategori (Type)', key: 'type', sortable: true },
+    { label: 'Tanggal', key: 'created_at', sortable: true },
     { label: 'Dibuat Oleh', key: 'creator' }, 
 ];
 
@@ -56,6 +56,7 @@ const openEdit = (row) => {
     errorMessage.value = '';
     form.clearErrors();
     form.id = row.id;
+    // Load data ke singleEntry untuk diedit
     singleEntry.value = {
         name: row.name,
         type: row.type
@@ -92,6 +93,7 @@ const submit = () => {
     errorMessage.value = '';
 
     if (isEditMode.value) {
+        // Pindahkan data dari singleEntry ke root form untuk update single row
         form.name = singleEntry.value.name;
         form.type = singleEntry.value.type;
         
@@ -119,8 +121,14 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
-        router.delete(route('topup-trans-types.destroy', id));
+    // Pesan disesuaikan dengan sistem pengarsipan/soft delete manual
+    if (confirm('Arsip tipe transaksi ini? Data tidak akan muncul di aplikasi namun tetap tersimpan di database.')) {
+        router.delete(route('topup-trans-types.destroy', id), {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (errors.error) alert(errors.error);
+            }
+        });
     }
 };
 
@@ -155,7 +163,7 @@ const formatDate = (dateString) => {
                     <div :class="isEditMode ? 'p-8 grid grid-cols-1 md:grid-cols-2 gap-6' : 'grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200'">
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nama Layanan</label>
-                            <input v-model="singleEntry.name" type="text" placeholder="MASUKKAN NAMA..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase" />
+                            <input v-model="singleEntry.name" type="text" placeholder="MASUKKAN NAMA..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase" @keyup.enter="isEditMode ? submit() : addToBatch()" />
                         </div>
 
                         <div class="flex flex-col gap-1">
@@ -217,8 +225,13 @@ const formatDate = (dateString) => {
 
             <DataTable 
                 title="Master Tipe Transaksi"
-                :resource="data" :columns="columns" :showAddButton="!showForm"
-                routeName="topup-trans-types.index" :initialSearch="filters.search" @on-add="openCreate" 
+                :resource="data" 
+                :columns="columns" 
+                :showAddButton="!showForm"
+                routeName="topup-trans-types.index" 
+                :filters="filters"
+                :initialSearch="filters.search" 
+                @on-add="openCreate" 
             >
                 <template #name="{ row }">
                     <span class="font-bold text-gray-800 uppercase italic">{{ row.name }}</span>
@@ -248,8 +261,8 @@ const formatDate = (dateString) => {
 
                 <template #actions="{ row }">
                     <div class="flex flex-row gap-4 justify-end items-center">
-                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
-                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
+                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125" title="Edit">✏️</button>
+                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125" title="Arsip">❌</button>
                     </div>
                 </template>
             </DataTable>

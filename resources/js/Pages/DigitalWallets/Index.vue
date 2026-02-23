@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { useForm, Head } from '@inertiajs/vue3';
+import { useForm, Head, router } from '@inertiajs/vue3'; // Tambahkan router untuk navigasi delete
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 
@@ -45,10 +45,22 @@ const submit = () => {
 };
 
 const destroy = (id) => {
-    if (confirm('Hapus master platform ini?')) {
-        form.delete(route('digital-wallets.destroy', id));
+    // Pesan konfirmasi disesuaikan menjadi "Arsip" agar konsisten dengan logika backend
+    if (confirm('Arsip master platform ini? Data tidak akan muncul di aplikasi namun tetap tersimpan di database.')) {
+        router.delete(route('digital-wallets.destroy', id), {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (errors.error) alert(errors.error);
+            }
+        });
     }
 };
+
+// Konfigurasi Kolom dengan Sorting diaktifkan
+const columns = [
+    { label: 'ID', key: 'id', sortable: true }, 
+    { label: 'Nama Platform', key: 'name', sortable: true }
+];
 </script>
 
 <template>
@@ -76,6 +88,7 @@ const destroy = (id) => {
                                 placeholder="MISAL: DANA, OVO, GOPAY..."
                                 required
                             />
+                            <span v-if="form.errors.name" class="text-red-500 text-[10px] font-black uppercase mt-2 not-italic">{{ form.errors.name }}</span>
                         </div>
                     </div>
 
@@ -93,21 +106,19 @@ const destroy = (id) => {
             <DataTable 
                 title="Master Digital Wallet"
                 :resource="resource" 
-                :columns="[
-                    { label: 'ID', key: 'id' }, 
-                    { label: 'Nama Platform', key: 'name' }
-                ]"
+                :columns="columns"
                 routeName="digital-wallets.index" 
+                :filters="filters"
                 :initialSearch="filters?.search || ''"
                 :showAddButton="!showCreateForm"
                 @on-add="openCreate"
             >
-                <template #id="{ row }">
-                    <span class="font-mono text-xs font-bold text-gray-400">#{{ row.id }}</span>
+                <template #id="{ value }">
+                    <span class="font-mono text-xs font-bold text-gray-400">#{{ value }}</span>
                 </template>
 
-                <template #name="{ row }">
-                    <span class="font-black uppercase tracking-tight italic text-lg text-black">{{ row.name }}</span>
+                <template #name="{ value }">
+                    <span class="font-black uppercase tracking-tight italic text-lg text-black">{{ value }}</span>
                 </template>
 
                 <template #actions="{ row }">
@@ -138,7 +149,7 @@ const destroy = (id) => {
                             class="border border-gray-300 rounded-lg p-4 font-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase bg-gray-50/50 transition-all text-lg"
                             required
                         />
-                        <span v-if="form.errors.name" class="text-red-500 text-[10px] font-black uppercase mt-2 not-italic italic">{{ form.errors.name }}</span>
+                        <span v-if="form.errors.name" class="text-red-500 text-[10px] font-black uppercase mt-2 not-italic">{{ form.errors.name }}</span>
                     </div>
 
                     <div class="flex flex-col gap-3 pt-8">
@@ -152,6 +163,5 @@ const destroy = (id) => {
                 </form>
             </div>
         </div>
-
     </AuthenticatedLayout>
 </template>

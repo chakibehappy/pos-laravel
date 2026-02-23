@@ -7,58 +7,72 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger;
 
 class PaymentMethodController extends Controller
 {
+    /**
+     * Menampilkan data dengan Search dan Dynamic Sorting.
+     */
     public function index(Request $request)
     {
-        // Mendukung fitur search dan eager load relasi creator dari pos_users
-        $query = PaymentMethod::query()
-            ->with(['creator'])
-            ->latest();
+        $sortField = $request->input('sort', 'created_at'); 
+        $sortDirection = $request->input('direction', 'desc'); 
 
-        if ($request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
-        }
+        $methods = PaymentMethod::query()
+            ->with(['creator'])
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', '%' . $search . '%');
+            })
+            ->orderBy($sortField, $sortDirection)
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('PaymentMethods/Index', [
-            'methods' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search'])
+            'methods' => $methods,
+            'filters' => $request->only(['search', 'sort', 'direction'])
         ]);
     }
 
     /**
-     * Logika Private: Mapping User Admin ke ID PosUser sesuai skema yang Anda minta.
+     * Logika Private: Mapping User Admin ke ID PosUser.
      */
     private function getPosUserId()
     {
-        // 1. Ambil email admin yang sedang login dari tabel 'users'
         $adminEmail = Auth::user()->email;
-
-        // 2. Cari di tabel 'pos_users' yang username-nya sama dengan email admin
         $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-
-        // 3. Kembalikan ID dari pos_users jika ketemu
         return $posUser ? $posUser->id : null;
     }
 
+    /**
+     * Simpan atau Update data.
+     */
     public function store(Request $request)
     {
-        // Dapatkan ID pos_users berdasarkan email login
         $posUserId = $this->getPosUserId();
 
-        // 1. Logic untuk MODE EDIT
         if ($request->id) {
             $request->validate([
                 'name' => 'required|string|max:255|unique:payment_methods,name,' . $request->id,
             ]);
 
-            PaymentMethod::where('id', $request->id)->update([
+            $method = PaymentMethod::findOrFail($request->id);
+            
+            $method->update([
                 'name'       => $request->name,
-                'created_by' => $posUserId // Update pengedit terakhir
+                'created_by' => $posUserId,
+                'status'     => 0,
+                'deleted_at' => null
             ]);
+
+            ActivityLogger::log(
+                'update',
+                'payment_methods',
+                $method->id,
+                "Memperbarui metode pembayaran: {$request->name}",
+                $posUserId
+            );
         } 
-        // 2. Logic untuk MODE CREATE (Batch Antrian)
         else {
             $request->validate([
                 'items' => 'required|array|min:1',
@@ -69,22 +83,54 @@ class PaymentMethodController extends Controller
 
             DB::transaction(function () use ($request, $posUserId) {
                 foreach ($request->items as $item) {
-                    PaymentMethod::create([
+                    $newMethod = PaymentMethod::create([
                         'name'       => $item['name'],
-                        'created_by' => $posUserId // Mengisi created_by dengan ID pos_users
+                        'created_by' => $posUserId,
+                        'status'     => 0
                     ]);
+
+                    ActivityLogger::log(
+                        'create',
+                        'payment_methods',
+                        $newMethod->id,
+                        "Menambah metode pembayaran baru: {$newMethod->name}",
+                        $posUserId
+                    );
                 }
             });
         }
 
-        return redirect()->back()->with('success', 'Data berhasil diproses!');
+        return redirect()->back()->with('message', 'Data berhasil diproses!');
     }
 
+    /**
+     * Hapus Data (Manual   tanpa proteksi relasi).
+     */
     public function destroy($id)
     {
-        $method = PaymentMethod::findOrFail($id);
-        $method->delete();
+        try {
+            $method = PaymentMethod::findOrFail($id);
+            $posUserId = $this->getPosUserId();
 
-        return redirect()->back()->with('success', 'Metode pembayaran berhasil dihapus!');
+            // Proteksi Relasi Transaksi Dihapus sesuai permintaan
+            // Data tetap diupdate ke status 2  
+            $method->update([
+                'status' => 2,
+                'deleted_at' => now()
+            ]);
+
+            ActivityLogger::log(
+                'delete',
+                'payment_methods',
+                $id,
+                "Mengarsipkan metode pembayaran: {$method->name}",
+                $posUserId
+            );
+
+            return redirect()->back()->with('message', 'Metode pembayaran berhasil diarsipkan!');
+        } catch (\Exception $e) {
+            // Mengembalikan pesan error teknis jika terjadi kegagalan sistem
+            return back()->withErrors(['error' => 'Gagal mengarsipkan data: ' . $e->getMessage()]);
+        }
     }
 }

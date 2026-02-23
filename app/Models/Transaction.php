@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Transaction extends Model
 {
+    protected $table = 'transactions';
+
     protected $fillable = [
         'store_id',
         'pos_user_id',
@@ -16,12 +19,33 @@ class Transaction extends Model
         'subtotal',
         'tax',
         'total',
-        'status',
+        'status',              // 0 = Active, 2 = Deleted/Archived
         'delete_requested_by',
         'delete_reason',
         'admin_approved_by',
         'deleted_at'
     ];
+
+    /**
+     * Casting kolom ke tipe data tertentu.
+     */
+    protected $casts = [
+        'deleted_at' => 'datetime',
+        'transaction_at' => 'datetime',
+        'status' => 'integer',
+    ];
+
+    /**
+     * Boot function untuk Global Scope.
+     * Menggunakan prefix 'transactions.' untuk menghindari error 'ambiguous column' saat Join.
+     */
+    protected static function booted()
+    {
+        static::addGlobalScope('active', function (Builder $builder) {
+            // Perbaikan: Menambahkan nama tabel secara spesifik
+            $builder->where('transactions.status', 0);
+        });
+    }
 
     /**
      * Relasi ke Toko
@@ -40,9 +64,7 @@ class Transaction extends Model
     }
 
     /**
-     * Relasi untuk mengambil nama pengaju hapus (ID 66)
-     * Kita tambahkan 'delete_requested_by' sebagai foreign key 
-     * dan 'id' sebagai owner key agar pencocokan data lebih akurat.
+     * Relasi untuk mengambil nama pengaju hapus
      */
     public function requester(): BelongsTo
     {
@@ -66,7 +88,7 @@ class Transaction extends Model
     }
 
     /**
-     * Relasi ke Admin yang menyetujui
+     * Relasi ke Admin yang menyetujui (Tabel users admin)
      */
     public function approver(): BelongsTo
     {
