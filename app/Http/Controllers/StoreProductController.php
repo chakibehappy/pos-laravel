@@ -81,9 +81,9 @@ class StoreProductController extends Controller
 
         return Inertia::render('StoreProducts/Index', [
             'stocks' => $query->paginate(10)->withQueryString(),
-            'stores' => Store::where('status', '!=', 2)->get(['id', 'name', 'store_type_id']),
+            'stores' => Store::where('stores.status', '!=', 2)->get(['id', 'name', 'store_type_id']),
             'storeTypes' => StoreType::all(['id', 'name']),
-            'products' => Product::where('status', '!=', 2)->get(['id', 'name', 'sku', 'buying_price']),
+            'products' => Product::where('products.status', '!=', 2)->get(['id', 'name', 'sku', 'buying_price']),
             'categories' => ProductCategory::all(['id', 'name']),
             'filters' => $request->only(['search', 'store_id', 'store_type_id', 'product_category_id', 'sort', 'direction']),
         ]);
