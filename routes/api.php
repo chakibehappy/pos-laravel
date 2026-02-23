@@ -67,7 +67,14 @@ Route::post('/pos-user-login', function (Request $request) {
     if (!$user || !Hash::check($request->pin, $user->pin)) {
         return response()->json(['message' => 'Invalid POS user credentials'], 401);
     }
-
+    
+    ActivityLogger::log(
+        'login', 
+        'stores', 
+        $request->store_id, 
+        'Login Aplikasi POS '. $request->store_name, 
+        $request->pos_user_id
+    );
     $token = $user->createToken($request->device_name)->plainTextToken;
 
     return response()->json([
@@ -333,9 +340,17 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
 
         $transaction->update([
             'status' => 1,
-            'delete_requested_by' => $request->user()->id,
+            'delete_requested_by' => $posUser->id,
             'delete_reason' => $request->reason,
         ]);
+        
+        ActivityLogger::log(
+            'login', 
+            'stores', 
+            $request->store_id, 
+            'Request hapus penjualan '. $request->store_name, 
+            $posUser->id
+        );
 
         return response()->json([
             'message' => 'Delete request submitted successfully.',
