@@ -379,3 +379,94 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
         ]);
     }
 );
+
+Route::middleware('auth:sanctum')->get('/get-expenses', function (Request $request) {
+
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id'
+    ]);
+
+    $storeId = $request->store_id;
+    $timezone = 'Asia/Jakarta';
+
+    $startDate = Carbon::now($timezone)->subDay()->startOfDay(); // yesterday 00:00
+    $endDate   = Carbon::now($timezone)->endOfDay();             // today 23:59
+
+    $expenses = DB::table('expense_transactions')
+        ->leftJoin('pos_users', 'expense_transactions.pos_user_id', '=', 'pos_users.id')
+        ->where('expense_transactions.store_id', $storeId)
+        ->where('expense_transactions.status', 0)
+        ->whereBetween('expense_transactions.transaction_at', [$startOfDay, $endOfDay])
+        ->orderBy('expense_transactions.transaction_at', 'desc')
+        ->select(
+            'expense_transactions.*',
+            'pos_users.name as pos_user_name',
+            'pos_users.username as pos_user_username'
+        )
+        ->get();
+
+    return response()->json([
+        'expenses'  => $expenses,
+    ]);
+});
+
+Route::middleware('auth:sanctum')->post('/expenses', function (Request $request) {
+
+    $request->validate([
+        'store_id'       => 'required|integer|exists:stores,id',
+        'amount'         => 'required|numeric|min:1',
+        'description'    => 'required|string',
+        'transaction_at' => 'required|date',
+        'image'          => 'nullable|string',
+    ]);
+
+    $posUser = $request->user();
+
+    DB::beginTransaction();
+
+    try {
+        $expenseId = DB::table('expense_transactions')->insertGetId([
+            'store_id'       => $request->store_id,
+            'pos_user_id'    => $posUser->id,
+            'amount'         => $request->amount,
+            'description'    => $request->description,
+            'image'          => $request->image,
+            'transaction_at' => $request->transaction_at,
+            'status'         => 0,
+            'created_by'     => $posUser->id,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        // Decrease physical store cash
+        CashStore::where('store_id', $request->store_id)
+            ->decrement('cash', $request->amount);
+
+        // Insert into cash_flow
+        DB::table('cash_flow')->insert([
+            'store_id'        => $request->store_id,
+            'created_by'      => $posUser->id,
+            'value'           => -1 * $request->amount, // money out
+            'transaction_type'=> 'expense',
+            'reference_id'    => $expenseId,
+            'reference_type'  => 'expense_transactions',
+            'created_at'      => now(),
+        ]);
+
+        DB::commit();
+
+        return response()->json([
+            'message'    => 'Expense created successfully',
+            'expense_id' => $expenseId,
+        ], 201);
+
+    } catch (\Throwable $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'message' => 'Failed to create expense',
+            'error'   => $e->getMessage()
+        ], 500);
+    }
+});
