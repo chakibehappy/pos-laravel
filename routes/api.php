@@ -396,7 +396,7 @@ Route::middleware('auth:sanctum')->get('/get-expenses', function (Request $reque
         ->leftJoin('pos_users', 'expense_transactions.pos_user_id', '=', 'pos_users.id')
         ->where('expense_transactions.store_id', $storeId)
         ->where('expense_transactions.status', 0)
-        ->whereBetween('expense_transactions.transaction_at', [$startOfDay, $endOfDay])
+        ->whereBetween('expense_transactions.transaction_at', [$startDate, $endDate])
         ->orderBy('expense_transactions.transaction_at', 'desc')
         ->select(
             'expense_transactions.*',
