@@ -458,7 +458,7 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'create', 
             'expense_transactions', 
             $expenseId, 
-            'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $$request->description . ' sejumlah Rp.' . $request->amount, 
+            'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $request->description . ' sejumlah Rp.' . $request->amount, 
             $posUser->id
         );
 
