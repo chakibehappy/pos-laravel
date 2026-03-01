@@ -445,7 +445,7 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
         DB::table('cash_flow')->insert([
             'store_id'        => $request->store_id,
             'created_by'      => $posUser->id,
-            'value'           => -1 * $request->amount, // money out
+            'amount'           => -1 * $request->amount, // money out
             'transaction_type'=> 'expense',
             'reference_id'    => $expenseId,
             'reference_type'  => 'expense_transactions',
