@@ -416,7 +416,6 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
         'store_id'       => 'required|integer|exists:stores,id',
         'amount'         => 'required|numeric|min:1',
         'description'    => 'required|string',
-        'transaction_at' => 'required|date',
         'image'          => 'nullable|string',
     ]);
 
@@ -431,7 +430,7 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'amount'         => $request->amount,
             'description'    => $request->description,
             'image'          => $request->image,
-            'transaction_at' => $request->transaction_at,
+            'transaction_at' => now(),
             'status'         => 0,
             'created_by'     => $posUser->id,
             'created_at'     => now(),
@@ -452,8 +451,16 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'reference_type'  => 'expense_transactions',
             'created_at'      => now(),
         ]);
-
+        
         DB::commit();
+
+        ActivityLogger::log(
+            'create', 
+            'expense_transactions', 
+            $expenseId, 
+            'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $$request->description . ' sejumlah Rp.' . $request->amount, 
+            $posUser->id
+        );
 
         return response()->json([
             'message'    => 'Expense created successfully',
