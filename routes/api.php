@@ -176,6 +176,15 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             'total'          => $request->total,
         ]);
 
+        
+        ActivityLogger::log(
+            'create', 
+            'transactions', 
+            $transaction->id, 
+            'Menambah transaksi penjualan sejumlah Rp.' . $request->total, 
+            $posUser->id
+        );
+
         // Create Transaction Items
         foreach ($request->items as $item) {
             $topupId = null;
@@ -267,6 +276,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->increment('cash', $lineSubtotal);
             }
         }
+
 
         DB::commit();
 
@@ -486,7 +496,7 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
         );
 
         DB::commit();
-        
+
         return response()->json([
             'message'    => 'Expense created successfully',
             'expense_id' => $expenseId,
