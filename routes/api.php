@@ -143,9 +143,29 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
     $posUser = $request->user();
 
-    DB::beginTransaction();
-
     try {
+        // ---  DUPLICATE CHECK (BYPASS LOGIC) ---
+        $requestedTime = \Carbon\Carbon::parse($request->transaction_at);
+        
+        $duplicate = Transaction::where('store_id', $request->store_id)
+            ->where('total', $request->total)
+            ->whereBetween('transaction_at', [
+                $requestedTime->copy()->subSeconds(10), 
+                $requestedTime->copy()->addSeconds(10)
+            ])
+            ->first();
+
+        if ($duplicate) {
+            return response()->json([
+                'message' => 'Transaction already processed (Duplicate skipped)',
+                'transaction_id' => $duplicate->id,
+                'updatedData' => PosHelper::getPosData($request->store_id),
+            ], 200); 
+        }
+
+        // --- START ACTUAL PROCESSING ---
+        DB::beginTransaction();
+
         // Create Transaction Header
         $transaction = Transaction::create([
             'store_id'       => $request->store_id,
@@ -161,6 +181,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             $topupId = null;
             $withdrawalId = null;
             $productId = null;
+            
             if($item['product_id'] > 0){
                 $productId = $item['product_id'];
             }
@@ -176,8 +197,8 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     'nominal_pay'             => $topupData['nominal_pay'],
                     'digital_wallet_store_id' => $topupData['digital_wallet_store_id'],
                     'topup_trans_type_id'     => $topupData['topup_trans_type_id'],
-                    'profit_fee'              => $topupData['profit_fee'],
-                    'provider_fee'            => $topupData['provider_fee'],
+                    'profit_fee'               => $topupData['profit_fee'],
+                    'provider_fee'             => $topupData['provider_fee'],
                 ]);
                 
                 $topupId = $topup->id;
@@ -213,11 +234,12 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     'customer_name'        => $wdData['customer_name'],
                     'withdrawal_source_id' => $wdData['withdrawal_source_id'],
                     'withdrawal_count'     => $wdData['withdrawal_count'],
-                    // 'admin_fee'            => $wdData['admin_fee'] ?? 0,
                     'admin_fee'            => $adminFee,
                 ]);
+
                 $withdrawalId = $withdrawal->id;
                 $nominal = $amount - $adminFee;
+
                 // Decrement the physical store cash balance
                 CashStore::where('store_id', $request->store_id)
                     ->decrement('cash', $nominal);
@@ -247,6 +269,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         }
 
         DB::commit();
+
         // Fetch FRESH data to sync Unity UI immediately
         $updatedData = PosHelper::getPosData($request->store_id);
         
@@ -257,7 +280,9 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         ], 201);
 
     } catch (\Throwable $e) {
-        DB::rollBack();
+        if (DB::transactionLevel() > 0) {
+            DB::rollBack();
+        }
 
         return response()->json([
             'message' => 'Transaction failed',
@@ -452,8 +477,6 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'created_at'      => now(),
         ]);
         
-        DB::commit();
-
         ActivityLogger::log(
             'create', 
             'expense_transactions', 
@@ -462,6 +485,8 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             $posUser->id
         );
 
+        DB::commit();
+        
         return response()->json([
             'message'    => 'Expense created successfully',
             'expense_id' => $expenseId,
