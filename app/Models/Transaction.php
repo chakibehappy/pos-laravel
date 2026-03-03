@@ -39,13 +39,13 @@ class Transaction extends Model
      * Boot function untuk Global Scope.
      * Menggunakan prefix 'transactions.' untuk menghindari error 'ambiguous column' saat Join.
      */
-    protected static function booted()
-    {
-        static::addGlobalScope('active', function (Builder $builder) {
-            // Perbaikan: Menambahkan nama tabel secara spesifik
-            $builder->where('transactions.status', 0);
-        });
-    }
+    // protected static function booted()
+    // {
+    //     static::addGlobalScope('active', function (Builder $builder) {
+    //         // Perbaikan: Menambahkan nama tabel secara spesifik
+    //         $builder->where('transactions.status', 0);
+    //     });
+    // }
 
     /**
      * Relasi ke Toko

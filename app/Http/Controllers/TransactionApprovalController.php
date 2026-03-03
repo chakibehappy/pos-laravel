@@ -33,17 +33,17 @@ class TransactionApprovalController extends Controller
         // 3. Query dengan filter dan sorting
         $requests = Transaction::with(['store', 'posUser', 'details', 'requester'])
             ->where('transactions.status', 1) // Hanya yang berstatus "Request Delete"
-            // ->when($search, function ($query, $search) {
-            //     $query->where(function($q) use ($search) {
-            //         $q->where('delete_reason', 'like', "%{$search}%")
-            //           ->orWhereHas('store', function ($sq) use ($search) {
-            //               $sq->where('name', 'like', "%{$search}%");
-            //           })
-            //           ->orWhereHas('requester', function ($sq) use ($search) {
-            //               $sq->where('name', 'like', "%{$search}%");
-            //           });
-            //     });
-            // })
+            ->when($search, function ($query, $search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('delete_reason', 'like', "%{$search}%")
+                      ->orWhereHas('store', function ($sq) use ($search) {
+                          $sq->where('name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('requester', function ($sq) use ($search) {
+                          $sq->where('name', 'like', "%{$search}%");
+                      });
+                });
+            })
             ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
