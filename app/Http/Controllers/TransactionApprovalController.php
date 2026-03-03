@@ -32,7 +32,7 @@ class TransactionApprovalController extends Controller
 
         // 3. Query dengan filter dan sorting
         $requests = Transaction::with(['store', 'posUser', 'details', 'requester'])
-            ->where('transactions.status', 0) // Hanya yang berstatus "Request Delete"
+            ->where('transactions.status', 1) // Hanya yang berstatus "Request Delete"
             ->when($search, function ($query, $search) {
                 $query->where(function($q) use ($search) {
                     $q->where('delete_reason', 'like', "%{$search}%")
