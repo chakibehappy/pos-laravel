@@ -10,6 +10,7 @@ use App\Models\WithdrawalSourceType;
 use App\Models\CashStore;
 use App\Models\TopupFeeRule;
 use App\Models\WithdrawalFeeRule;
+use App\Models\PaymentMethod;
 
 class PosHelper
 {
@@ -45,6 +46,11 @@ class PosHelper
             ->orderBy('min_limit')
             ->get();
 
+        $paymentMethods = PaymentMethod::select('id', 'name')
+            ->where('status', 0) // only active
+            ->orderBy('id')
+            ->get();
+
         return [
             'products' => $products,
             'store_wallets' => $storeWallets,
@@ -53,6 +59,8 @@ class PosHelper
             'cash_store' => $cashStore,
             'topup_fee_rules' => $topupFeeRules,
             'wd_fee_rules' => $withdrawalFeeRules,
+            // New Addition:
+            'payment_methods' => $paymentMethods,
         ];
     }
 }

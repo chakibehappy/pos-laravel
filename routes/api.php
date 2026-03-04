@@ -131,6 +131,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 
     $request->validate([
         'store_id' => 'required|numeric',
+        'payment_id' => 'nullable|integer',
         'transaction_at' => 'required|date',
         'subtotal' => 'required|numeric',
         'tax' => 'required|numeric',
@@ -142,6 +143,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
     ]);
 
     $posUser = $request->user();
+    $paymentId = $request->payment_id ?? 1;
 
     try {
         // ---  DUPLICATE CHECK (BYPASS LOGIC) ---
@@ -169,6 +171,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         // Create Transaction Header
         $transaction = Transaction::create([
             'store_id'       => $request->store_id,
+            'payment_id'     => $paymentId,
             'pos_user_id'    => $posUser->id,
             'transaction_at' => $request->transaction_at,
             'subtotal'       => $request->subtotal,
