@@ -57,6 +57,7 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') },
         ]
     },
+    { label: 'Jenis Layanan', icon: '📋', name: 'services.index', route: route('services.index') },
     { label: 'Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
 ];
 

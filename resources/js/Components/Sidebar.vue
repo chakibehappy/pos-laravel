@@ -66,7 +66,7 @@ const menuItems = [
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
             { label: 'Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
-            { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') }
+            { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') },
         ]
     },
     { 
@@ -79,8 +79,11 @@ const menuItems = [
             { label: 'Riwayat Pengeluaran', name: 'expenses.index', route: route('expenses.index') },
             { label: 'Aturan Biaya', name: 'topup-fee-rules.index', route: route('topup-fee-rules.index') },
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') },
+            
+           
         ]
     },
+    { label: 'Jenis Layanan', icon: '📋', name: 'services.index', route: route('services.index') },
     { label: 'Riwayat Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
 ];
 

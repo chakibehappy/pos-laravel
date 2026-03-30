@@ -28,7 +28,7 @@ use App\Http\Controllers\TransactionApprovalController;
 use App\Http\Controllers\ExpenseController; //
 use App\Http\Controllers\StockFlowController;
 use App\Http\Controllers\ActivityLogController;
-
+use App\Http\Controllers\ServiceController;
 
 
 use Inertia\Inertia;
@@ -200,5 +200,10 @@ Route::middleware(['auth'])->group(function () {
 
     // --- LAPORAN MUTASI STOK (STOCK FLOW) ---
     Route::get('/stock-flow', [StockFlowController::class, 'index'])->name('stock-flow.index');
-
+   
+    // --- MANAJEMEN LAYANAN JASA (SERVICES) - TANPA APPROVAL ---
+    Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
+    Route::post('/services', [ServiceController::class, 'store'])->name('services.store');
+    Route::post('/services/{id}', [ServiceController::class, 'update'])->name('services.update');
+    Route::delete('/services/{id}', [ServiceController::class, 'destroy'])->name('services.destroy');
 });
