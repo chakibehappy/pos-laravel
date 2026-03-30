@@ -65,8 +65,8 @@ class TopupFeeRuleController extends Controller
             'rules.*.wallet_target_id'    => 'nullable|exists:digital_wallet,id', 
             'rules.*.min_limit'           => 'required|numeric',
             'rules.*.max_limit'           => 'required|numeric',
-            'rules.*.fee'                 => 'required|numeric|min:0',
-            'rules.*.admin_fee'           => 'required|numeric|min:0',
+            'rules.*.fee'                 => 'required|numeric',
+            'rules.*.admin_fee'           => 'required|numeric',
         ]);
 
         try {
