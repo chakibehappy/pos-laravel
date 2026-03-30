@@ -1,5 +1,6 @@
 <script setup>
 import Sidebar from '@/Components/Sidebar.vue';
+import BottomNav from '@/Components/BottomNav.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -73,6 +74,7 @@ const formattedCount = computed(() => {
                 <slot />
             </main>
         </div>
+        <BottomNav />
     </div>
 </template>
 

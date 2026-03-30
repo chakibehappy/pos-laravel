@@ -104,84 +104,81 @@ watch(search, debounce(() => {
             </div>
         </div>
 
-        <div class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr class="bg-gray-50 border-b border-gray-200">
-                        <th v-for="col in columns" :key="col.key" 
-                            @click="col.sortable ? handleSort(col.key) : null"
-                            class="p-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider select-none group"
-                            :class="col.sortable ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''"
-                        >
-                            <div class="flex items-center gap-2">
-                                {{ col.label }}
-                                
-                                <div v-if="col.sortable" class="flex items-center">
-                                    <svg v-if="sortKey !== col.key" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M7 15l5 5 5-5M7 9l5-5 5 5" />
-                                    </svg>
+    
+  
+    <div id="table-container" class="w-full bg-white rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+    <table class="w-px min-w-max md:w-full table-auto border-collapse">
+        <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+                <th v-for="col in columns" :key="col.key" 
+                    @click="col.sortable ? handleSort(col.key) : null"
 
-                                    <svg v-else xmlns="http://www.w3.org/2000/svg" 
-                                        class="w-3.5 h-3.5 text-blue-600 transition-transform duration-300" 
-                                        :class="sortDirection === 'desc' ? 'rotate-180' : 'rotate-0'"
-                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M12 19V5M5 12l7-7 7 7" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </th>
-                        <th class="p-4 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    <tr v-for="row in resource.data" :key="row.id" 
-                        class="hover:bg-gray-50 transition-colors duration-150">
-                        <td v-for="col in columns" :key="col.key" class="p-4 text-sm text-gray-700 font-medium">
-                            <slot :name="col.key" :value="row[col.key]" :row="row">
-                                <template v-if="col.key === 'shift'">
-                                    <span :class="row.shift === 'pagi' ? 'text-orange-600 bg-orange-50' : 'text-indigo-600 bg-indigo-50'" 
-                                        class="px-2 py-1 rounded-full text-[10px] font-bold uppercase">
-                                        {{ row.shift === 'pagi' ? '☀️' : '🌙' }} {{ row.shift }}
-                                    </span>
-                                </template>
-                                <template v-else>
-                                    {{ row[col.key] }}
-                                </template>
-                            </slot>
-                        </td>
-                        <td class="p-4 text-right text-sm">
-                            <slot name="actions" :row="row" />
-                        </td>
-                    </tr>
-                    <tr v-if="resource.data.length === 0">
-                        <td :colspan="columns.length + 1" class="p-12 text-center text-gray-400 font-medium italic text-sm">
-                            --- Data tidak ditemukan ---
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                    class="py-2 px-1 md:p-4 text-left text-[10px] md:text-xs font-bold text-gray-600 uppercase tracking-tighter select-none group whitespace-nowrap"
+                    :class="col.sortable ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''"
+                >
+                    <div class="flex items-center gap-1">
+                        {{ col.label }}
+                        <div v-if="col.sortable" class="flex items-center">
+                            <svg v-if="sortKey !== col.key" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                                <path d="M7 15l5 5 5-5M7 9l5-5 5 5" />
+                            </svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-blue-600" :class="sortDirection === 'desc' ? 'rotate-180' : 'rotate-0'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4">
+                                <path d="M12 19V5M5 12l7-7 7 7" />
+                            </svg>
+                        </div>
+                    </div>
+                </th>
+                <th class="py-2 px-2 md:p-4 text-right text-[10px] md:text-xs font-bold text-gray-600 uppercase whitespace-nowrap">
+                    Aksi
+                </th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            <tr v-for="row in resource.data" :key="row.id" class="hover:bg-gray-50 transition-colors">
+                <td v-for="col in columns" :key="col.key" 
 
-            <div class="p-4 flex flex-col md:flex-row justify-between items-center border-t border-gray-200 bg-gray-50/50">
-                <span class="text-xs text-gray-500 font-medium mb-4 md:mb-0">
+                    class="py-2 px-1 md:p-4 text-[11px] md:text-sm text-gray-700 font-medium whitespace-nowrap">
+                    <slot :name="col.key" :value="row[col.key]" :row="row">
+                        <template v-if="col.key === 'shift'">
+                            <span :class="row.shift === 'pagi' ? 'text-orange-600 bg-orange-50' : 'text-indigo-600 bg-indigo-50'" 
+                                class="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase inline-block whitespace-nowrap">
+                                {{ row.shift === 'pagi' ? '☀️' : '🌙' }}
+                            </span>
+                        </template>
+                        <template v-else>
+                            {{ row[col.key] }}
+                        </template>
+                    </slot>
+                </td>
+                <td class="py-2 px-2 md:p-4 text-right text-[11px] md:text-sm whitespace-nowrap">
+                    <slot name="actions" :row="row" />
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+          <div class="pagination-mobile-fixed p-4 flex flex-col md:flex-row justify-between items-center border-t border-gray-200 bg-white md:bg-gray-50/50">
+                <span class="text-[10px] md:text-xs text-gray-500 font-medium mb-3 md:mb-0 text-center w-full md:w-auto">
                     Menampilkan <span class="font-semibold text-gray-800">{{ resource.from || 0 }}</span> - <span class="font-semibold text-gray-800">{{ resource.to || 0 }}</span> dari <span class="font-semibold text-gray-800">{{ resource.total }}</span> data
                 </span>
                 
-                <div class="flex items-center gap-1">
-                    <template v-for="link in resource.links" :key="link.label">
+                <div class="flex items-center gap-1 w-full justify-center md:w-auto">
+                    <template v-for="(link, index) in resource.links" :key="index">
                         <div v-if="!link.url" 
+                            v-show="index === 0 || index === resource.links.length - 1 || link.active || (resource.links[index-1]?.active) || (resource.links[index+1]?.active)"
                             v-html="link.label" 
-                            class="px-3 py-1 text-xs border border-gray-200 text-gray-300 rounded bg-white cursor-not-allowed" 
+                            class="page-node px-3 py-2 text-[10px] md:text-xs border border-gray-200 text-gray-300 rounded bg-gray-50 cursor-not-allowed min-w-[38px] text-center" 
+                            :class="{ 'is-active': link.active }"
                         />
                         
                         <a v-else 
+                            v-show="index === 0 || index === resource.links.length - 1 || link.active || (resource.links[index-1]?.active) || (resource.links[index+1]?.active)"
                             :href="link.url" 
                             v-html="link.label"
-                            class="px-3 py-1 text-xs border rounded transition-all duration-200 font-medium"
+                            class="page-node px-3 py-2 text-[10px] md:text-xs border rounded transition-all duration-200 font-bold min-w-[38px] text-center"
                             :class="link.active 
-                                ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
-                                : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'"
+                                ? 'is-active bg-blue-600 border-blue-600 text-white shadow-sm' 
+                                : 'bg-white border-gray-300 text-gray-700'"
                         ></a>
                     </template>
                 </div>
@@ -189,3 +186,66 @@ watch(search, debounce(() => {
         </div>
     </div>
 </template>
+<style scoped>
+/* Khusus untuk tampilan layar HP (di bawah 768px) */
+@media (max-width: 767px) {
+    #table-container {
+        /* Menghilangkan pembatasan agar bisa melebar keluar layar */
+        overflow: visible !important; 
+        width: 180% !important; /* Lebar card sengaja dibuat melampaui layar */
+        min-width: 700px; /* Memastikan kolom tidak ciut */
+        margin-left: -53px;
+         margin-bottom: 200px;
+    }
+
+    #table-container table {
+        width: 100% !important;
+        table-layout: auto !important; /* Membiarkan kolom mengambil lebar sesuai kontennya */
+    }
+    .pagination-mobile-fixed {
+        position: fixed;
+        bottom: 64px; /* Tepat di atas Bottom Nav hitam Anda */
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background-color: white;
+        box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.1);
+        padding: 12px 16px;
+        /* Membuat teks dan tombol tersusun vertikal di HP */
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center;
+        border-top: 1px solid #f3f4f6;
+    }
+
+    /* Memaksa ukuran tombol navigasi agar mudah ditekan jari */
+    .pagination-mobile-fixed a, 
+    .pagination-mobile-fixed div {
+        min-width: 44px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .page-node {
+        flex-shrink: 0;
+    }
+    /* Berikan margin bawah pada container tabel agar data terakhir 
+       tidak tertutup oleh paginasi yang melayang ini */
+
+}
+@media (min-width: 768px) {
+    .pagination-mobile-fixed {
+        /* Kembalikan ke posisi normal (menyatu di bawah tabel) */
+        position: static;
+        box-shadow: none;
+        /* Tetap gunakan style asli Anda sebelumnya */
+        background-color: rgba(249, 250, 251, 0.5); /* bg-gray-50/50 */
+        border-radius: 0 0 0.5rem 0.5rem; /* rounded-b-lg */
+    }
+
+    .pagination-mobile-fixed .page-node {
+        display: flex !important;
+    }
+}
+</style>

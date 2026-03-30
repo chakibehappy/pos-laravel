@@ -134,10 +134,10 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
 
 <template>
     <div 
-        class="relative bg-[#0f0f0f] text-white flex flex-col flex-shrink-0 z-[50] rounded-r-[60px] shadow-xl sidebar-main-transition"
+        class="hidden md:flex relative bg-[#0f0f0f] text-white flex-col flex-shrink-0 z-[50] rounded-r-[60px] shadow-xl sidebar-main-transition"
         style="height: calc(100vh - 64px);" 
         :class="isMinimized ? 'w-20' : 'w-64'"
-    >
+    >   
         <button @click="toggleSidebar" class="absolute right-[-10px] top-1/2 -translate-y-1/2 w-[6px] h-32 bg-gray-600/30 rounded-full z-[100] transition-all hover:bg-gray-500/50 cursor-pointer flex items-center justify-center group">
             <div class="w-1 h-4 bg-white/10 rounded-full group-hover:bg-white/40 transition-colors"></div>
         </button>
@@ -163,8 +163,6 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
                     <Transition name="jelly">
                         <div v-if="currentDisplayed === item.label" 
                             class="absolute top-0 right-0 h-14 bg-yellow-400 rounded-l-[35px] z-0 w-full origin-right">
-                            <!-- <div class="absolute -top-[25px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-br-[25px]"></div>
-                            <div class="absolute -bottom-[25px] right-0 w-[25px] h-[25px] bg-yellow-400 after:content-[''] after:absolute after:inset-0 after:bg-[#0f0f0f] after:rounded-tr-[25px]"></div> -->
                         </div>
                     </Transition>
 
@@ -226,7 +224,6 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
 
 /* ANIMASI JELLY / KENYAL */
 .jelly-enter-active {
-    /* Menggunakan durasi 0.5s agar pantulan terlihat jelas tapi tetap snappy */
     animation: jelly-in 0.5s both;
 }
 .jelly-leave-active {
@@ -235,10 +232,10 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
 
 @keyframes jelly-in {
     0% { transform: scaleX(0) scaleY(1); opacity: 0; }
-    30% { transform: scaleX(1.05) scaleY(0.75); opacity: 1; } /* Melebar tipis */
-    50% { transform: scaleX(0.95) scaleY(1.1); }             /* Memantul meninggi */
-    70% { transform: scaleX(1.02) scaleY(0.95); }            /* Pantulan kecil horizontal */
-    100% { transform: scaleX(1) scaleY(1); opacity: 1; }     /* Stabil */
+    30% { transform: scaleX(1.05) scaleY(0.75); opacity: 1; } 
+    50% { transform: scaleX(0.95) scaleY(1.1); }             
+    70% { transform: scaleX(1.02) scaleY(0.95); }            
+    100% { transform: scaleX(1) scaleY(1); opacity: 1; }     
 }
 
 @keyframes rubber-out {
