@@ -16,7 +16,6 @@ class ProductCategoryController extends Controller
      */
     public function index(Request $request)
     {
-        // Ambil parameter sort, default ke 'id' dan 'desc'
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
 
@@ -26,17 +25,15 @@ class ProductCategoryController extends Controller
         
         return Inertia::render('ProductCategories/Index', [
             'categories' => ProductCategory::query()
-                ->where('status', 0) // Hanya tampilkan yang aktif
-                ->with(['creator']) // Load relasi creator dari pos_users
+                ->where('status', 0) 
+                ->with(['creator']) 
                 ->when($request->search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%");
                 })
-                // Logika Sorting Dinamis
                 ->orderBy($sortField, $sortDirection)
                 ->paginate(10)
                 ->withQueryString(),
             
-            // Sertakan parameter sort & direction di filters agar UI konsisten
             'filters' => $request->only(['search', 'sort', 'direction'])
         ]);
     }
@@ -65,6 +62,15 @@ class ProductCategoryController extends Controller
         ]);
 
         $posUserId = $this->getPosUserId();
+        $oldData = null;
+
+        // TANGKAP DATA LAMA JIKA UPDATE
+        if ($request->id) {
+            $existingCategory = ProductCategory::find($request->id);
+            if ($existingCategory) {
+                $oldData = $existingCategory->getRawOriginal();
+            }
+        }
         
         $logType = $request->id ? 'update' : 'create';
         $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
@@ -74,29 +80,31 @@ class ProductCategoryController extends Controller
             [
                 'name' => $request->name,
                 'created_by' => $posUserId,
-                'status' => 0,      // Pastikan status aktif
-                'deleted_at' => null // Reset deleted_at jika data dipulihkan
+                'status' => 0,      
+                'deleted_at' => null 
             ]
         );
 
-        // LOG ACTIVITY
+        // LOG ACTIVITY DENGAN PAYLOAD
         ActivityLogger::log(
             $logType,
             'product_categories',
             $category->id,
             "$actionLabel kategori produk: {$category->name}",
-            $posUserId
+            $posUserId,
+            ['old' => $oldData, 'new' => $category->getAttributes()]
         );
 
         return back()->with('message', 'Kategori berhasil disimpan!');
     }
 
     /**
-     *   kategori (status diubah menjadi 2 dan deleted_at diisi).
+     * Menghapus kategori (soft delete manual).
      */
     public function destroy($id)
     {
         $category = ProductCategory::findOrFail($id);
+        $oldData = $category->getRawOriginal(); // TANGKAP DATA SEBELUM DIUBAH STATUSNYA
         
         // Cek jika kategori masih dipakai oleh produk yang AKTIF (status 0)
         $hasProducts = DB::table('products')
@@ -110,20 +118,21 @@ class ProductCategoryController extends Controller
 
         $posUserId = $this->getPosUserId();
 
-        // LOG ACTIVITY
-        ActivityLogger::log(
-            'delete',
-            'product_categories',
-            $id,
-            "Menghapus kategori produk  : {$category->name}",
-            $posUserId
-        );
-
         // Ubah status menjadi 2 DAN isi deleted_at secara manual
         $category->update([
             'status' => 2,
             'deleted_at' => now()
         ]);
+
+        // LOG ACTIVITY DELETE
+        ActivityLogger::log(
+            'delete',
+            'product_categories',
+            $id,
+            "Menghapus kategori produk: {$category->name}",
+            $posUserId,
+            ['old' => $oldData, 'new' => $category->getAttributes()]
+        );
 
         return back()->with('message', 'Kategori berhasil diarsipkan!');
     }

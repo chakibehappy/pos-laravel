@@ -46,7 +46,6 @@ class UserController extends Controller
         return Inertia::render('Users/Index', [
             'users' => $query->paginate(10)->withQueryString(),
             'filters' => $request->only(['search', 'sort', 'direction']),
-            // Kolom status tidak ditampilkan agar konsisten dengan DataTable
             'columns' => [
                 ['key' => 'name', 'label' => 'Nama User', 'sortable' => true],
                 ['key' => 'email', 'label' => 'Email / Username', 'sortable' => true],
@@ -88,10 +87,13 @@ class UserController extends Controller
             $logType = $request->id ? 'update' : 'create';
             $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
 
-            // Simpan email lama untuk pencocokan username POS jika email diubah
+            $oldData = null;
             $oldEmail = null;
+
             if ($request->id) {
-                $oldEmail = User::where('id', $request->id)->value('email');
+                $userBefore = User::findOrFail($request->id);
+                $oldData = $userBefore->getRawOriginal(); // Simpan data lama untuk log
+                $oldEmail = $userBefore->email; // Simpan email lama untuk sinkronisasi POS
             }
 
             // Hash password jika diisi
@@ -101,7 +103,7 @@ class UserController extends Controller
                 unset($data['password']); 
             }
 
-            // Pastikan status aktif jika user baru
+            // Status aktif untuk user baru
             if (!$request->id) {
                 $data['status'] = 0;
             }
@@ -112,30 +114,31 @@ class UserController extends Controller
                 $data
             );
 
-            // 2. Sinkronisasi ke PosUser (Email User = Username PosUser)
+            // 2. Sinkronisasi ke PosUser
             $targetUsername = $oldEmail ?? $user->email;
 
             PosUser::updateOrCreate(
                 ['username' => $targetUsername],
                 [
                     'name' => $user->name,
-                    'username' => $user->email, // Email terbaru
+                    'username' => $user->email, 
                     'role' => 'admin',
                     'shift' => 'pagi',
                     'is_active' => 1,
-                    'status' => 0, // Reset status jika terupdate
-                    // PIN default 1234 hanya untuk user baru
+                    'status' => 0,
                     'pin' => $request->id ? DB::raw('pin') : Hash::make('1234'),
                     'created_by' => $posUserId
                 ]
             );
 
+            // LOG ACTIVITY dengan OLD & NEW
             ActivityLogger::log(
                 $logType,
                 'users',
                 $user->id,
                 "$actionLabel akun Admin: {$user->name} ({$user->email}) dan sinkronisasi POS User.",
-                $posUserId
+                $posUserId,
+                ['old' => $oldData, 'new' => $user->getAttributes()]
             );
 
             return back()->with('message', 'User dan Akun POS berhasil disinkronkan');
@@ -143,7 +146,7 @@ class UserController extends Controller
     }
 
     /**
-     *   Manual (User & PosUser).
+     * Hapus Akun (Ubah Status ke 2).
      */
     public function destroy($id) 
     {
@@ -153,26 +156,30 @@ class UserController extends Controller
             return back()->withErrors(['message' => 'Anda tidak bisa menghapus akun sendiri!']);
         }
 
-        return DB::transaction(function () use ($user, $id) {
+        $oldData = $user->getRawOriginal(); // Simpan snapshot data sebelum dihapus
+
+        return DB::transaction(function () use ($user, $id, $oldData) {
             $posUserId = $this->getPosUserId();
 
-            // 1.   Akun POS
+            // 1. Update Akun POS terkait
             PosUser::where('username', $user->email)->update([
                 'status' => 2,
                 'deleted_at' => now()
             ]);
 
-            // 2.   User Admin (Gunakan cara ini agar lebih "galak" ke database)
+            // 2. Update Status User Admin
             $user->status = 2;
             $user->deleted_at = now();
-            $user->save(); // Menggunakan save() seringkali lebih aman daripada update()
+            $user->save();
 
+            // LOG ACTIVITY dengan OLD & NEW
             ActivityLogger::log(
                 'delete',
                 'users',
                 $id,
                 "Menghapus akun Admin & POS User: {$user->name} ({$user->email})",
-                $posUserId
+                $posUserId,
+                ['old' => $oldData, 'new' => $user->getAttributes()]
             );
 
             return back()->with('message', 'User dan Akun POS berhasil dihapus');

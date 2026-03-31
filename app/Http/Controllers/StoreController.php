@@ -15,13 +15,12 @@ class StoreController extends Controller
 {
     public function index(Request $request) 
     {
-        // Filter status != 2 agar data yang di-  tidak muncul
+        // Filter status != 2 agar data yang di-archive tidak muncul
         $query = Store::join('store_types', 'stores.store_type_id', '=', 'store_types.id')
             ->leftJoin('pos_users', 'stores.created_by', '=', 'pos_users.id')
             ->where('stores.status', '!=', 2)
             ->select(
                 'stores.*', 
-                'stores.password as password_plain',
                 'store_types.name as type_name',
                 'pos_users.name as creator_name'
             );
@@ -101,13 +100,23 @@ class StoreController extends Controller
         }
 
         return DB::transaction(function () use ($request, $account, $posUser) {
+            $oldData = null;
+            if ($request->id) {
+                $existingStore = Store::find($request->id);
+                if ($existingStore) {
+                    $oldData = $existingStore->getRawOriginal();
+                    // Keamanan: Jangan simpan password hash di log
+                    unset($oldData['password']);
+                }
+            }
+
             $updateData = [
                 'account_id'    => $account->id,
                 'name'          => $request->name,
                 'keyname'       => Str::upper($request->keyname),
                 'store_type_id' => $request->store_type_id,
                 'address'       => $request->address,
-                'status'        => 0, // Reset status ke normal jika sedang diedit
+                'status'        => 0, 
             ];
 
             if ($request->filled('password')) {
@@ -126,12 +135,17 @@ class StoreController extends Controller
                 $updateData
             );
 
+            // TANGKAP DATA BARU TANPA PASSWORD
+            $newData = $store->getAttributes();
+            unset($newData['password']);
+
             ActivityLogger::log(
                 $logType,
                 'stores',
                 $store->id,
                 "$actionLabel data toko: {$store->name} ",
-                $posUser->id
+                $posUser->id,
+                ['old' => $oldData, 'new' => $newData]
             );
 
             return back()->with('message', 'Data toko berhasil diproses.');
@@ -141,12 +155,14 @@ class StoreController extends Controller
     public function destroy($id) {
         return DB::transaction(function () use ($id) {
             $store = Store::findOrFail($id);
+            $oldData = $store->getRawOriginal();
+            unset($oldData['password']);
             
             $posUser = DB::table('pos_users')
                 ->where('username', auth()->user()->email)
                 ->first(['id']);
 
-            //   Manual
+            // Soft Delete Manual
             $store->status = 2;
             $store->deleted_at = now();
             $store->save();
@@ -156,8 +172,9 @@ class StoreController extends Controller
                 'delete',
                 'stores',
                 $id,
-                "Menghapus toko: {$store->name}  ",
-                $posUser ? $posUser->id : null
+                "Menghapus toko: {$store->name}",
+                $posUser ? $posUser->id : null,
+                ['old' => $oldData, 'new' => ['status' => 2, 'deleted_at' => $store->deleted_at]]
             );
 
             return back()->with('message', 'Toko telah dihapus.');

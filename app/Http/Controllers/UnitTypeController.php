@@ -16,7 +16,6 @@ class UnitTypeController extends Controller
      */
     public function index(Request $request)
     {
-        // Ambil parameter sort, default ke 'id' dan 'desc'
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
 
@@ -26,7 +25,6 @@ class UnitTypeController extends Controller
         
         return Inertia::render('UnitTypes/Index', [
             'units' => UnitType::query()
-                // Global Scope di Model otomatis memfilter status 0
                 ->with(['creator']) 
                 ->when($request->search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%");
@@ -63,6 +61,13 @@ class UnitTypeController extends Controller
         ]);
 
         $posUserId = $this->getPosUserId();
+        $oldData = null;
+
+        // Jika update, ambil data lama sebelum disimpan
+        if ($request->id) {
+            $unitBefore = UnitType::find($request->id);
+            $oldData = $unitBefore ? $unitBefore->getRawOriginal() : null;
+        }
         
         $logType = $request->id ? 'update' : 'create';
         $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
@@ -72,29 +77,31 @@ class UnitTypeController extends Controller
             [
                 'name' => $request->name,
                 'created_by' => $posUserId,
-                'status' => 0,       // Pastikan status aktif
-                'deleted_at' => null // Reset deleted_at jika data lama dipulihkan
+                'status' => 0,
+                'deleted_at' => null 
             ]
         );
 
-        // LOG ACTIVITY
+        // LOG ACTIVITY dengan OLD & NEW
         ActivityLogger::log(
             $logType,
             'unit_types',
             $unit->id,
             "$actionLabel satuan: {$unit->name}",
-            $posUserId
+            $posUserId,
+            ['old' => $oldData, 'new' => $unit->getAttributes()]
         );
 
         return back()->with('message', 'Satuan berhasil disimpan!');
     }
 
     /**
-     *   satuan (status diubah menjadi 2 dan deleted_at diisi).
+     * Mengarsipkan satuan (status diubah menjadi 2 dan deleted_at diisi).
      */
     public function destroy($id)
     {
         $unit = UnitType::findOrFail($id);
+        $oldData = $unit->getRawOriginal(); // Simpan data sebelum status berubah
         
         // Cek jika satuan masih dipakai oleh produk yang AKTIF (status 0)
         $hasProducts = DB::table('products')
@@ -108,21 +115,22 @@ class UnitTypeController extends Controller
 
         $posUserId = $this->getPosUserId();
 
-        // LOG ACTIVITY
+        // Update ke status archived (2)
+        $unit->update([
+            'status' => 2,
+            'deleted_at' => now(),
+            'created_by' => $posUserId 
+        ]);
+
+        // LOG ACTIVITY dengan OLD & NEW
         ActivityLogger::log(
             'delete',
             'unit_types',
             $id,
-            "Menghapus satuan  : {$unit->name}",
-            $posUserId
+            "Menghapus satuan: {$unit->name}",
+            $posUserId,
+            ['old' => $oldData, 'new' => $unit->getAttributes()]
         );
-
-        //   Manual: Ubah status ke 2 dan isi deleted_at
-        $unit->update([
-            'status' => 2,
-            'deleted_at' => now(),
-            'created_by' => $posUserId // Opsional: catat siapa yang menghapus di kolom created_by
-        ]);
 
         return back()->with('message', 'Satuan berhasil diarsipkan!');
     }

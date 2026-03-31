@@ -14,7 +14,7 @@ class PosUserController extends Controller
 {
     public function index(Request $request)
     {
-        // Filter status != 2 agar data yang di-  tidak muncul
+        // Filter status != 2 agar data yang di-delete manual tidak muncul
         $query = PosUser::with('creator')
             ->where('role', '!=', 'developer')
             ->where('status', '!=', 2);
@@ -58,52 +58,68 @@ class PosUserController extends Controller
             $rules['pin'] = 'nullable|numeric|digits_between:4,6';
         }
 
-        $data = $request->validate($rules);
+        $validatedData = $request->validate($rules);
 
-        // --- LOGIKA IDENTIFIKASI PENGEDIT/PEMBUAT ---
+        // Identifikasi Admin/Editor
         $adminEmail = Auth::user()->email;
         $currentUserPos = PosUser::where('username', $adminEmail)->first();
         $currentEditorId = $currentUserPos ? $currentUserPos->id : null;
 
-        return DB::transaction(function () use ($request, $data, $currentEditorId) {
+        return DB::transaction(function () use ($request, $validatedData, $currentEditorId) {
             if ($request->id) {
                 // --- PROSES UPDATE ---
                 $user = PosUser::findOrFail($request->id);
+                $oldData = $user->getRawOriginal(); // TANGKAP DATA LAMA
+
+                $updateData = $validatedData;
                 
-                if (empty($data['pin']) || $data['pin'] === '****') {
-                    unset($data['pin']);
+                // Cek Perubahan PIN
+                if (empty($updateData['pin']) || $updateData['pin'] === '****') {
+                    unset($updateData['pin']);
                 } else {
-                    $data['pin'] = Hash::make($data['pin']);
+                    $updateData['pin'] = Hash::make($updateData['pin']);
                 }
 
-                $data['created_by'] = $currentEditorId;
-                // Pastikan status kembali 0 jika sebelumnya terhapus tapi diupdate
-                $data['status'] = 0; 
+                $updateData['created_by'] = $currentEditorId;
+                $updateData['status'] = 0; 
 
-                $user->update($data);
+                $user->update($updateData);
+
+                // Hilangkan PIN dari log agar tidak menampilkan hash yang panjang/sensitif
+                $cleanOld = collect($oldData)->except(['pin'])->toArray();
+                $cleanNew = collect($user->getAttributes())->except(['pin'])->toArray();
+                $cleanOld['pin'] = '[PROTECTED]';
+                $cleanNew['pin'] = isset($updateData['pin']) ? '[CHANGED]' : '[UNCHANGED]';
 
                 ActivityLogger::log(
                     'update',
                     'pos_users',
                     $user->id,
                     "Memperbarui data user POS: {$user->name} (Username: {$user->username})",
-                    $currentEditorId
+                    $currentEditorId,
+                    ['old' => $cleanOld, 'new' => $cleanNew]
                 );
             } else {
                 // --- PROSES CREATE ---
-                $data['pin']        = Hash::make($data['pin']);
-                $data['is_active']  = 1;
-                $data['status']     = 0; 
-                $data['created_by'] = $currentEditorId;
+                $createData = $validatedData;
+                $createData['pin']        = Hash::make($createData['pin']);
+                $createData['is_active']  = 1;
+                $createData['status']     = 0; 
+                $createData['created_by'] = $currentEditorId;
                 
-                $newUser = PosUser::create($data);
+                $newUser = PosUser::create($createData);
+
+                // Payload untuk Create
+                $cleanNew = collect($newUser->getAttributes())->except(['pin'])->toArray();
+                $cleanNew['pin'] = '[PROTECTED]';
 
                 ActivityLogger::log(
                     'create',
                     'pos_users',
                     $newUser->id,
                     "Membuat user POS baru: {$newUser->name} sebagai {$newUser->role}",
-                    $currentEditorId
+                    $currentEditorId,
+                    ['old' => null, 'new' => $cleanNew]
                 );
             }
 
@@ -115,24 +131,30 @@ class PosUserController extends Controller
     {
         return DB::transaction(function () use ($id) {
             $user = PosUser::findOrFail($id);
+            $oldData = $user->getRawOriginal();
 
             // Identifikasi admin yang menghapus
             $adminEmail = Auth::user()->email;
             $currentUserPos = PosUser::where('username', $adminEmail)->first();
             $currentEditorId = $currentUserPos ? $currentUserPos->id : null;
 
-            //   Manual
+            // Soft Delete Manual
             $user->status = 2;
             $user->deleted_at = now();
             $user->save();
+
+            // Bersihkan data PIN untuk log
+            $cleanOld = collect($oldData)->except(['pin'])->toArray();
+            $cleanOld['pin'] = '[PROTECTED]';
 
             // LOG ACTIVITY DELETE
             ActivityLogger::log(
                 'delete',
                 'pos_users',
                 $id,
-                "Menghapus user POS: {$user->name}  ",
-                $currentEditorId
+                "Menghapus user POS: {$user->name}",
+                $currentEditorId,
+                ['old' => $cleanOld, 'new' => $user->getAttributes()]
             );
 
             return back()->with('message', 'User Berhasil Dihapus.');

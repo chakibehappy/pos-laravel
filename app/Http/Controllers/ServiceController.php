@@ -76,19 +76,18 @@ class ServiceController extends Controller
     }
 
     /**
-     * Menghapus data secara logika: 
-     * Mengubah status menjadi 2 dan menjalankan Soft Delete.
+     * Menghapus data secara logika (Status 2 & Soft Delete).
      */
     public function destroy($id)
     {
         try {
             $posUserId = $this->getPosUserId();
             $service = Service::findOrFail($id);
+            $oldData = $service->getRawOriginal(); // TANGKAP DATA SEBELUM DIHAPUS
             $serviceName = $service->name;
             
             DB::transaction(function () use ($service, $posUserId) {
                 // Update status menjadi 2 (Arsip/Terhapus)
-                // 'deleted_by' diganti menjadi 'admin_approved_by'
                 $service->update([
                     'status' => 2,
                     'admin_approved_by' => $posUserId 
@@ -98,12 +97,14 @@ class ServiceController extends Controller
                 $service->delete(); 
             });
 
+            // LOG ACTIVITY DELETE
             ActivityLogger::log(
                 "delete",
                 'services',
                 $id,
                 "Menghapus layanan (Status diubah ke 2): " . $serviceName,
-                $posUserId
+                $posUserId,
+                ['old' => $oldData, 'new' => $service->getAttributes()]
             );
 
             return redirect()->back()->with('message', 'Layanan berhasil dihapus dari daftar.');
@@ -125,9 +126,16 @@ class ServiceController extends Controller
 
         try {
             $posUserId = $this->getPosUserId();
-
             if (!$posUserId) {
                 return back()->withErrors(['message' => "Identitas admin tidak ditemukan."]);
+            }
+
+            $oldData = null;
+            if ($id) {
+                $existing = Service::find($id);
+                if ($existing) {
+                    $oldData = $existing->getRawOriginal(); // AMBIL DATA SEBELUM UPDATE
+                }
             }
 
             $service = DB::transaction(function () use ($request, $id, $posUserId) {
@@ -135,23 +143,24 @@ class ServiceController extends Controller
                     'name'        => $request->name,
                     'description' => $request->description,
                     'price'       => $request->price,
-                    'status'      => 0, // Reset ke aktif jika diedit atau dibuat baru
+                    'status'      => 0, // Reset ke aktif
                 ];
 
                 if (!$id) {
                     $data['created_by'] = $posUserId;
                 }
 
-                // Perhatikan: updateOrCreate akan menggunakan fillable yang sudah kita set di model Service
                 return Service::updateOrCreate(['id' => $id], $data);
             });
 
+            // LOG ACTIVITY CREATE/UPDATE
             ActivityLogger::log(
                 $id ? "update" : "create",
                 'services',
                 $service->id,
                 ($id ? "Memperbarui" : "Menambah") . " layanan: " . $service->name,
-                $posUserId
+                $posUserId,
+                ['old' => $oldData, 'new' => $service->getAttributes()]
             );
 
             return redirect()->route('services.index')->with('message', 'Data Layanan Berhasil Disimpan!');

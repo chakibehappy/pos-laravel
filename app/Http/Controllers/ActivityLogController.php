@@ -52,6 +52,7 @@ class ActivityLogController extends Controller
                                 'reference_id' => $log->reference_id,
                                 'description' => $log->description,
                                 'created_at' => $log->created_at ? $log->created_at->format('d/m/Y H:i') : '-',
+                                'payload'        => $log->payload,
                             ]),
             'filters' => $request->only(['search', 'sort', 'direction']),
         ]);

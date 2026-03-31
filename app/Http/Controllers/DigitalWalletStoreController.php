@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use App\Helpers\ActivityLogger; // Import Helper
+use App\Helpers\ActivityLogger;
 
 class DigitalWalletStoreController extends Controller
 {
@@ -83,7 +83,7 @@ class DigitalWalletStoreController extends Controller
             ];
         })->values();
 
-        // --- LOGIKA SORTING (Hanya Tambahan) ---
+        // LOGIKA SORTING
         $sort = $request->input('sort', 'store_name');
         $direction = $request->input('direction', 'asc');
         
@@ -125,11 +125,15 @@ class DigitalWalletStoreController extends Controller
             'action_type' => 'required|in:add,subtract,reset',
         ]);
 
+        // MENGGUNAKAN ELOQUENT: Untuk menangkap data lama (Old Data)
         $walletStore = DigitalWalletStore::with(['store', 'wallet'])->where('id', $request->id)->first();
         
         if (!$walletStore) {
             return back()->withErrors(['message' => 'Data tidak ditemukan']);
         }
+
+        // Simpan data lama untuk Payload
+        $oldData = $walletStore->getRawOriginal();
 
         $currentBalance = (float) $walletStore->balance;
         $inputAmount = (float) $request->balance;
@@ -146,10 +150,13 @@ class DigitalWalletStoreController extends Controller
         $posUser = DB::table('pos_users')->where('username', auth()->user()->email)->first();
         $operatorId = $posUser ? $posUser->id : $walletStore->created_by;
 
+        $newBalance = max(0, $finalBalance);
+
+        // Eksekusi Update
         DB::table('digital_wallet_store')
             ->where('id', $request->id)
             ->update([
-                'balance'    => max(0, $finalBalance),
+                'balance'    => $newBalance,
                 'created_by' => $operatorId,
                 'updated_at' => now(),
             ]);
@@ -164,12 +171,20 @@ class DigitalWalletStoreController extends Controller
         elseif ($request->action_type === 'subtract') $desc .= "Kurang Rp $formattedAmount";
         else $desc .= "Reset saldo ke 0";
 
+        // Susun Payload Manual karena kita pakai DB Update
+        $newData = array_merge($oldData, [
+            'balance' => $newBalance,
+            'created_by' => $operatorId,
+            'updated_at' => now()->toDateTimeString()
+        ]);
+
         ActivityLogger::log(
             'update',
             'digital_wallet_store',
             $walletStore->id,
             $desc,
-            $operatorId
+            $operatorId,
+            ['old' => $oldData, 'new' => $newData] // Kirim payload akurat
         );
 
         return back()->with('message', 'Saldo berhasil diperbarui!');
@@ -184,13 +199,15 @@ class DigitalWalletStoreController extends Controller
                 $posUser = DB::table('pos_users')->where('username', auth()->user()->email)->first();
                 $storeName = $walletStore->store->name ?? 'Unknown Store';
                 $walletName = $walletStore->wallet->name ?? 'Unknown Wallet';
+                $oldData = $walletStore->getRawOriginal();
 
                 ActivityLogger::log(
                     'delete',
                     'digital_wallet_store',
                     $id,
                     "Menghapus record saldo $walletName di $storeName",
-                    $posUser ? $posUser->id : null
+                    $posUser ? $posUser->id : null,
+                    ['old' => $oldData, 'new' => null] // Data dihapus, new adalah null
                 );
             }
 

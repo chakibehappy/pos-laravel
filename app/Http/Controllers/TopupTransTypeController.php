@@ -25,7 +25,7 @@ class TopupTransTypeController extends Controller
         }
         
         $data = TopupTransType::query()
-            ->where('status', 0) // Hanya tampilkan yang aktif
+            ->where('status', '!=', 2) // Tampilkan data yang tidak dihapus/archived
             ->with(['creator']) 
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -44,7 +44,7 @@ class TopupTransTypeController extends Controller
     }
 
     /**
-     * Logika Privat: Mapping User Admin ke ID PosUser.
+     * Helper: Mapping User Admin ke ID PosUser.
      */
     private function getPosUserId()
     {
@@ -66,27 +66,27 @@ class TopupTransTypeController extends Controller
 
         $posUserId = $this->getPosUserId();
 
-        DB::transaction(function () use ($request, $posUserId) {
+        return DB::transaction(function () use ($request, $posUserId) {
             foreach ($request->items as $item) {
                 $newType = TopupTransType::create([
                     'name'       => $item['name'],
                     'type'       => $item['type'],
                     'created_by' => $posUserId,
-                    'status'     => 0, // Pastikan status aktif
+                    'status'     => 0, 
                 ]);
 
-                // LOG ACTIVITY
+                // LOG ACTIVITY CREATE
                 ActivityLogger::log(
                     'create',
                     'topup_trans_types',
                     $newType->id,
                     "Menambahkan tipe transaksi topup: {$newType->name} ({$newType->type})",
-                    $posUserId
+                    $posUserId,
+                    ['old' => null, 'new' => $newType->getAttributes()]
                 );
             }
+            return back()->with('message', 'Batch data transaksi berhasil ditambahkan.');
         });
-
-        return back()->with('message', 'Batch data transaksi berhasil ditambahkan.');
     }
 
     /**
@@ -99,56 +99,64 @@ class TopupTransTypeController extends Controller
             'type' => 'required|string|max:50',
         ]);
 
-        $item = TopupTransType::findOrFail($id);
-        $posUserId = $this->getPosUserId();
+        return DB::transaction(function () use ($request, $id) {
+            $item = TopupTransType::findOrFail($id);
+            $oldData = $item->getRawOriginal();
+            $posUserId = $this->getPosUserId();
 
-        $item->update([
-            'name'       => $request->name,
-            'type'       => $request->type,
-            'created_by' => $posUserId,
-            'status'     => 0,      // Pastikan status tetap aktif saat update
-            'deleted_at' => null    // Reset jika sebelumnya pernah diarsip
-        ]);
+            $item->update([
+                'name'       => $request->name,
+                'type'       => $request->type,
+                'created_by' => $posUserId,
+                'status'     => 0,
+                'deleted_at' => null
+            ]);
 
-        // LOG ACTIVITY
-        ActivityLogger::log(
-            'update',
-            'topup_trans_types',
-            $id,
-            "Memperbarui tipe transaksi topup: {$item->name} ({$item->type})",
-            $posUserId
-        );
+            // LOG ACTIVITY UPDATE
+            ActivityLogger::log(
+                'update',
+                'topup_trans_types',
+                $id,
+                "Memperbarui tipe transaksi topup: {$oldData['name']} menjadi {$request->name}",
+                $posUserId,
+                ['old' => $oldData, 'new' => $item->getAttributes()]
+            );
 
-        return back()->with('message', 'Data berhasil diperbarui.');
+            return back()->with('message', 'Data berhasil diperbarui.');
+        });
     }
 
     /**
-     * Hapus data (  Manual).
+     * Hapus data (Soft Delete Manual).
      */
     public function destroy($id)
     {
-        try {
-            $item = TopupTransType::findOrFail($id);
-            $posUserId = $this->getPosUserId();
+        return DB::transaction(function () use ($id) {
+            try {
+                $item = TopupTransType::findOrFail($id);
+                $oldData = $item->getRawOriginal();
+                $posUserId = $this->getPosUserId();
 
-            // LOG ACTIVITY
-            ActivityLogger::log(
-                'delete',
-                'topup_trans_types',
-                $id,
-                "Menghapus tipe transaksi topup  : {$item->name} ({$item->type})",
-                $posUserId
-            );
+                // Ubah status ke 2 (Archived)
+                $item->update([
+                    'status' => 2,
+                    'deleted_at' => now()
+                ]);
 
-            // Manual  : Ubah status ke 2 dan isi deleted_at
-            $item->update([
-                'status' => 2,
-                'deleted_at' => now()
-            ]);
+                // LOG ACTIVITY DELETE
+                ActivityLogger::log(
+                    'delete',
+                    'topup_trans_types',
+                    $id,
+                    "Menghapus tipe transaksi topup: {$item->name} ({$item->type})",
+                    $posUserId,
+                    ['old' => $oldData, 'new' => $item->getAttributes()]
+                );
 
-            return back()->with('message', 'Data berhasil diarsipkan.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Gagal menghapus data.']);
-        }
+                return back()->with('message', 'Data berhasil diarsipkan.');
+            } catch (\Exception $e) {
+                return back()->withErrors(['error' => 'Gagal menghapus data.']);
+            }
+        });
     }
 }

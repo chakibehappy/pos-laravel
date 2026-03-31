@@ -23,7 +23,6 @@ class StoreProductController extends Controller
             ->join('stores', 'store_products.store_id', '=', 'stores.id')
             ->join('products', 'store_products.product_id', '=', 'products.id')
             ->leftJoin('pos_users', 'store_products.created_by', '=', 'pos_users.id')
-            // Tambahkan filter status aktif (bukan 2)
             ->where('store_products.status', '!=', 2)
             ->select(
                 'store_products.*', 
@@ -97,48 +96,51 @@ class StoreProductController extends Controller
             'stock'      => 'required|integer|min:0',
         ]);
 
-        $adminEmail = auth()->user()->email;
-        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-        $createdBy = $posUser ? $posUser->id : null;
+        return DB::transaction(function () use ($request) {
+            $adminEmail = auth()->user()->email;
+            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+            $createdBy = $posUser ? $posUser->id : null;
 
-        // Cek apakah relasi produk-toko sudah ada (termasuk yang statusnya 2/deleted)
-        $existing = StoreProduct::where('store_id', $request->store_id)
-            ->where('product_id', $request->product_id)
-            ->first();
+            // Ambil data lama untuk logging payload
+            $existing = StoreProduct::where('store_id', $request->store_id)
+                ->where('product_id', $request->product_id)
+                ->first();
 
-        // Jika data ada dan statusnya 2, maka ini adalah pemulihan (create kembali)
-        // Jika data ada dan statusnya 0, maka ini adalah update stok biasa
-        $isRestoring = ($existing && $existing->status == 2);
-        $actionLabel = ($existing && !$isRestoring) ? "Memperbarui" : "Menambah";
-        $logType = ($existing && !$isRestoring) ? "update" : "create";
+            $oldData = $existing ? $existing->getRawOriginal() : null;
+            $isRestoring = ($existing && $existing->status == 2);
+            
+            $logType = ($existing && !$isRestoring) ? "update" : "create";
+            $actionLabel = ($existing && !$isRestoring) ? "Memperbarui" : "Menambah";
 
-        $sp = StoreProduct::updateOrCreate(
-            ['store_id' => $request->store_id, 'product_id' => $request->product_id],
-            [
-                'stock' => $request->stock, 
-                'created_by' => $createdBy,
-                'status' => 0, // Pastikan status kembali 0 (aktif)
-                'deleted_at' => null // Reset deleted_at jika ada
-            ]
-        );
+            $sp = StoreProduct::updateOrCreate(
+                ['store_id' => $request->store_id, 'product_id' => $request->product_id],
+                [
+                    'stock' => $request->stock, 
+                    'created_by' => $createdBy,
+                    'status' => 0, 
+                    'deleted_at' => null 
+                ]
+            );
 
-        $product = Product::find($request->product_id);
-        $store = Store::find($request->store_id);
+            $product = Product::find($request->product_id);
+            $store = Store::find($request->store_id);
 
-        ActivityLogger::log(
-            $logType,
-            'store_products',
-            $sp->id,
-            "{$actionLabel} produk {$product->name} di {$store->name} menjadi {$request->stock}",
-            $createdBy
-        );
+            // LOG ACTIVITY DENGAN PAYLOAD STOK LAMA & BARU
+            ActivityLogger::log(
+                $logType,
+                'store_products',
+                $sp->id,
+                "{$actionLabel} stok produk {$product->name} di {$store->name} menjadi {$request->stock}",
+                $createdBy,
+                ['old' => $oldData, 'new' => $sp->getAttributes()]
+            );
 
-        return back()->with('message', 'Data stok cabang berhasil diperbarui!');
+            return back()->with('message', 'Data stok cabang berhasil diperbarui!');
+        });
     }
 
     public function update(Request $request, $id)
     {
-        // Tetap arahkan ke fungsi store karena menggunakan updateOrCreate
         return $this->store($request);
     }
 
@@ -147,12 +149,13 @@ class StoreProductController extends Controller
         return DB::transaction(function () use ($id) {
             try {
                 $sp = StoreProduct::with(['product', 'store'])->findOrFail($id);
+                $oldData = $sp->getRawOriginal();
                 
                 $adminEmail = auth()->user()->email;
                 $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
                 $userId = $posUser ? $posUser->id : null;
 
-                //   Manual (Ubah status ke 2)
+                // Soft Delete Manual (Archived)
                 $sp->update([
                     'status' => 2,
                     'deleted_at' => now()
@@ -162,8 +165,9 @@ class StoreProductController extends Controller
                     'delete',
                     'store_products',
                     $id,
-                    "Menghapus record stok produk: {$sp->product->name} dari toko {$sp->store->name} (Archived)",
-                    $userId
+                    "Menghapus record stok produk: {$sp->product->name} dari toko {$sp->store->name}",
+                    $userId,
+                    ['old' => $oldData, 'new' => $sp->getAttributes()]
                 );
 
                 return back()->with('message', 'Data stok cabang berhasil dihapus.');

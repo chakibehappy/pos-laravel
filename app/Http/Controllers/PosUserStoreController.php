@@ -95,43 +95,51 @@ class PosUserStoreController extends Controller
             'store_id'    => 'required|exists:stores,id',
         ]);
 
-        // Cek jika relasi ini sudah pernah ada namun statusnya 2 (terhapus), kita aktifkan kembali
-        $existing = PosUserStore::where('pos_user_id', $request->pos_user_id)
-                                ->where('store_id', $request->store_id)
-                                ->first();
+        return DB::transaction(function () use ($request) {
+            $creator = PosUser::where('username', Auth::user()->email)->first();
+            $creatorId = $creator ? $creator->id : null;
 
-        $creator = PosUser::where('username', Auth::user()->email)->first();
-        $creatorId = $creator ? $creator->id : null;
+            // Cek jika relasi ini sudah pernah ada (termasuk yang statusnya 2)
+            $existing = PosUserStore::where('pos_user_id', $request->pos_user_id)
+                                    ->where('store_id', $request->store_id)
+                                    ->first();
 
-        if ($existing) {
-            $existing->update([
-                'status' => 0,
-                'created_by' => $creatorId,
-                'deleted_at' => null
-            ]);
-            $assignment = $existing;
-        } else {
-            $assignment = PosUserStore::create([
-                'pos_user_id' => $request->pos_user_id,
-                'store_id'    => $request->store_id,
-                'created_by'  => $creatorId,
-                'status'      => 0
-            ]);
-        }
+            $oldData = $existing ? $existing->getRawOriginal() : null;
+            $action = $existing ? 'update' : 'create';
 
-        // LOG ACTIVITY
-        $targetUser = PosUser::find($request->pos_user_id);
-        $targetStore = Store::find($request->store_id);
-        
-        ActivityLogger::log(
-            'create',
-            'pos_user_stores',
-            $assignment->id,
-            "Menugaskan user {$targetUser->name} ke toko {$targetStore->name}",
-            $creatorId
-        );
+            if ($existing) {
+                $existing->update([
+                    'status' => 0,
+                    'created_by' => $creatorId,
+                    'deleted_at' => null
+                ]);
+                $assignment = $existing;
+                $msgLabel = "Mengaktifkan kembali penugasan";
+            } else {
+                $assignment = PosUserStore::create([
+                    'pos_user_id' => $request->pos_user_id,
+                    'store_id'    => $request->store_id,
+                    'created_by'  => $creatorId,
+                    'status'      => 0
+                ]);
+                $msgLabel = "Menugaskan";
+            }
 
-        return back()->with('message', 'Penugasan user ke toko berhasil ditambahkan!');
+            // LOG ACTIVITY
+            $targetUser = PosUser::find($request->pos_user_id);
+            $targetStore = Store::find($request->store_id);
+            
+            ActivityLogger::log(
+                $action,
+                'pos_user_stores',
+                $assignment->id,
+                "$msgLabel user {$targetUser->name} ke toko {$targetStore->name}",
+                $creatorId,
+                ['old' => $oldData, 'new' => $assignment->getAttributes()]
+            );
+
+            return back()->with('message', 'Penugasan user ke toko berhasil diproses!');
+        });
     }
 
     public function update(Request $request, $id)
@@ -141,40 +149,45 @@ class PosUserStoreController extends Controller
             'store_id'    => 'required|exists:stores,id',
         ]);
 
-        // Cek duplikasi akses yang aktif
-        $exists = PosUserStore::where('pos_user_id', $request->pos_user_id)
-                              ->where('store_id', $request->store_id)
-                              ->where('status', '!=', 2)
-                              ->where('id', '!=', $id)
-                              ->exists();
+        return DB::transaction(function () use ($request, $id) {
+            // Cek duplikasi akses yang aktif
+            $exists = PosUserStore::where('pos_user_id', $request->pos_user_id)
+                                  ->where('store_id', $request->store_id)
+                                  ->where('status', '!=', 2)
+                                  ->where('id', '!=', $id)
+                                  ->exists();
 
-        if ($exists) {
-            return back()->withErrors([
-                'pos_user_id' => 'USER INI SUDAH MEMILIKI AKSES KE TOKO TERSEBUT!'
+            if ($exists) {
+                return back()->withErrors([
+                    'pos_user_id' => 'USER INI SUDAH MEMILIKI AKSES KE TOKO TERSEBUT!'
+                ]);
+            }
+
+            $akses = PosUserStore::findOrFail($id);
+            $oldData = $akses->getRawOriginal(); // TANGKAP DATA LAMA
+
+            $akses->update([
+                'pos_user_id' => $request->pos_user_id,
+                'store_id'    => $request->store_id,
+                'status'      => 0 
             ]);
-        }
 
-        $akses = PosUserStore::findOrFail($id);
-        $akses->update([
-            'pos_user_id' => $request->pos_user_id,
-            'store_id'    => $request->store_id,
-            'status'      => 0 // Reset status ke normal
-        ]);
+            // LOG ACTIVITY
+            $creator = PosUser::where('username', Auth::user()->email)->first();
+            $targetUser = PosUser::find($request->pos_user_id);
+            $targetStore = Store::find($request->store_id);
 
-        // LOG ACTIVITY
-        $creator = PosUser::where('username', Auth::user()->email)->first();
-        $targetUser = PosUser::find($request->pos_user_id);
-        $targetStore = Store::find($request->store_id);
+            ActivityLogger::log(
+                'update',
+                'pos_user_stores',
+                $id,
+                "Memperbarui akses user {$targetUser->name} ke {$targetStore->name}",
+                $creator ? $creator->id : null,
+                ['old' => $oldData, 'new' => $akses->getAttributes()]
+            );
 
-        ActivityLogger::log(
-            'update',
-            'pos_user_stores',
-            $id,
-            "Memperbarui akses user {$targetUser->name} ke {$targetStore->name}",
-            $creator ? $creator->id : null
-        );
-
-        return back()->with('message', 'Akses user berhasil diperbarui!');
+            return back()->with('message', 'Akses user berhasil diperbarui!');
+        });
     }
 
     public function destroy($id)
@@ -182,9 +195,11 @@ class PosUserStoreController extends Controller
         return DB::transaction(function () use ($id) {
             try {
                 $akses = PosUserStore::with(['posUser', 'store'])->findOrFail($id);
+                $oldData = $akses->getRawOriginal(); // TANGKAP DATA SEBELUM DI-ARCHIVE
+                
                 $creator = PosUser::where('username', Auth::user()->email)->first();
 
-                //   Manual (Status 2)
+                // Soft Delete Manual (Status 2)
                 $akses->update([
                     'status' => 2,
                     'deleted_at' => now()
@@ -194,8 +209,9 @@ class PosUserStoreController extends Controller
                     'delete',
                     'pos_user_stores',
                     $id,
-                    "Mencabut akses user {$akses->posUser->name} dari toko {$akses->store->name} (Archived)",
-                    $creator ? $creator->id : null
+                    "Mencabut akses user {$akses->posUser->name} dari toko {$akses->store->name}",
+                    $creator ? $creator->id : null,
+                    ['old' => $oldData, 'new' => $akses->getAttributes()]
                 );
 
                 return back()->with('message', 'Akses user ke toko telah dicabut.');

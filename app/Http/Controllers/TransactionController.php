@@ -93,6 +93,9 @@ class TransactionController extends Controller
         try {
             DB::transaction(function () use ($id) {
                 $transaction = Transaction::with('details')->findOrFail($id);
+                
+                // Ambil data sebelum diupdate/hapus
+                $oldData = $transaction->getRawOriginal();
 
                 // 1. Rollback Stok, Saldo Wallet, dan Kas
                 $this->rollbackAssets($transaction);
@@ -107,25 +110,26 @@ class TransactionController extends Controller
                 $matchPosUser = PosUser::where('username', $adminEmail)->first();
                 $adminPosUserId = $matchPosUser ? $matchPosUser->id : null;
 
-                // 4. Catat Activity Log
+                // 4. Update Status & Admin Approved By
+                $transaction->update([
+                    'status' => 2,
+                    'deleted_at' => now(),
+                    'admin_approved_by' => $adminPosUserId
+                ]);
+
+                // 5. Catat Activity Log dengan OLD & NEW
                 $storeName = Store::find($transaction->store_id)->name ?? 'Unknown Store';
                 ActivityLogger::log(
                     'delete', 
                     'transactions', 
                     $id, 
                     "Membatalkan & mengarsipkan transaksi Toko $storeName", 
-                    $adminPosUserId
+                    $adminPosUserId,
+                    ['old' => $oldData, 'new' => $transaction->getAttributes()]
                 );
-
-                // 5. Update Status & Admin Approved By (Menggunakan ID PosUser)
-                $transaction->update([
-                    'status' => 2,
-                    'deleted_at' => now(),
-                    'admin_approved_by' => $adminPosUserId
-                ]);
             });
 
-            return redirect()->back()->with('message', 'Transaksi berhasil diarsipkan  .');
+            return redirect()->back()->with('message', 'Transaksi berhasil diarsipkan.');
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['message' => 'Gagal menghapus: ' . $e->getMessage()]);
         }
@@ -157,11 +161,16 @@ class TransactionController extends Controller
         $calcTotal = $calcSubtotal + ($request->tax ?? 0);
 
         try {
-            $transaction = DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal) {
+            // Variable untuk menampung data lama (jika update)
+            $oldData = null;
+
+            $transaction = DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal, &$oldData) {
                 $storeId = $request->store_id;
 
                 if ($id) {
                     $old = Transaction::with('details')->findOrFail($id);
+                    $oldData = $old->getRawOriginal(); // Simpan data lama
+                    
                     $this->rollbackAssets($old);
                     DB::table('cash_store')->where('store_id', $old->store_id)->decrement('cash', $old->subtotal);
                     $old->details()->delete();
@@ -243,12 +252,14 @@ class TransactionController extends Controller
                 return $transaction;
             });
 
+            // LOG ACTIVITY dengan OLD & NEW
             ActivityLogger::log(
                 $id ? "update" : "create", 
                 'transactions', 
                 $transaction->id, 
                 ($id ? "Memperbarui" : "Mencatat") . " transaksi penjualan Toko: " . Store::find($request->store_id)->name, 
-                auth()->user()->posUser->id ?? null
+                auth()->user()->posUser->id ?? null,
+                ['old' => $oldData, 'new' => $transaction->getAttributes()]
             );
 
             return redirect()->route('transactions.index')->with('message', 'Transaksi Berhasil Disimpan!');
