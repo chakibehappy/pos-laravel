@@ -17,10 +17,10 @@ class Service extends Model
         'description',
         'price',
         'status',
-        'created_by', // Menampung ID pembuat
+        'created_by',
         'delete_requested_by',
         'delete_reason',
-        'deleted_by',
+        'admin_approved_by', // Perubahan dari deleted_by
     ];
 
     protected $casts = [
@@ -36,8 +36,23 @@ class Service extends Model
      */
     public function user(): BelongsTo
     {
-        // Ganti PosUser::class dengan User::class jika Anda menggunakan model default Laravel
         return $this->belongsTo(PosUser::class, 'created_by');
+    }
+
+    /**
+     * Relasi ke User (Admin yang menyetujui penghapusan/aksi)
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(PosUser::class, 'admin_approved_by');
+    }
+
+    /**
+     * Relasi ke User (User yang meminta penghapusan)
+     */
+    public function requestedBy(): BelongsTo
+    {
+        return $this->belongsTo(PosUser::class, 'delete_requested_by');
     }
 
     public function isActive(): bool

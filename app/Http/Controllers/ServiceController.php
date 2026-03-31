@@ -23,7 +23,6 @@ class ServiceController extends Controller
 
     /**
      * Menampilkan daftar layanan aktif (status 0).
-     * Filter status ditambahkan agar konsisten dengan manajemen transaksi.
      */
     public function index(Request $request)
     {
@@ -31,7 +30,6 @@ class ServiceController extends Controller
         $query = Service::with('user'); 
 
         // 2. Filter Status (Hanya tampilkan status 0 / Aktif)
-        // Ini akan otomatis menyembunyikan status 1 (Non-aktif) dan 2 (Dihapus)
         $query->where('status', 0);
 
         // 3. Logic Pencarian
@@ -90,9 +88,10 @@ class ServiceController extends Controller
             
             DB::transaction(function () use ($service, $posUserId) {
                 // Update status menjadi 2 (Arsip/Terhapus)
+                // 'deleted_by' diganti menjadi 'admin_approved_by'
                 $service->update([
                     'status' => 2,
-                    'deleted_by' => $posUserId
+                    'admin_approved_by' => $posUserId 
                 ]);
 
                 // Jalankan Soft Delete
@@ -143,6 +142,7 @@ class ServiceController extends Controller
                     $data['created_by'] = $posUserId;
                 }
 
+                // Perhatikan: updateOrCreate akan menggunakan fillable yang sudah kita set di model Service
                 return Service::updateOrCreate(['id' => $id], $data);
             });
 

@@ -48,7 +48,7 @@ const openEdit = (row) => {
     form.id = row.id;
     form.name = row.name;
     form.description = row.description;
-    form.price = row.price;
+    form.price = Math.round(row.price); 
     showForm.value = true;
 };
 
@@ -67,6 +67,8 @@ const submit = () => {
     };
 
     if (isEditMode.value) {
+        // Menggunakan POST karena Laravel Controller Anda menggunakan updateOrCreate 
+        // dan Anda mungkin mengirimkan ID di dalam form post data
         form.post(route('services.update', form.id), options);
     } else {
         form.post(route('services.store'), options);
@@ -140,7 +142,7 @@ const submitDelete = () => {
                     <div class="text-center">
                         <div class="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-5 text-2xl rotate-3 shadow-inner">🗑️</div>
                         <h3 class="text-xl font-black text-gray-900 uppercase tracking-tighter">Hapus Layanan?</h3>
-                        <p class="text-xs text-gray-400 mt-2 leading-relaxed">Data <span class="font-bold text-gray-800 italic">"{{ deleteData.name }}"</span> akan dihapus permanen dari sistem.</p>
+                        <p class="text-xs text-gray-400 mt-2 leading-relaxed">Data <span class="font-bold text-gray-800 italic">"{{ deleteData.name }}"</span> akan diarsipkan ke sistem.</p>
                     </div>
 
                     <div class="mt-8 flex flex-col gap-2">
@@ -176,12 +178,11 @@ const submitDelete = () => {
                 <template #price="{ value }">
                     <div class="bg-blue-50 px-3 py-1 rounded-lg border border-blue-100 inline-block">
                         <span class="font-black text-blue-700 text-xs">
-                            Rp {{ Number(value).toLocaleString('id-ID') }}
+                            Rp {{ Number(Math.round(value)).toLocaleString('id-ID') }}
                         </span>
                     </div>
                 </template>
 
-                <!-- Template Slot Created By -->
                 <template #["user.name"]="{ row }">
                     <div class="flex items-center gap-2.5">
                         <div class="w-7 h-7 rounded-lg bg-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-sm uppercase italic">
