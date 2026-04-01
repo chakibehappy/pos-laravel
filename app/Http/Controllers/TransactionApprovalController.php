@@ -99,7 +99,8 @@ class TransactionApprovalController extends Controller
                     $transaction->id,
                     "Menyetujui penghapusan transaksi ID: #{$transaction->id} yang diajukan oleh: {$requesterName}",
                     $posUserId,
-                    ['old' => $oldData, 'new' => $transaction->getAttributes()]
+                    ['old' => $oldData, 'new' => $transaction->getAttributes()],
+                    $transaction->store_id
                 );
 
                 $message = 'Permintaan penghapusan disetujui. Aset telah di-rollback.';
@@ -119,7 +120,8 @@ class TransactionApprovalController extends Controller
                     $transaction->id,
                     "Menolak penghapusan transaksi ID: #{$transaction->id} yang diajukan oleh: {$requesterName}", 
                     $posUserId,
-                    ['old' => $oldData, 'new' => $transaction->getAttributes()]
+                    ['old' => $oldData, 'new' => $transaction->getAttributes()],
+                    $transaction->store_id
                 );
 
                 $message = 'Permintaan penghapusan ditolak.';

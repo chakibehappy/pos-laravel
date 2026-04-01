@@ -89,7 +89,8 @@ class UnitTypeController extends Controller
             $unit->id,
             "$actionLabel satuan: {$unit->name}",
             $posUserId,
-            ['old' => $oldData, 'new' => $unit->getAttributes()]
+            ['old' => $oldData, 'new' => $unit->getAttributes()],
+            null
         );
 
         return back()->with('message', 'Satuan berhasil disimpan!');
@@ -129,7 +130,8 @@ class UnitTypeController extends Controller
             $id,
             "Menghapus satuan: {$unit->name}",
             $posUserId,
-            ['old' => $oldData, 'new' => $unit->getAttributes()]
+            ['old' => $oldData, 'new' => $unit->getAttributes()],
+            null
         );
 
         return back()->with('message', 'Satuan berhasil diarsipkan!');

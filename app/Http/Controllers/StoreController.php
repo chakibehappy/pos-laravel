@@ -145,7 +145,8 @@ class StoreController extends Controller
                 $store->id,
                 "$actionLabel data toko: {$store->name} ",
                 $posUser->id,
-                ['old' => $oldData, 'new' => $newData]
+                ['old' => $oldData, 'new' => $newData],
+                $store->id
             );
 
             return back()->with('message', 'Data toko berhasil diproses.');
@@ -174,7 +175,8 @@ class StoreController extends Controller
                 $id,
                 "Menghapus toko: {$store->name}",
                 $posUser ? $posUser->id : null,
-                ['old' => $oldData, 'new' => ['status' => 2, 'deleted_at' => $store->deleted_at]]
+                ['old' => $oldData, 'new' => ['status' => 2, 'deleted_at' => $store->deleted_at]],
+                $id
             );
 
             return back()->with('message', 'Toko telah dihapus.');

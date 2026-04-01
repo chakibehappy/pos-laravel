@@ -69,7 +69,8 @@ class StoreTypeController extends Controller
                     $type->id,
                     "Memperbarui jenis usaha: {$oldData['name']} menjadi {$request->name}",
                     $posUserId,
-                    ['old' => $oldData, 'new' => $type->getAttributes()]
+                    ['old' => $oldData, 'new' => $type->getAttributes()],
+                    null
                 );
 
                 return redirect()->back()->with('success', 'Data berhasil diperbarui!');
@@ -99,7 +100,8 @@ class StoreTypeController extends Controller
                         $newType->id,
                         "Menambah jenis usaha baru: {$newType->name}",
                         $posUserId,
-                        ['old' => null, 'new' => $newType->getAttributes()]
+                        ['old' => null, 'new' => $newType->getAttributes()],
+                        null
                     );
                 }
             });
@@ -128,7 +130,8 @@ class StoreTypeController extends Controller
                 $id,
                 "Menghapus jenis usaha: {$typeName}",
                 $posUserId,
-                ['old' => $oldData, 'new' => null]
+                ['old' => $oldData, 'new' => null],
+                null
             );
 
             return redirect()->back()->with('success', 'Tipe Usaha berhasil dihapus!');

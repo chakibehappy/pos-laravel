@@ -75,7 +75,8 @@ class PaymentMethodController extends Controller
                 $method->id,
                 "Memperbarui metode pembayaran: {$request->name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $method->getAttributes()]
+                ['old' => $oldData, 'new' => $method->getAttributes()],
+                null
             );
         } 
         else {
@@ -100,7 +101,8 @@ class PaymentMethodController extends Controller
                         $newMethod->id,
                         "Menambah metode pembayaran baru: {$newMethod->name}",
                         $posUserId,
-                        ['old' => null, 'new' => $newMethod->getAttributes()]
+                        ['old' => null, 'new' => $newMethod->getAttributes()],
+                        null
                     );
                 }
             });
@@ -131,7 +133,8 @@ class PaymentMethodController extends Controller
                 $id,
                 "Mengarsipkan metode pembayaran: {$method->name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $method->getAttributes()]
+                ['old' => $oldData, 'new' => $method->getAttributes()],
+                null
             );
 
             return redirect()->back()->with('message', 'Metode pembayaran berhasil diarsipkan!');

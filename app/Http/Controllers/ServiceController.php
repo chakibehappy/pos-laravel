@@ -104,7 +104,8 @@ class ServiceController extends Controller
                 $id,
                 "Menghapus layanan (Status diubah ke 2): " . $serviceName,
                 $posUserId,
-                ['old' => $oldData, 'new' => $service->getAttributes()]
+                ['old' => $oldData, 'new' => $service->getAttributes()],
+                null
             );
 
             return redirect()->back()->with('message', 'Layanan berhasil dihapus dari daftar.');
@@ -160,7 +161,8 @@ class ServiceController extends Controller
                 $service->id,
                 ($id ? "Memperbarui" : "Menambah") . " layanan: " . $service->name,
                 $posUserId,
-                ['old' => $oldData, 'new' => $service->getAttributes()]
+                ['old' => $oldData, 'new' => $service->getAttributes()],
+                null
             );
 
             return redirect()->route('services.index')->with('message', 'Data Layanan Berhasil Disimpan!');

@@ -8,38 +8,38 @@ use Illuminate\Support\Str;
 
 class ActivityLogger
 {
-    /**
-     * Logger Utama - Sekarang Otomatis Mencari Payload jika tidak dikirim manual
-     */
     public static function log(
         string $action,
         string $referenceType,
         ?int $referenceId = null,
         ?string $description = null,
         ?int $createdBy = null,
-        ?array $payload = null
+        ?array $payload = null,
+        ?int $storeId = null // <--- 1. Tambahkan parameter baru di sini
     ): void {
         
         // --- LOGIKA OTOMATIS PAYLOAD ---
-        // Jika ini adalah 'update' dan payload masih kosong (NULL)
         if ($action === 'update' && $referenceId && is_null($payload)) {
             try {
-                // Mencari Model berdasarkan nama tabel (contoh: payment_methods -> PaymentMethod)
                 $modelName = Str::studly(Str::singular($referenceType));
                 $modelClass = "App\\Models\\{$modelName}";
 
                 if (class_exists($modelClass)) {
                     $model = $modelClass::find($referenceId);
                     if ($model) {
-                        // Mengambil data perbandingan
                         $payload = [
-                            'old' => $model->getOriginal(), // Data asli dari database
-                            'new' => $model->getAttributes() // Data yang baru saja diupdate
+                            'old' => $model->getOriginal(),
+                            'new' => $model->getAttributes()
                         ];
+
+                        // --- LOGIKA OTOMATIS STORE_ID ---
+                        // Jika storeId tidak dikirim manual, coba ambil dari model jika ada
+                        if (is_null($storeId) && isset($model->store_id)) {
+                            $storeId = $model->store_id;
+                        }
                     }
                 }
             } catch (\Exception $e) {
-                // Jika gagal cari model, biarkan payload tetap null agar tidak error
                 \Log::error("ActivityLogger Error: " . $e->getMessage());
             }
         }
@@ -50,8 +50,9 @@ class ActivityLogger
             'reference_id'   => $referenceId,
             'reference_type' => $referenceType,
             'action'         => $action,
-            'description'    => $description, // Kalimat manual kamu tetap tampil di sini
-            'payload'        => $payload,     // JSON Payload otomatis masuk ke sini
+            'description'    => $description,
+            'payload'        => $payload,
+            'store_id'       => $storeId, // <--- 2. Masukkan ke kolom database
             'created_at'     => now(),
         ]);
     }
@@ -72,7 +73,8 @@ class ActivityLogger
             $model->id ?? null,
             $description,
             $createdBy,
-            $payload ?? ['old' => $model->getOriginal(), 'new' => $model->getAttributes()]
+            $payload ?? ['old' => $model->getOriginal(), 'new' => $model->getAttributes()],
+            $model->store_id ?? null // <--- 3. Tambahkan ini agar otomatis ambil dari model
         );
     }
 }

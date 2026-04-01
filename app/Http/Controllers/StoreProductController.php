@@ -132,7 +132,8 @@ class StoreProductController extends Controller
                 $sp->id,
                 "{$actionLabel} stok produk {$product->name} di {$store->name} menjadi {$request->stock}",
                 $createdBy,
-                ['old' => $oldData, 'new' => $sp->getAttributes()]
+                ['old' => $oldData, 'new' => $sp->getAttributes()],
+                $request->store_id
             );
 
             return back()->with('message', 'Data stok cabang berhasil diperbarui!');
@@ -167,7 +168,8 @@ class StoreProductController extends Controller
                     $id,
                     "Menghapus record stok produk: {$sp->product->name} dari toko {$sp->store->name}",
                     $userId,
-                    ['old' => $oldData, 'new' => $sp->getAttributes()]
+                    ['old' => $oldData, 'new' => $sp->getAttributes()],
+                    $sp->store_id
                 );
 
                 return back()->with('message', 'Data stok cabang berhasil dihapus.');

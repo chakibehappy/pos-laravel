@@ -137,7 +137,8 @@ class CashStoreController extends Controller
             $cashStore->id, 
             $label . $store_name . " sebesar Rp " . number_format($inputAmount, 0, ',', '.'), 
             $operatorId,
-            ['old' => $oldData, 'new' => $cashStore->getAttributes()] // <-- Payload dikirim di sini
+            ['old' => $oldData, 'new' => $cashStore->getAttributes()], 
+            $request->store_id// <-- Payload dikirim di sini
         );
         
         return back()->with('message', "Saldo kas berhasil {$statusLabel[$request->action_type]}!");
@@ -159,7 +160,8 @@ class CashStoreController extends Controller
                 $id, 
                 "Menghapus record kas toko ID: " . $cash->store_id, 
                 $operatorId,
-                ['old' => $oldData, 'new' => null] // New null karena data dihapus
+                ['old' => $oldData, 'new' => null],
+                $cash->store_id// New null karena data dihapus
             );
 
             $cash->delete();

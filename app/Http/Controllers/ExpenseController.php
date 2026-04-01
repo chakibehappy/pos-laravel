@@ -132,7 +132,8 @@ class ExpenseController extends Controller
             $expense->id,
             ($request->id ? "Update" : "Input") . " pengeluaran: Toko {$expense->store->name} oleh {$expense->posUser->name} (" . number_format($expense->amount, 0, ',', '.') . ")",
             $posUserId,
-            ['old' => $oldData, 'new' => $expense->getAttributes()]
+            ['old' => $oldData, 'new' => $expense->getAttributes()],
+            $expense->store_id
         );
 
         return back()->with('message', 'Data berhasil disimpan');
@@ -159,7 +160,8 @@ class ExpenseController extends Controller
             $id,
             "Hapus pengeluaran: Toko {$expense->store->name} oleh {$expense->posUser->name}",
             $posUserId,
-            ['old' => $oldData, 'new' => $expense->getAttributes()]
+            ['old' => $oldData, 'new' => $expense->getAttributes()],
+            $expense->store_id
         );
 
         return back()->with('message', 'Data berhasil dihapus');

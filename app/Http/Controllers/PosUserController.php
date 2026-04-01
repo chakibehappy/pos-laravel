@@ -97,7 +97,8 @@ class PosUserController extends Controller
                     $user->id,
                     "Memperbarui data user POS: {$user->name} (Username: {$user->username})",
                     $currentEditorId,
-                    ['old' => $cleanOld, 'new' => $cleanNew]
+                    ['old' => $cleanOld, 'new' => $cleanNew],
+                    null
                 );
             } else {
                 // --- PROSES CREATE ---
@@ -119,7 +120,8 @@ class PosUserController extends Controller
                     $newUser->id,
                     "Membuat user POS baru: {$newUser->name} sebagai {$newUser->role}",
                     $currentEditorId,
-                    ['old' => null, 'new' => $cleanNew]
+                    ['old' => null, 'new' => $cleanNew],
+                    null
                 );
             }
 
@@ -154,7 +156,8 @@ class PosUserController extends Controller
                 $id,
                 "Menghapus user POS: {$user->name}",
                 $currentEditorId,
-                ['old' => $cleanOld, 'new' => $user->getAttributes()]
+                ['old' => $cleanOld, 'new' => $user->getAttributes()],
+                null
             );
 
             return back()->with('message', 'User Berhasil Dihapus.');

@@ -138,7 +138,8 @@ class UserController extends Controller
                 $user->id,
                 "$actionLabel akun Admin: {$user->name} ({$user->email}) dan sinkronisasi POS User.",
                 $posUserId,
-                ['old' => $oldData, 'new' => $user->getAttributes()]
+                ['old' => $oldData, 'new' => $user->getAttributes()],
+                null
             );
 
             return back()->with('message', 'User dan Akun POS berhasil disinkronkan');
@@ -179,7 +180,8 @@ class UserController extends Controller
                 $id,
                 "Menghapus akun Admin & POS User: {$user->name} ({$user->email})",
                 $posUserId,
-                ['old' => $oldData, 'new' => $user->getAttributes()]
+                ['old' => $oldData, 'new' => $user->getAttributes()],
+                null
             );
 
             return back()->with('message', 'User dan Akun POS berhasil dihapus');

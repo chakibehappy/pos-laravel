@@ -88,7 +88,8 @@ class AccountController extends Controller
                 $account->id,
                 "$actionLabel akun perusahaan: {$account->company_name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $account->getAttributes()]
+                ['old' => $oldData, 'new' => $account->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Account saved successfully');
@@ -118,7 +119,8 @@ class AccountController extends Controller
                 $id,
                 "Menghapus akun perusahaan: {$account->company_name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $account->getAttributes()]
+                ['old' => $oldData, 'new' => $account->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Account deleted successfully');

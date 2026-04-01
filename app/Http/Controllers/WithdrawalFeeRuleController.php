@@ -92,7 +92,8 @@ class WithdrawalFeeRuleController extends Controller
                     $rule->id, 
                     "$actionLabel aturan biaya penarikan: Limit " . number_format($rule->min_limit) . " - " . number_format($rule->max_limit), 
                     $finalId,
-                    ['old' => $oldData, 'new' => $rule->getAttributes()]
+                    ['old' => $oldData, 'new' => $rule->getAttributes()],
+                    null
                 );
 
                 return back()->with('message', 'Aturan biaya penarikan berhasil disimpan!');
@@ -123,7 +124,8 @@ class WithdrawalFeeRuleController extends Controller
                     $id, 
                     "Menghapus aturan biaya penarikan: Limit " . number_format($rule->min_limit) . " - " . number_format($rule->max_limit), 
                     $userOperatorId,
-                    ['old' => $oldData, 'new' => $rule->getAttributes()]
+                    ['old' => $oldData, 'new' => $rule->getAttributes()],
+                    null
                 );
 
                 return back()->with('message', 'Aturan biaya berhasil diarsipkan.');

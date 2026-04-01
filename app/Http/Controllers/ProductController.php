@@ -146,7 +146,8 @@ class ProductController extends Controller
                 $product->id,
                 ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $product->name,
                 $posUserId,
-                ['old' => $oldData, 'new' => $product->getAttributes()]
+                ['old' => $oldData, 'new' => $product->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Data berhasil diproses!');
@@ -171,7 +172,8 @@ class ProductController extends Controller
             $id,
             "Menghapus produk: {$product->name}",
             $posUserId,
-            ['old' => $oldData, 'new' => array_merge($product->getAttributes(), ['status' => 2])]
+            ['old' => $oldData, 'new' => array_merge($product->getAttributes(), ['status' => 2])],
+            null
         );
 
         // Hapus Gambar (Optional, disarankan tetap simpan jika statusnya 2/Arsip)

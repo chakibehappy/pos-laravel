@@ -135,7 +135,8 @@ class PosUserStoreController extends Controller
                 $assignment->id,
                 "$msgLabel user {$targetUser->name} ke toko {$targetStore->name}",
                 $creatorId,
-                ['old' => $oldData, 'new' => $assignment->getAttributes()]
+                ['old' => $oldData, 'new' => $assignment->getAttributes()],
+                $request->store_id
             );
 
             return back()->with('message', 'Penugasan user ke toko berhasil diproses!');
@@ -183,7 +184,8 @@ class PosUserStoreController extends Controller
                 $id,
                 "Memperbarui akses user {$targetUser->name} ke {$targetStore->name}",
                 $creator ? $creator->id : null,
-                ['old' => $oldData, 'new' => $akses->getAttributes()]
+                ['old' => $oldData, 'new' => $akses->getAttributes()],
+                $request->store_id
             );
 
             return back()->with('message', 'Akses user berhasil diperbarui!');
@@ -211,7 +213,8 @@ class PosUserStoreController extends Controller
                     $id,
                     "Mencabut akses user {$akses->posUser->name} dari toko {$akses->store->name}",
                     $creator ? $creator->id : null,
-                    ['old' => $oldData, 'new' => $akses->getAttributes()]
+                    ['old' => $oldData, 'new' => $akses->getAttributes()],
+                    $akses->store_id
                 );
 
                 return back()->with('message', 'Akses user ke toko telah dicabut.');

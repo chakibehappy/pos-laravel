@@ -124,7 +124,8 @@ class TransactionController extends Controller
                     [
                         'old' => $oldData, 
                         'new' => $transaction->fresh()->toArray() // Ambil status terbaru setelah update
-                    ]
+                    ],
+                    $transaction->store_id
                 );
             });
 
@@ -263,7 +264,8 @@ class TransactionController extends Controller
                 [
                     'old' => $oldData, 
                     'new' => $transaction->toArray() // Sekarang mencakup key 'details'
-                ]
+                ],
+                $transaction->store_id
             );
 
             return redirect()->route('transactions.index')->with('message', 'Transaksi Berhasil Disimpan!');

@@ -184,7 +184,8 @@ class DigitalWalletStoreController extends Controller
             $walletStore->id,
             $desc,
             $operatorId,
-            ['old' => $oldData, 'new' => $newData] // Kirim payload akurat
+            ['old' => $oldData, 'new' => $newData],
+            $walletStore->store_id // Kirim payload akurat
         );
 
         return back()->with('message', 'Saldo berhasil diperbarui!');
@@ -207,7 +208,8 @@ class DigitalWalletStoreController extends Controller
                     $id,
                     "Menghapus record saldo $walletName di $storeName",
                     $posUser ? $posUser->id : null,
-                    ['old' => $oldData, 'new' => null] // Data dihapus, new adalah null
+                    ['old' => $oldData, 'new' => null],
+                    $walletStore->store_id // Data dihapus, new adalah null
                 );
             }
 

@@ -79,7 +79,8 @@ class WithdrawalSourceTypeController extends Controller
                         $source->id,
                         "Menambah sumber dana penarikan (Batch): {$name}",
                         $posUserId,
-                        ['old' => null, 'new' => $source->getAttributes()]
+                        ['old' => null, 'new' => $source->getAttributes()],
+                        null
                     );
                 }
             });
@@ -103,7 +104,8 @@ class WithdrawalSourceTypeController extends Controller
             $source->id,
             "Menambah sumber dana penarikan: {$name}",
             $posUserId,
-            ['old' => null, 'new' => $source->getAttributes()]
+            ['old' => null, 'new' => $source->getAttributes()],
+            null
         );
 
         return back()->with('message', 'Data berhasil disimpan.');
@@ -137,7 +139,8 @@ class WithdrawalSourceTypeController extends Controller
             $id,
             "Memperbarui sumber dana penarikan: {$oldData['name']} -> {$newName}",
             $posUserId,
-            ['old' => $oldData, 'new' => $sourceType->getAttributes()]
+            ['old' => $oldData, 'new' => $sourceType->getAttributes()],
+            null
         );
 
         return back()->with('message', 'Data berhasil diperbarui.');
@@ -173,7 +176,8 @@ class WithdrawalSourceTypeController extends Controller
                 $id,
                 "Menghapus/Mengarsipkan sumber dana penarikan: {$sourceType->name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $sourceType->getAttributes()]
+                ['old' => $oldData, 'new' => $sourceType->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Data berhasil diarsipkan.');

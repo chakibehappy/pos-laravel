@@ -102,7 +102,8 @@ class TopupFeeRuleController extends Controller
                         $rule->id,
                         "Memperbarui aturan biaya Top Up: $typeName",
                         $posUserId,
-                        ['old' => $oldData, 'new' => $rule->getAttributes()]
+                        ['old' => $oldData, 'new' => $rule->getAttributes()],
+                        null
                     );
                 } 
                 // --- MODE CREATE (BATCH) ---
@@ -129,7 +130,8 @@ class TopupFeeRuleController extends Controller
                             $newRule->id,
                             "Membuat aturan biaya Top Up baru: $typeName",
                             $posUserId,
-                            ['old' => null, 'new' => $newRule->getAttributes()]
+                            ['old' => null, 'new' => $newRule->getAttributes()],
+                            null
                         );
                     }
                 }
@@ -165,7 +167,8 @@ class TopupFeeRuleController extends Controller
                     $id,
                     "Menghapus aturan biaya Top Up: $typeName (Archived)",
                     $posUserId,
-                    ['old' => $oldData, 'new' => $rule->getAttributes()]
+                    ['old' => $oldData, 'new' => $rule->getAttributes()],
+                    null
                 );
 
                 return back()->with('message', 'Rule berhasil diarsipkan.');

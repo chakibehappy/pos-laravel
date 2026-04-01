@@ -82,7 +82,8 @@ class TopupTransTypeController extends Controller
                     $newType->id,
                     "Menambahkan tipe transaksi topup: {$newType->name} ({$newType->type})",
                     $posUserId,
-                    ['old' => null, 'new' => $newType->getAttributes()]
+                    ['old' => null, 'new' => $newType->getAttributes()],
+                    null
                 );
             }
             return back()->with('message', 'Batch data transaksi berhasil ditambahkan.');
@@ -119,7 +120,8 @@ class TopupTransTypeController extends Controller
                 $id,
                 "Memperbarui tipe transaksi topup: {$oldData['name']} menjadi {$request->name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $item->getAttributes()]
+                ['old' => $oldData, 'new' => $item->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Data berhasil diperbarui.');
@@ -150,7 +152,8 @@ class TopupTransTypeController extends Controller
                     $id,
                     "Menghapus tipe transaksi topup: {$item->name} ({$item->type})",
                     $posUserId,
-                    ['old' => $oldData, 'new' => $item->getAttributes()]
+                    ['old' => $oldData, 'new' => $item->getAttributes()],
+                    null
                 );
 
                 return back()->with('message', 'Data berhasil diarsipkan.');

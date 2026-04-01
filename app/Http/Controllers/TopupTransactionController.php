@@ -98,7 +98,8 @@ class TopupTransactionController extends Controller
                 $transaction->id,
                 "Menambahkan transaksi Topup: {$transaction->cust_account_number} (Nominal: " . number_format($transaction->nominal_request) . ")",
                 $posUserId,
-                ['new' => $transaction->toArray(), 'old' => null]
+                ['new' => $transaction->toArray(), 'old' => null],
+                $transaction->store_id
             );
 
             return back()->with('message', 'Transaksi berhasil dan saldo telah dipotong.');
@@ -152,7 +153,8 @@ class TopupTransactionController extends Controller
                 $id,
                 "Mengubah transaksi Topup #{$id} - Akun: {$updatedTransaction->cust_account_number}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $updatedTransaction->toArray()]
+                ['old' => $oldData, 'new' => $updatedTransaction->toArray()],
+                $updatedTransaction->store_id
             );
 
             return back()->with('message', 'Transaksi berhasil diperbarui dan saldo disesuaikan.');
@@ -190,7 +192,8 @@ class TopupTransactionController extends Controller
                 $id,
                 "MENGHAPUS (Refund) transaksi Topup #{$id} Akun: " . ($oldDataSnapshot['cust_account_number'] ?? '-'),
                 $posUserId,
-                ['old' => $oldDataSnapshot, 'new' => ['status' => 'DELETED', 'refunded_at' => now()]]
+                ['old' => $oldDataSnapshot, 'new' => ['status' => 'DELETED', 'refunded_at' => now()]],
+                $oldDataSnapshot['store_id']
             );
 
             return back()->with('message', 'Riwayat transaksi dihapus dan saldo dikembalikan.');

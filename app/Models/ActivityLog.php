@@ -9,34 +9,49 @@ class ActivityLog extends Model
 {
     protected $table = 'activity_logs';
 
-    // Karena kita hanya menggunakan created_at secara manual
+    /**
+     * Matikan timestamps otomatis karena kita menggunakan kolom 'created_at' secara manual
+     * untuk mencatat waktu persis saat aktivitas terjadi tanpa kolom 'updated_at'.
+     */
     public $timestamps = false; 
 
     protected $fillable = [
-        'created_by',
-        'reference_id',
-        'reference_type',
-        'action',
-        'description',
-        'created_at',
-        'payload', 
+        'store_id',      // Lokasi toko tempat aktivitas terjadi
+        'created_by',    // ID dari Eksekutor (PosUser)
+        'reference_id',  // ID dari data yang dimanipulasi (misal: ID Transaksi)
+        'reference_type',// Jenis tabel referensi (misal: 'transactions', 'products')
+        'action',        // Jenis tindakan (create, update, delete, dll)
+        'description',   // Keterangan detail aktivitas
+        'created_at',    // Waktu eksekusi
+        'payload',       // Data JSON berisi perbandingan data lama dan baru (old vs new)
     ];
 
-    /**
-     * Sesi 5 Preparations: 
-     * Memastikan payload dikirim sebagai array ke Vue agar mapping berhasil.
-     */
     protected $casts = [
         'created_at' => 'datetime',
-        'payload'    => 'array', 
+        'payload'    => 'array', // Casting otomatis dari JSON ke Array PHP
     ];
 
     /**
-     * Relasi ke user yang melakukan aktivitas
+     * Relasi ke Toko (Store)
+     * Digunakan untuk mengelompokkan log aktivitas berdasarkan cabang toko.
      */
-    public function user(): BelongsTo
+    public function store(): BelongsTo
     {
-        // Pastikan model PosUser sudah ada di namespace App\Models
-        return $this->belongsTo(PosUser::class, 'created_by');
+        return $this->belongsTo(Store::class, 'store_id')->withDefault([
+            'name' => 'Global'
+        ]);
+    }
+
+    /**
+     * Relasi ke Eksekutor (POS User)
+     * Menggantikan relasi 'user' sebelumnya untuk memperjelas peran operator
+     * yang mengeksekusi perintah di sistem POS.
+     */
+    public function executor(): BelongsTo
+    {
+        // Tetap mereferensikan kolom 'created_by' ke model PosUser
+        return $this->belongsTo(PosUser::class, 'created_by')->withDefault([
+            'name' => 'AUTOMATED SYSTEM'
+        ]);
     }
 }

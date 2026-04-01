@@ -92,7 +92,8 @@ class ProductCategoryController extends Controller
             $category->id,
             "$actionLabel kategori produk: {$category->name}",
             $posUserId,
-            ['old' => $oldData, 'new' => $category->getAttributes()]
+            ['old' => $oldData, 'new' => $category->getAttributes()],
+            null
         );
 
         return back()->with('message', 'Kategori berhasil disimpan!');
@@ -131,7 +132,8 @@ class ProductCategoryController extends Controller
             $id,
             "Menghapus kategori produk: {$category->name}",
             $posUserId,
-            ['old' => $oldData, 'new' => $category->getAttributes()]
+            ['old' => $oldData, 'new' => $category->getAttributes()],
+            null
         );
 
         return back()->with('message', 'Kategori berhasil diarsipkan!');

@@ -94,7 +94,8 @@ class DigitalWalletController extends Controller
                 $wallet->id,
                 "$actionLabel platform wallet: {$wallet->name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => $wallet->getAttributes()]
+                ['old' => $oldData, 'new' => $wallet->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Platform Wallet berhasil disimpan!');
@@ -125,7 +126,8 @@ class DigitalWalletController extends Controller
                 $id,
                 "Menghapus platform wallet: {$wallet->name}",
                 $posUserId,
-                ['old' => $oldData, 'new' => array_merge($oldData, ['status' => 2, 'deleted_at' => now()])]
+                ['old' => $oldData, 'new' => array_merge($oldData, ['status' => 2, 'deleted_at' => now()])],
+                null
             );
 
             // Proses Arsipkan
