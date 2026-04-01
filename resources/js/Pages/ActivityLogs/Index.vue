@@ -5,22 +5,24 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import TransactionDetailModal from '@/Pages/TransactionsDetails/Index.vue';
 import UpdModalTransaction from '@/Components/Audit/UpdModalTransaction.vue';
-import UpdModalMaster from '@/Components/Audit/UpdModalMaster.vue'; // 1. Import Komponen Baru
+import UpdModalMaster from '@/Components/Audit/UpdModalMaster.vue'; 
 
 const props = defineProps({
-    logs: Object,
+    logs: Object, 
     filters: Object
 });
 
-// State Modal Transaksi (Lama - Struk)
+// --- STATE MANAGEMENT ---
+
+// 1. State Modal Detail Transaksi (Struk/Invoice) - Tetap ada jika sewaktu-waktu dibutuhkan
 const showDetailModal = ref(false);
 const selectedTransactionId = ref(null);
 const detailModalRef = ref(null);
 
-// State Modal Audit (Baru)
-const showLogModal = ref(false);    // Untuk Update Transaksi
-const showMasterModal = ref(false); // Untuk Update Master Data (User/Produk/dll)
-const selectedLog = ref(null);
+// 2. State Modal Audit (Perbandingan Data)
+const showLogModal = ref(false);    
+const showMasterModal = ref(false); 
+const selectedLog = ref(null);      
 
 const columns = [
     { label: 'Waktu Aktivitas', key: 'created_at', sortable: true },
@@ -30,6 +32,9 @@ const columns = [
     { label: 'Detail Keterangan', key: 'description', sortable: false },
 ];
 
+/**
+ * LOGIKA TEMA WARNA (UI Feedback)
+ */
 const getActionTheme = (action) => {
     const act = (action || '').toUpperCase();
     if (act.includes('CREATE') || act.includes('RESTOCK')) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
@@ -40,39 +45,25 @@ const getActionTheme = (action) => {
     return 'text-gray-600 bg-gray-50 border-gray-200';
 };
 
+/**
+ * LOGIKA PEMILIHAN MODAL diperbarui
+ * Semua tindakan 'transactions' kini masuk ke UpdModalTransaction
+ */
 const openActivityDetail = (row) => {
     const action = (row.action || '').toUpperCase();
-    const refType = (row.reference_type || '').toLowerCase(); // Normalisasi string
+    const refType = (row.reference_type || '').toLowerCase();
     
-    // 1. Abaikan jika Login/Logout
+    // A. Abaikan jika Login/Logout
     if (action.includes('LOGIN') || action.includes('LOGOUT')) return;
 
-    // 2. Tentukan apakah ini tindakan update yang butuh perbandingan data
-    const isUpdateAction = action.includes('UPDATE') || 
-                           action.includes('ADJUSTMENT') || 
-                           action.includes('VOID');
-
-    // 3. Logika Penentuan Modal
+    // B. Logika Per-Referensi
     if (refType === 'transactions') {
-        if (!isUpdateAction || action.includes('REJECT')) {
-            // Buka Struk/Invoice Original
-            selectedTransactionId.value = row.reference_id;
-            showDetailModal.value = true;
-            
-            setTimeout(() => {
-                if (detailModalRef.value && typeof detailModalRef.value.fetchDetails === 'function') {
-                    detailModalRef.value.fetchDetails();
-                }
-            }, 100);
-        } else {
-            // Buka Audit Update Transaksi (Perbandingan Item Tabel)
-            selectedLog.value = row;
-            showLogModal.value = true;
-        }
+        // Apapun tindakannya (CREATE, UPDATE, DELETE), gunakan Modal Audit Transaksi
+        selectedLog.value = row;
+        showLogModal.value = true;
     } 
     else {
-        // 4. Selain transaksi (User, Supplier, Produk, dll)
-        // Gunakan Modal Perbandingan Field (Master)
+        // TIPE Master Data (User, Supplier, Produk, dll)
         selectedLog.value = row;
         showMasterModal.value = true;
     }
@@ -125,7 +116,7 @@ const openActivityDetail = (row) => {
                             {{ row.reference_type }}
                         </span>
                         <span v-if="!row.action.toUpperCase().includes('LOGIN')" class="text-[9px] font-bold text-blue-600 italic">
-                            Klik untuk detail
+                            Klik untuk detail audit
                         </span>
                     </div>
                 </template>
@@ -142,26 +133,23 @@ const openActivityDetail = (row) => {
             </DataTable>
         </div>
 
-        <!-- Modal 1: Detail Struk Transaksi -->
-        <TransactionDetailModal 
-            ref="detailModalRef"
-            :show="showDetailModal"
-            :transaction-id="selectedTransactionId"
-            @close="showDetailModal = false"
-        />
-        
-        <!-- Modal 2: Audit Update Transaksi (Tabel Item) -->
         <UpdModalTransaction 
             :show="showLogModal" 
             :logData="selectedLog" 
             @close="showLogModal = false" 
         />
 
-        <!-- Modal 3: Audit Update Master Data (Field Comparison) -->
         <UpdModalMaster 
             :show="showMasterModal" 
             :logData="selectedLog" 
             @close="showMasterModal = false" 
+        />
+
+        <TransactionDetailModal 
+            ref="detailModalRef"
+            :show="showDetailModal"
+            :transaction-id="selectedTransactionId"
+            @close="showDetailModal = false"
         />
 
     </AuthenticatedLayout>

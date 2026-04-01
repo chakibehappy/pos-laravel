@@ -42,17 +42,23 @@ class ActivityLogController extends Controller
 
         return Inertia::render('ActivityLogs/Index', [
             'logs' => $query->orderBy($sortField, $sortDirection)
-                            ->paginate(15) // Menambah pagination agar lebih proporsional untuk log
+                            ->paginate(15) 
                             ->withQueryString()
                             ->through(fn ($log) => [
-                                'id' => $log->id,
-                                'user_name' => $log->user ? $log->user->name : 'SYSTEM',
-                                'action' => $log->action,
+                                'id'             => $log->id,
+                                'user_name'      => $log->user ? $log->user->name : 'SYSTEM',
+                                'action'         => $log->action,
                                 'reference_type' => $log->reference_type,
-                                'reference_id' => $log->reference_id,
-                                'description' => $log->description,
-                                'created_at' => $log->created_at ? $log->created_at->format('d/m/Y H:i') : '-',
-                                'payload'        => $log->payload,
+                                'reference_id'   => $log->reference_id,
+                                'description'    => $log->description,
+                                'created_at'     => $log->created_at ? $log->created_at->format('d/m/Y H:i') : '-',
+                                
+                                /**
+                                 * SESI 5: MAPPING DATA PAYLOAD
+                                 * Kita kirim 'payload' sebagai 'properties' agar sesuai dengan 
+                                 * logic di Modal (oldData & newData).
+                                 */
+                                'properties'     => $log->payload, 
                             ]),
             'filters' => $request->only(['search', 'sort', 'direction']),
         ]);

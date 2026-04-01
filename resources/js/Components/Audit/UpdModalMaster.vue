@@ -14,37 +14,72 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-// Memproses data lama (Old)
-const oldTransaction = computed(() => {
-    if (!props.logData?.properties?.old) return { total: 0, items: [] };
-    const oldData = props.logData.properties.old;
-    return {
-        total: oldData.total_price || 0,
-        items: oldData.details || []
-    };
-});
-
-// Memproses data baru (New)
-const newTransaction = computed(() => {
-    if (!props.logData?.properties?.attributes) return { total: 0, items: [] };
-    const newData = props.logData.properties.attributes;
-    return {
-        total: newData.total_price || 0,
-        items: newData.details || []
-    };
-});
-
-// Fungsi pembantu untuk mendeteksi perubahan pada item tertentu
-const isItemChanged = (index, field) => {
-    const oldItem = oldTransaction.value.items[index];
-    const newItem = newTransaction.value.items[index];
-    if (!oldItem || !newItem) return true;
-    return oldItem[field] !== newItem[field];
+// 1. DUMMY DATA FALLBACK
+const dummyData = {
+    user_name: "SYSTEM",
+    created_at: "-",
+    properties: {
+        old: {},
+        new: {}
+    }
 };
 
-const close = () => {
-    emit('close');
+const activeLog = computed(() => props.logData ? props.logData : dummyData);
+const oldData = computed(() => activeLog.value?.properties?.old || {});
+const newData = computed(() => activeLog.value?.properties?.new || {});
+
+// LOGIKA DETEKSI AKSI
+// Create: Jika data OLD kosong
+const isCreateAction = computed(() => Object.keys(oldData.value).length === 0);
+
+// Delete/Archive: Jika status di data baru berubah menjadi 2
+const isDeleteAction = computed(() => {
+    const statusOld = oldData.value?.status;
+    const statusNew = newData.value?.status;
+    // Terdeteksi delete jika status baru adalah 2 sedangkan sebelumnya bukan 2
+    return (statusNew == 2 && statusOld != 2);
+});
+
+// 2. FORMATTER NILAI
+const formatValue = (val) => {
+    if (val === undefined || val === null || val === '') return '-';
+    if (!isNaN(val) && typeof val !== 'boolean') {
+        return Number(val).toString(); 
+    }
+    return val;
 };
+
+// 3. LOGIKA HIGHLIGHT PERUBAHAN
+const isChanged = (key) => {
+    // Jika delete atau create, tidak perlu highlight perbedaan warna
+    if (isCreateAction.value || isDeleteAction.value) return false;
+
+    const valOld = formatValue(oldData.value[key]);
+    const valNew = formatValue(newData.value[key]);
+    return valOld !== valNew;
+};
+
+// 4. MAPPING KEYS UNTUK DITAMPILKAN
+const displayKeys = computed(() => {
+    const allKeys = [...new Set([...Object.keys(oldData.value), ...Object.keys(newData.value)])];
+    const technicalFields = [
+        'created_at', 'updated_at', 'deleted_at', 
+        'created_by', 'details', 'total_price', 'payload',
+        'status', 'is_active', 'remember_token',
+        'delete_requested_by', 'delete_reason', 'admin_approved_by'
+    ];
+    
+    return allKeys.filter(key => {
+        if (technicalFields.includes(key)) return false;
+        const valOld = oldData.value[key];
+        const valNew = newData.value[key];
+        const isEmpty = (v) => v === null || v === undefined || v === '' || v === '-';
+        return !isEmpty(valOld) || !isEmpty(valNew);
+    });
+});
+
+const formatKey = (key) => key.replace(/_/g, ' ').toUpperCase();
+const close = () => emit('close');
 </script>
 
 <template>
@@ -55,53 +90,45 @@ const close = () => {
         <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-in duration-200">
             <div class="p-6">
                 
-                <!-- Header -->
                 <div class="flex justify-between items-start border-b border-gray-100 pb-4 mb-8">
                     <div>
                         <h2 class="text-lg font-black text-gray-800 uppercase tracking-tight">
                             <span class="text-blue-600">Audit</span> Perubahan Data
                         </h2>
                         <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
-                            Perbandingan Data Sebelum dan Sesudah Update
+                            {{ isDeleteAction ? 'Data ini telah dihapus / diarsipkan dari sistem' : 'Teks merah miring menunjukkan data yang mengalami perubahan' }}
                         </p>
                     </div>
                     <button @click="close" class="text-gray-400 hover:text-gray-600 text-3xl leading-none transition-colors">&times;</button>
                 </div>
 
-                <!-- Scroll Area -->
                 <div class="flex flex-col gap-8 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                     
-                    <!-- KONDISI SEBELUM (OLD) -->
-                    <div class="border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm ring-1 ring-gray-100">
-                        <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex justify-between items-center relative">
+                    <div v-if="!isCreateAction" 
+                         class="border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm ring-1 ring-gray-100">
+                        <div class="bg-gray-50 border-b border-gray-100 px-5 py-3">
                             <span class="text-[11px] font-black text-black uppercase tracking-widest flex items-center gap-2">
-                                <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                                Kondisi Sebelumnya (Old)
+                                <span class="w-2 h-2 bg-red-500 rounded-full" :class="{'animate-pulse': !isDeleteAction}"></span>
+                                {{ isDeleteAction ? 'Data Sebelum Dihapus (Archive)' : 'Kondisi Sebelumnya (Old)' }}
                             </span>
-                            <span class="text-[10px] font-bold text-gray-400 uppercase italic">Data Lama</span>
                         </div>
                         <table class="w-full text-left text-[12px]">
-                            <thead class="bg-gray-50 border-b border-gray-100 text-[10px] font-black text-black uppercase tracking-wider">
-                                <tr>
-                                    <th class="px-5 py-2.5">Nama Produk</th>
-                                    <th class="px-5 py-2.5 text-center">Qty</th>
-                                    <th class="px-5 py-2.5 text-right uppercase">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 italic font-medium">
-                                <tr v-for="(item, index) in oldTransaction.items" :key="'old-'+index">
-                                    <td class="px-5 py-3.5 text-black font-semibold">{{ item.product_name || item.name }}</td>
-                                    <td class="px-5 py-3.5 text-center font-black text-black font-mono">{{ item.quantity || item.qty }}</td>
-                                    <td class="px-5 py-3.5 text-right font-black font-mono text-black">
-                                        Rp {{ (item.subtotal || 0).toLocaleString() }}
+                            <tbody class="divide-y divide-gray-100">
+                                <tr v-for="key in displayKeys" :key="'old-' + key">
+                                    <td class="px-5 py-4 text-gray-400 font-bold uppercase text-[9px] w-1/3 tracking-wider">
+                                        {{ formatKey(key) }}
+                                    </td>
+                                    <td class="px-5 py-4 text-[13px] transition-all duration-300"
+                                        :class="isChanged(key) ? 'text-red-600 font-black italic' : 'text-black font-medium'">
+                                        {{ formatValue(oldData[key]) }}
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- KONDISI TERBARU (NEW) -->
-                    <div class="border border-emerald-100 rounded-2xl overflow-hidden bg-white shadow-lg ring-2 ring-emerald-500/10">
+                    <div v-if="!isDeleteAction" 
+                         class="border border-emerald-100 rounded-2xl overflow-hidden bg-white shadow-lg ring-2 ring-emerald-500/10">
                         <div class="bg-emerald-50/70 border-b border-emerald-100 px-5 py-3.5 flex justify-between items-center">
                             <span class="text-[11px] font-black text-black uppercase tracking-widest flex items-center gap-2.5">
                                 <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
@@ -109,26 +136,14 @@ const close = () => {
                             </span>
                         </div>
                         <table class="w-full text-left text-[12px]">
-                            <thead class="bg-gray-50 border-b border-gray-100 text-[10px] font-black text-black uppercase tracking-wider">
-                                <tr>
-                                    <th class="px-5 py-2.5">Nama Produk</th>
-                                    <th class="px-5 py-2.5 text-center">Qty</th>
-                                    <th class="px-5 py-2.5 text-right">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 font-semibold">
-                                <tr v-for="(item, index) in newTransaction.items" :key="'new-'+index">
-                                    <td class="px-5 py-4 font-black uppercase tracking-tight" 
-                                        :class="isItemChanged(index, 'product_name') ? 'text-red-600' : 'text-black'">
-                                        {{ item.product_name || item.name }}
+                            <tbody class="divide-y divide-gray-100">
+                                <tr v-for="key in displayKeys" :key="'new-' + key">
+                                    <td class="px-5 py-4 text-gray-400 font-bold uppercase text-[9px] w-1/3 tracking-wider">
+                                        {{ formatKey(key) }}
                                     </td>
-                                    <td class="px-5 py-4 text-center font-black font-mono" 
-                                        :class="isItemChanged(index, 'quantity') ? 'text-red-600' : 'text-black'">
-                                        {{ item.quantity || item.qty }}
-                                    </td>
-                                    <td class="px-5 py-4 text-right font-black font-mono" 
-                                        :class="isItemChanged(index, 'subtotal') ? 'text-red-600' : 'text-black'">
-                                        Rp {{ (item.subtotal || 0).toLocaleString() }}
+                                    <td class="px-5 py-4 text-[13px] transition-all duration-300"
+                                        :class="isChanged(key) ? 'text-red-600 font-black italic' : 'text-gray-700 font-medium'">
+                                        {{ formatValue(newData[key]) }}
                                     </td>
                                 </tr>
                             </tbody>
@@ -136,13 +151,12 @@ const close = () => {
                     </div>
                 </div>
 
-                <!-- Footer Audit Info -->
                 <div class="mt-8 flex justify-between items-center pt-4 border-t border-gray-100">
-                    <div class="text-[10px] font-bold text-gray-400 uppercase leading-relaxed">
-                        Audit By: {{ logData?.user_name || 'SYSTEM' }} <br>
-                        Time: {{ logData?.created_at }}
+                    <div class="text-[10px] font-bold text-gray-400 uppercase text-left">
+                        Audit By: {{ activeLog?.user_name || 'SYSTEM' }} <br>
+                        Time: {{ activeLog?.created_at || '-' }}
                     </div>
-                    <button @click="close" class="px-12 py-3.5 bg-gray-900 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-black transition-all shadow-lg active:scale-95">
+                    <button @click="close" class="px-12 py-3.5 bg-gray-900 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-black transition-all active:scale-95">
                         Selesai Review
                     </button>
                 </div>
@@ -155,11 +169,7 @@ const close = () => {
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-.animate-in {
-    animation: zoomIn 0.2s ease-out forwards;
-}
+.animate-in { animation: zoomIn 0.2s ease-out forwards; }
 @keyframes zoomIn {
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }

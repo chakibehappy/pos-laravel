@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
     show: {
@@ -8,170 +8,208 @@ const props = defineProps({
     },
     logData: {
         type: Object,
-        default: null
+        default: () => ({})
     }
 });
 
 const emit = defineEmits(['close']);
 
-// Data Dummy Simulasi
-const oldTransaction = {
-    total: 150000,
-    items: [
-        { id: 1, name: 'Semen Padang', qty: 2, price: 70000, subtotal: 140000, changed: true },
-        { id: 2, name: 'Paku 5cm', qty: 1, price: 10000, subtotal: 10000, changed: false },
-    ]
+/**
+ * LOGIKA DETEKSI TINDAKAN
+ */
+const actionType = computed(() => {
+    const act = (props.logData?.action || '').toUpperCase();
+    if (act.includes('CREATE')) return 'CREATE';
+    if (act.includes('DELETE') || act.includes('VOID')) return 'DELETE';
+    return 'UPDATE'; // Default untuk update/adjustment
+});
+
+/**
+ * Helper untuk menghitung total secara manual
+ */
+const calculateTotal = (data) => {
+    const items = data?.details || [];
+    if (items.length > 0) {
+        return items.reduce((acc, item) => acc + parseFloat(item.subtotal || 0), 0);
+    }
+    return data?.total || data?.total_bill || data?.grand_total || 0;
 };
 
-const newTransaction = {
-    total: 155000, 
-    items: [
-        { id: 1, name: 'Semen Padang', qty: 2, price: 72500, subtotal: 145000, changed: true },
-        { id: 2, name: 'Paku 5cm', qty: 1, price: 10000, subtotal: 10000, changed: false },
-    ]
+/**
+ * Mapping data Lama (Old)
+ */
+const oldTransaction = computed(() => {
+    const data = props.logData?.old || props.logData?.payload?.old || props.logData?.properties?.old;
+    return {
+        total: calculateTotal(data),
+        items: data?.details || []
+    };
+});
+
+/**
+ * Mapping data Baru (New)
+ */
+const newTransaction = computed(() => {
+    const data = props.logData?.new || props.logData?.payload?.new || props.logData?.properties?.new;
+    return {
+        total: calculateTotal(data),
+        items: data?.details || []
+    };
+});
+
+/**
+ * Mendapatkan Nama Item
+ */
+const getItemName = (item) => {
+    if (item.product?.name) return item.product.name;
+    if (item.topup_transaction) {
+        return `TOPUP: ${item.topup_transaction.cust_account_number || '-'}`;
+    }
+    if (item.cash_withdrawal) {
+        return `TARIK TUNAI: ${item.cash_withdrawal.customer_name || 'Pelanggan'}`;
+    }
+    return item.name || 'Item Tidak Diketahui';
 };
 
-const close = () => {
-    emit('close');
+/**
+ * Mengecek apakah item baru ditambahkan atau diubah nilainya
+ */
+const isChanged = (newItem) => {
+    if (actionType.value === 'CREATE') return false; 
+    const oldItems = oldTransaction.value.items;
+    const newItemName = getItemName(newItem);
+    
+    const match = oldItems.find(oldItem => getItemName(oldItem) === newItemName);
+    
+    if (!match) return true;
+    return parseFloat(match.subtotal || 0) !== parseFloat(newItem.subtotal || 0) || 
+           (match.quantity || match.qty) !== (newItem.quantity || newItem.qty);
 };
+
+const close = () => emit('close');
 </script>
 
 <template>
     <div v-if="show" 
-         class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+         class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-sm"
          @click.self="close">
         
-        <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-in fade-in zoom-in duration-200">
-            <div class="p-6">
-                
-                <!-- Header -->
-                <div class="flex justify-between items-start border-b border-gray-100 pb-4 mb-8">
-                    <div>
-                        <h2 class="text-lg font-black text-gray-800 uppercase tracking-tight">
-                            <span class="text-blue-600">Audit</span> Perubahan Transaksi
-                        </h2>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
-                            Perbandingan Data Sebelum dan Sesudah Update
-                        </p>
-                    </div>
-                    <button @click="close" class="text-gray-400 hover:text-gray-600 text-3xl leading-none transition-colors">&times;</button>
+        <div class="bg-white w-full max-w-6xl max-h-[95vh] rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-200 flex flex-col animate-in">
+            
+            <div class="p-6 md:px-10 border-b border-gray-100 flex justify-between items-center bg-white">
+                <div>
+                    <h2 class="text-xl font-black text-gray-800 uppercase tracking-tighter">
+                        <span class="text-blue-600">Audit</span> 
+                        {{ actionType === 'CREATE' ? 'Pencatatan' : (actionType === 'DELETE' ? 'Penghapusan' : 'Perubahan') }} Transaksi
+                    </h2>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                        ID TRANSAKSI: #{{ logData?.reference_id || logData?.new?.id || logData?.old?.id || '-' }} 
+                    </p>
                 </div>
+                <button @click="close" class="bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 w-10 h-10 rounded-full transition-all flex items-center justify-center text-2xl">&times;</button>
+            </div>
 
-                <!-- Scroll Area -->
-                <div class="flex flex-col gap-8 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div class="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
+                <div :class="['grid gap-8 items-start', actionType === 'UPDATE' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-3xl mx-auto']">
                     
-                    <!-- KONDISI SEBELUM (OLD) -->
-                    <div class="border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm ring-1 ring-gray-100">
-                        <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex justify-between items-center relative">
-                            <span class="text-[11px] font-black text-black uppercase tracking-widest flex items-center gap-2">
-                                <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                                Kondisi Sebelumnya (Old)
-                            </span>
-                            <span class="text-[10px] font-bold text-gray-400 uppercase italic">Data Lama</span>
-                        </div>
-                        <table class="w-full text-left text-[12px]">
-                            <thead class="bg-gray-50 border-b border-gray-100 text-[10px] font-black text-black uppercase tracking-wider">
-                                <tr>
-                                    <th class="px-5 py-2.5">Nama Produk</th>
-                                    <th class="px-5 py-2.5 text-center">Qty</th>
-                                    <th class="px-5 py-2.5 text-right uppercase">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 italic font-medium">
-                                <tr v-for="(item, index) in oldTransaction.items" :key="'old-'+index">
-                                    <td class="px-5 py-3.5 text-black font-semibold">{{ item.name }}</td>
-                                    <td class="px-5 py-3.5 text-center font-black text-black font-mono">{{ item.qty }}</td>
-                                    <!-- Warna diubah menjadi text-black -->
-                                    <td class="px-5 py-3.5 text-right font-black font-mono text-black">
-                                        Rp {{ item.subtotal.toLocaleString() }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot class="border-t border-gray-100">
-                                <tr class="bg-gray-50/50">
-                                    <td colspan="2" class="px-5 py-3 text-right text-[11px] font-black uppercase text-black tracking-wider">Total Sebelum</td>
-                                    <!-- Warna diubah menjadi text-black -->
-                                    <td class="px-5 py-3 text-right text-xs font-black font-mono text-black">Rp {{ oldTransaction.total.toLocaleString() }}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-
-                    <!-- KONDISI TERBARU (NEW) -->
-                    <div class="border border-emerald-100 rounded-2xl overflow-hidden bg-white shadow-lg ring-2 ring-emerald-500/10">
-                        <div class="bg-emerald-50/70 border-b border-emerald-100 px-5 py-3.5 flex justify-between items-center">
-                            <span class="text-[11px] font-black text-black uppercase tracking-widest flex items-center gap-2.5">
-                                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
-                                Kondisi Terbaru (New)
+                    <div v-if="actionType !== 'CREATE'" class="flex flex-col h-full">
+                        <div class="mb-3 px-2 flex items-center gap-2">
+                            <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            <span class="text-xs font-black uppercase tracking-widest text-gray-500">
+                                {{ actionType === 'DELETE' ? 'Data Yang Dihapus' : 'Data Sebelumnya (OLD)' }}
                             </span>
                         </div>
-                        <table class="w-full text-left text-[12px]">
-                            <thead class="bg-gray-50 border-b border-gray-100 text-[10px] font-black text-black uppercase tracking-wider">
-                                <tr>
-                                    <th class="px-5 py-2.5">Nama Produk</th>
-                                    <th class="px-5 py-2.5 text-center">Qty</th>
-                                    <th class="px-5 py-2.5 text-right">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 font-semibold">
-                                <tr v-for="(item, index) in newTransaction.items" :key="'new-'+index">
-                                    <td class="px-5 py-4 font-black uppercase tracking-tight" :class="item.changed ? 'text-red-600' : 'text-black'">
-                                        {{ item.name }}
-                                    </td>
-                                    <td class="px-5 py-4 text-center font-black font-mono" :class="item.changed ? 'text-red-600' : 'text-black'">
-                                        {{ item.qty }}
-                                    </td>
-                                    <td class="px-5 py-4 text-right font-black font-mono" :class="item.changed ? 'text-red-600' : 'text-black'">
-                                        Rp {{ item.subtotal.toLocaleString() }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot class="border-t border-emerald-100">
-                                <tr class="bg-emerald-50">
-                                    <td colspan="2" class="px-5 py-4 text-right text-[11px] font-black uppercase text-black tracking-wider">Grand Total Final</td>
-                                    <td class="px-5 py-4 text-right text-base font-black font-mono text-red-600">Rp {{ newTransaction.total.toLocaleString() }}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                        <div class="border border-gray-100 rounded-3xl overflow-hidden bg-white shadow-sm ring-1 ring-gray-100 h-full flex flex-col">
+                            <div class="overflow-x-auto flex-1">
+                                <table class="w-full text-left text-[12px] min-w-[400px]">
+                                    <thead class="bg-gray-50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                        <tr>
+                                            <th class="px-6 py-4">Item</th>
+                                            <th class="px-6 py-4 text-center">Qty</th>
+                                            <th class="px-6 py-4 text-right">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-50 italic font-bold">
+                                        <tr v-for="(item, index) in oldTransaction.items" :key="'old-'+index">
+                                            <td class="px-6 py-4 text-gray-700">{{ getItemName(item) }}</td>
+                                            <td class="px-6 py-4 text-center font-mono text-gray-700">{{ item.quantity || item.qty }}</td>
+                                            <td class="px-6 py-4 text-right font-mono text-gray-700">Rp{{ Number(item.subtotal || 0).toLocaleString() }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="bg-gray-50/80 p-5 border-t border-gray-100 flex justify-between items-center mt-auto">
+                                <span class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Total</span>
+                                <span class="font-mono font-bold text-gray-800">Rp{{ Number(oldTransaction.total || 0).toLocaleString() }}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Footer Audit Info -->
-                <div class="mt-8 flex justify-between items-center pt-4 border-t border-gray-100">
-                    <div class="text-[10px] font-bold text-gray-400 uppercase leading-relaxed">
-                        Audit By: {{ logData?.user_name || 'KITXELS' }} <br>
-                        Time: {{ logData?.created_at || '31/03/2026 12:01' }}
+                    <div v-if="actionType !== 'DELETE'" class="flex flex-col h-full">
+                        <div class="mb-3 px-2 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full" style="background-color: #FDC700;"></span>
+                            <span class="text-xs font-black uppercase tracking-widest" style="color: #c99e00;">
+                                {{ actionType === 'CREATE' ? 'Data Transaksi Baru' : 'Kondisi Terbaru (NEW)' }}
+                            </span>
+                        </div>
+                        <div class="rounded-3xl overflow-hidden bg-white shadow-xl flex flex-col h-full border" style="border-color: #FDC70044; ring: 2px solid #FDC70022;">
+                            <div class="overflow-x-auto flex-1">
+                                <table class="w-full text-left text-[12px] min-w-[400px]">
+                                    <thead class="border-b border-gray-100 text-[10px] font-black text-black uppercase tracking-widest" style="background-color: #FDC70011;">
+                                        <tr>
+                                            <th class="px-6 py-4">Item</th>
+                                            <th class="px-6 py-4 text-center">Qty</th>
+                                            <th class="px-6 py-4 text-right">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-50 font-bold">
+                                        <tr v-for="(item, index) in newTransaction.items" :key="'new-'+index">
+                                            <td :class="['px-6 py-4 uppercase tracking-tight', (actionType === 'UPDATE' && isChanged(item)) ? 'text-red-600' : 'text-black']">
+                                                {{ getItemName(item) }}
+                                            </td>
+                                            <td :class="['px-6 py-4 text-center font-mono', (actionType === 'UPDATE' && isChanged(item)) ? 'text-red-600' : 'text-black']">
+                                                {{ item.quantity || item.qty }}
+                                            </td>
+                                            <td :class="['px-6 py-4 text-right font-mono', (actionType === 'UPDATE' && isChanged(item)) ? 'text-red-600' : 'text-black']">
+                                                Rp{{ Number(item.subtotal || 0).toLocaleString() }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="p-5 flex justify-between items-center mt-auto" style="background-color: #FDC700;">
+                                <span class="text-[10px] font-black uppercase text-black tracking-widest">Total Final</span>
+                                <span class="font-mono font-bold text-black text-lg">Rp{{ Number(newTransaction.total || 0).toLocaleString() }}</span>
+                            </div>
+                        </div>
                     </div>
-                    <button @click="close" class="px-12 py-3.5 bg-gray-900 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-black transition-all shadow-lg active:scale-95">
-                        Selesai Review
-                    </button>
+
                 </div>
             </div>
+
+            <div class="p-6 md:px-10 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-tight text-center sm:text-left">
+                    Audit By: <span class="text-gray-700">{{ logData?.causer?.name || 'System' }}</span> | 
+                    Date: <span class="text-gray-700">{{ logData?.created_at || '-' }}</span>
+                </div>
+                <button @click="close" class="w-full sm:w-auto px-10 py-4 bg-gray-900 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-black transition-all shadow-lg active:scale-95">
+                    Selesai Review
+                </button>
+            </div>
+
         </div>
     </div>
 </template>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
 
-.animate-in {
-    animation: zoomIn 0.3s ease-out forwards;
-}
-@keyframes zoomIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+.animate-in { animation: modalIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.98) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
 }
 </style>

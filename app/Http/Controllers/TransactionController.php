@@ -19,7 +19,6 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Inisialisasi Query dengan Prefix Tabel untuk menghindari Ambiguous Column
         $query = Transaction::with(['details.product', 'details.cashWithdrawal', 'details.topupTransaction'])
             ->join('stores', 'transactions.store_id', '=', 'stores.id')
             ->join('pos_users', 'transactions.pos_user_id', '=', 'pos_users.id')
@@ -31,10 +30,8 @@ class TransactionController extends Controller
                 'payment_methods.name as payment_name'
             );
 
-        // Tambahkan filter status spesifik ke tabel transactions
         $query->where('transactions.status', 0);
 
-        // 2. Logic Pencarian dengan Prefix
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('stores.name', 'LIKE', "%{$request->search}%")
@@ -44,15 +41,9 @@ class TransactionController extends Controller
             });
         }
 
-        // 3. Logic Dynamic Sorting
         $sortField = $request->get('sort', 'transactions.transaction_at'); 
         $sortDirection = $request->get('direction', 'desc'); 
         
-        // fallback if empty
-        if (empty($sortField)) {
-            $sortField = 'transactions.transaction_at';
-        }
-
         $sortMapping = [
             'transaction_at' => 'transactions.transaction_at',
             'store_id'       => 'stores.name',
@@ -92,32 +83,37 @@ class TransactionController extends Controller
     {
         try {
             DB::transaction(function () use ($id) {
-                $transaction = Transaction::with('details')->findOrFail($id);
+                // Eager Load detail secara mendalam agar OLD data sangat lengkap
+                $transaction = Transaction::with([
+                    'details.product', 
+                    'details.topupTransaction', 
+                    'details.cashWithdrawal'
+                ])->findOrFail($id);
                 
-                // Ambil data sebelum diupdate/hapus
-                $oldData = $transaction->getRawOriginal();
+                // 1. Simpan data LENGKAP sebagai OLD (dalam bentuk array)
+                $oldData = $transaction->toArray();
 
-                // 1. Rollback Stok, Saldo Wallet, dan Kas
+                // 2. Rollback Logic
                 $this->rollbackAssets($transaction);
 
-                // 2. Rollback saldo kas utama toko
+                // Rollback saldo kas utama toko
                 DB::table('cash_store')
                     ->where('store_id', $transaction->store_id)
                     ->decrement('cash', $transaction->subtotal);
 
-                // 3. Identifikasi Admin (PosUser ID) yang menghapus
+                // 3. Identifikasi Admin Pos User
                 $adminEmail = auth()->user()->email;
                 $matchPosUser = PosUser::where('username', $adminEmail)->first();
                 $adminPosUserId = $matchPosUser ? $matchPosUser->id : null;
 
-                // 4. Update Status & Admin Approved By
+                // 4. Update Status ke ARCHIVED (2)
                 $transaction->update([
                     'status' => 2,
                     'deleted_at' => now(),
                     'admin_approved_by' => $adminPosUserId
                 ]);
 
-                // 5. Catat Activity Log dengan OLD & NEW
+                // 5. Catat Activity Log dengan Payload Lengkap
                 $storeName = Store::find($transaction->store_id)->name ?? 'Unknown Store';
                 ActivityLogger::log(
                     'delete', 
@@ -125,7 +121,10 @@ class TransactionController extends Controller
                     $id, 
                     "Membatalkan & mengarsipkan transaksi Toko $storeName", 
                     $adminPosUserId,
-                    ['old' => $oldData, 'new' => $transaction->getAttributes()]
+                    [
+                        'old' => $oldData, 
+                        'new' => $transaction->fresh()->toArray() // Ambil status terbaru setelah update
+                    ]
                 );
             });
 
@@ -161,15 +160,15 @@ class TransactionController extends Controller
         $calcTotal = $calcSubtotal + ($request->tax ?? 0);
 
         try {
-            // Variable untuk menampung data lama (jika update)
             $oldData = null;
 
             $transaction = DB::transaction(function () use ($request, $id, $automatedCreatedBy, $calcSubtotal, $calcTotal, &$oldData) {
                 $storeId = $request->store_id;
 
                 if ($id) {
-                    $old = Transaction::with('details')->findOrFail($id);
-                    $oldData = $old->getRawOriginal(); // Simpan data lama
+                    // Load data lama BESERTA RELASI untuk payload log 'old'
+                    $old = Transaction::with(['details.product', 'details.topupTransaction', 'details.cashWithdrawal'])->findOrFail($id);
+                    $oldData = $old->toArray(); 
                     
                     $this->rollbackAssets($old);
                     DB::table('cash_store')->where('store_id', $old->store_id)->decrement('cash', $old->subtotal);
@@ -252,14 +251,19 @@ class TransactionController extends Controller
                 return $transaction;
             });
 
-            // LOG ACTIVITY dengan OLD & NEW
+            // Refresh & Eager Load rincian agar 'new' payload lengkap
+            $transaction->load(['details.product', 'details.topupTransaction', 'details.cashWithdrawal']);
+
             ActivityLogger::log(
                 $id ? "update" : "create", 
                 'transactions', 
                 $transaction->id, 
-                ($id ? "Memperbarui" : "Mencatat") . " transaksi penjualan Toko: " . Store::find($request->store_id)->name, 
-                auth()->user()->posUser->id ?? null,
-                ['old' => $oldData, 'new' => $transaction->getAttributes()]
+                ($id ? "Memperbarui" : "Mencatat") . " transaksi di Toko: " . Store::find($request->store_id)->name, 
+                auth()->user()->posUser->id ?? $automatedCreatedBy,
+                [
+                    'old' => $oldData, 
+                    'new' => $transaction->toArray() // Sekarang mencakup key 'details'
+                ]
             );
 
             return redirect()->route('transactions.index')->with('message', 'Transaksi Berhasil Disimpan!');
@@ -270,6 +274,11 @@ class TransactionController extends Controller
 
     private function rollbackAssets($transaction)
     {
+        // Gunakan load jika details belum dimuat
+        if (!$transaction->relationLoaded('details')) {
+            $transaction->load('details');
+        }
+
         foreach ($transaction->details as $detail) {
             if ($detail->product_id) {
                 StoreProduct::where('store_id', $transaction->store_id)
