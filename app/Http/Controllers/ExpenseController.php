@@ -58,7 +58,6 @@ class ExpenseController extends Controller
                 ['key' => 'amount', 'label' => 'Nominal', 'sortable' => true],
                 ['key' => 'store_name', 'label' => 'Toko', 'sortable' => false],
                 ['key' => 'user_name', 'label' => 'PIC/Staf', 'sortable' => false],
-                ['key' => 'created_by_name', 'label' => 'Input Oleh', 'sortable' => false],
             ]
         ]);
     }

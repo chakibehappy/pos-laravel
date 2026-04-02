@@ -24,25 +24,45 @@ const dummyData = {
     }
 };
 
+/**
+ * LOGIKA PENCARIAN DATA (SMART DETECTION)
+ * Mencari data di properties.old, payload.old, atau .old (root)
+ */
 const activeLog = computed(() => props.logData ? props.logData : dummyData);
-const oldData = computed(() => activeLog.value?.properties?.old || {});
-const newData = computed(() => activeLog.value?.properties?.new || {});
+
+const oldData = computed(() => {
+    return activeLog.value?.properties?.old || 
+           activeLog.value?.payload?.old || 
+           activeLog.value?.old || 
+           {};
+});
+
+const newData = computed(() => {
+    return activeLog.value?.properties?.new || 
+           activeLog.value?.payload?.new || 
+           activeLog.value?.new || 
+           {};
+});
 
 // LOGIKA DETEKSI AKSI
-// Create: Jika data OLD kosong
 const isCreateAction = computed(() => Object.keys(oldData.value).length === 0);
 
-// Delete/Archive: Jika status di data baru berubah menjadi 2
 const isDeleteAction = computed(() => {
     const statusOld = oldData.value?.status;
     const statusNew = newData.value?.status;
-    // Terdeteksi delete jika status baru adalah 2 sedangkan sebelumnya bukan 2
-    return (statusNew == 2 && statusOld != 2);
+    const action = (activeLog.value?.action || '').toUpperCase();
+    
+    // Terdeteksi delete jika status berubah ke 2 atau ada keyword DELETE/VOID di action
+    return (statusNew == 2 && statusOld != 2) || action.includes('DELETE') || action.includes('VOID');
 });
 
 // 2. FORMATTER NILAI
 const formatValue = (val) => {
     if (val === undefined || val === null || val === '') return '-';
+    
+    // Jika nilainya object (seperti nested JSON), ubah jadi string agar tidak error di template
+    if (typeof val === 'object') return JSON.stringify(val);
+    
     if (!isNaN(val) && typeof val !== 'boolean') {
         return Number(val).toString(); 
     }
@@ -51,7 +71,6 @@ const formatValue = (val) => {
 
 // 3. LOGIKA HIGHLIGHT PERUBAHAN
 const isChanged = (key) => {
-    // Jika delete atau create, tidak perlu highlight perbedaan warna
     if (isCreateAction.value || isDeleteAction.value) return false;
 
     const valOld = formatValue(oldData.value[key]);
@@ -62,17 +81,22 @@ const isChanged = (key) => {
 // 4. MAPPING KEYS UNTUK DITAMPILKAN
 const displayKeys = computed(() => {
     const allKeys = [...new Set([...Object.keys(oldData.value), ...Object.keys(newData.value)])];
+    
+    // Daftar field teknis yang disembunyikan agar audit bersih
     const technicalFields = [
-        'created_at', 'updated_at', 'deleted_at', 
-        'created_by', 'details', 'total_price', 'payload',
+        'id', 'created_at', 'updated_at', 'deleted_at', 
+        'created_by', 'details', 'total_price', 'payload', 'properties',
         'status', 'is_active', 'remember_token',
         'delete_requested_by', 'delete_reason', 'admin_approved_by'
     ];
     
     return allKeys.filter(key => {
         if (technicalFields.includes(key)) return false;
+        
         const valOld = oldData.value[key];
         const valNew = newData.value[key];
+        
+        // Sembunyikan jika field tersebut benar-benar kosong di kedua sisi
         const isEmpty = (v) => v === null || v === undefined || v === '' || v === '-';
         return !isEmpty(valOld) || !isEmpty(valNew);
     });
@@ -109,7 +133,7 @@ const close = () => emit('close');
                         <div class="bg-gray-50 border-b border-gray-100 px-5 py-3">
                             <span class="text-[11px] font-black text-black uppercase tracking-widest flex items-center gap-2">
                                 <span class="w-2 h-2 bg-red-500 rounded-full" :class="{'animate-pulse': !isDeleteAction}"></span>
-                                {{ isDeleteAction ? 'Data Sebelum Dihapus (Archive)' : 'Kondisi Sebelumnya (Old)' }}
+                                {{ isDeleteAction ? 'Data Sebelum Dihapus' : 'Kondisi Sebelumnya (Old)' }}
                             </span>
                         </div>
                         <table class="w-full text-left text-[12px]">
@@ -122,6 +146,9 @@ const close = () => emit('close');
                                         :class="isChanged(key) ? 'text-red-600 font-black italic' : 'text-black font-medium'">
                                         {{ formatValue(oldData[key]) }}
                                     </td>
+                                </tr>
+                                <tr v-if="displayKeys.length === 0">
+                                    <td colspan="2" class="px-5 py-8 text-center text-gray-400 italic font-medium">Tidak ada detail data untuk ditampilkan</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -146,17 +173,20 @@ const close = () => emit('close');
                                         {{ formatValue(newData[key]) }}
                                     </td>
                                 </tr>
+                                <tr v-if="displayKeys.length === 0">
+                                    <td colspan="2" class="px-5 py-8 text-center text-gray-400 italic font-medium">Tidak ada detail data untuk ditampilkan</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
                 <div class="mt-8 flex justify-between items-center pt-4 border-t border-gray-100">
-                    <div class="text-[10px] font-bold text-gray-400 uppercase text-left">
-                        Audit By: {{ activeLog?.user_name || 'SYSTEM' }} <br>
-                        Time: {{ activeLog?.created_at || '-' }}
+                    <div class="text-[10px] font-bold text-gray-400 uppercase text-left leading-relaxed">
+                        Audit By: <span class="text-gray-700">{{ activeLog?.user_name || activeLog?.causer?.name || 'SYSTEM' }}</span> <br>
+                        Time: <span class="text-gray-700">{{ activeLog?.created_at || '-' }}</span>
                     </div>
-                    <button @click="close" class="px-12 py-3.5 bg-gray-900 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-black transition-all active:scale-95">
+                    <button @click="close" class="px-12 py-3.5 bg-gray-900 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-black transition-all shadow-md active:scale-95">
                         Selesai Review
                     </button>
                 </div>
