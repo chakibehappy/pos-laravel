@@ -54,9 +54,10 @@ const menuItems = [
             { label: 'Riwayat Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
             { label: 'Riwayat Pengeluaran', name: 'expenses.index', route: route('expenses.index') },
             { label: 'Aturan Biaya', name: 'topup-fee-rules.index', route: route('topup-fee-rules.index') },
-            { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') },
+            { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
+    { label: 'Jenis Layanan', icon: '📋', name: 'services.index', route: route('services.index') },
     { label: 'Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
 ];
 

@@ -23,7 +23,7 @@ class TopupFeeRuleController extends Controller
             $sortField = 'created_at';
         }
         
-        // Global Scope di model sudah memfilter status != 2 secara otomatis
+        // Global Scope di model biasanya sudah memfilter status != 2
         $data = TopupFeeRule::with(['topup_trans_type', 'wallet_target', 'creator'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -76,9 +76,12 @@ class TopupFeeRuleController extends Controller
                 return back()->withErrors(['error' => "Akun admin tidak terdeteksi di database pos_users."]);
             }
 
-            DB::transaction(function () use ($request, $posUserId) {
+            return DB::transaction(function () use ($request, $posUserId) {
+                // --- MODE UPDATE (SINGLE) ---
                 if ($request->id) {
                     $rule = TopupFeeRule::findOrFail($request->id);
+                    $oldData = $rule->getRawOriginal(); // TANGKAP DATA LAMA
+
                     $rule->update([
                         'topup_trans_type_id' => $request->rules[0]['topup_trans_type_id'],
                         'wallet_target_id'    => $request->rules[0]['wallet_target_id'] ?? null,
@@ -86,19 +89,25 @@ class TopupFeeRuleController extends Controller
                         'max_limit'           => $request->rules[0]['max_limit'],
                         'fee'                 => $request->rules[0]['fee'],
                         'admin_fee'           => $request->rules[0]['admin_fee'],
-                        'status'              => 0, // Pastikan tetap aktif
+                        'status'              => 0,
                         'deleted_at'          => null
                     ]);
 
                     $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
+                    
+                    // LOG ACTIVITY UPDATE
                     ActivityLogger::log(
                         'update',
                         'topup_fee_rules',
                         $rule->id,
                         "Memperbarui aturan biaya Top Up: $typeName",
-                        $posUserId
+                        $posUserId,
+                        ['old' => $oldData, 'new' => $rule->getAttributes()],
+                        null
                     );
-                } else {
+                } 
+                // --- MODE CREATE (BATCH) ---
+                else {
                     foreach ($request->rules as $ruleData) {
                         $newRule = TopupFeeRule::create([
                             'topup_trans_type_id' => $ruleData['topup_trans_type_id'],
@@ -113,19 +122,23 @@ class TopupFeeRuleController extends Controller
                         ]);
 
                         $typeName = TopupTransType::find($newRule->topup_trans_type_id)->name ?? 'Unknown';
+                        
+                        // LOG ACTIVITY CREATE
                         ActivityLogger::log(
                             'create',
                             'topup_fee_rules',
                             $newRule->id,
                             "Membuat aturan biaya Top Up baru: $typeName",
-                            $posUserId
+                            $posUserId,
+                            ['old' => null, 'new' => $newRule->getAttributes()],
+                            null
                         );
                     }
                 }
-            });
 
-            return redirect()->route('topup-fee-rules.index')
-                ->with('message', 'Data berhasil diproses!');
+                return redirect()->route('topup-fee-rules.index')
+                    ->with('message', 'Data berhasil diproses!');
+            });
                 
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Gagal: ' . $e->getMessage()]);
@@ -137,21 +150,25 @@ class TopupFeeRuleController extends Controller
         try {
             return DB::transaction(function () use ($id) {
                 $rule = TopupFeeRule::findOrFail($id);
+                $oldData = $rule->getRawOriginal(); // TANGKAP SEBELUM DIUBAH
                 $posUserId = $this->getPosUserId();
                 $typeName = TopupTransType::find($rule->topup_trans_type_id)->name ?? 'Unknown';
 
-                //   Manual (Sesuai keinginan Anda: status 2 + deleted_at)
+                // Manual Soft Delete (Archived)
                 $rule->update([
                     'status' => 2,
                     'deleted_at' => now()
                 ]);
 
+                // LOG ACTIVITY DELETE
                 ActivityLogger::log(
                     'delete',
                     'topup_fee_rules',
                     $id,
                     "Menghapus aturan biaya Top Up: $typeName (Archived)",
-                    $posUserId
+                    $posUserId,
+                    ['old' => $oldData, 'new' => $rule->getAttributes()],
+                    null
                 );
 
                 return back()->with('message', 'Rule berhasil diarsipkan.');

@@ -9,23 +9,30 @@ use App\Models\DigitalWalletStore;
 use App\Models\DigitalWallet; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger;
 
 class TopupTransactionController extends Controller
 {
     /**
-     * READ: Menampilkan daftar transaksi dengan Paginasi, Search, & Sorting Dinamis
+     * Helper untuk mendapatkan ID User (PosUser)
+     */
+    private function getPosUserId()
+    {
+        $adminEmail = Auth::user()->email;
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+        return $posUser ? $posUser->id : null;
+    }
+
+    /**
+     * READ: Menampilkan daftar transaksi
      */
     public function index(Request $request)
     {
-        // Menangkap parameter sorting dari DataTable.vue
-        $sortField = $request->input('sort', 'created_at'); // Default field
-        $sortDirection = $request->input('direction', 'desc'); // Default urutan
+        $sortField = $request->input('sort', 'created_at');
+        $sortDirection = $request->input('direction', 'desc');
 
-        if (empty($sortField)) {
-            $sortField = 'created_at';
-        }
-        // 1. Query dengan Filter Search & Paginasi
         $transactions = TopupTransaction::with(['store', 'transType'])
             ->when($request->search, function ($query, $search) {
                 $query->where(function($q) use ($search) {
@@ -38,7 +45,6 @@ class TopupTransactionController extends Controller
                       });
                 });
             })
-            // Logika Sorting Dinamis
             ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
@@ -54,7 +60,7 @@ class TopupTransactionController extends Controller
     }
 
     /**
-     * CREATE: Simpan Transaksi + Potong Saldo Otomatis
+     * CREATE: Simpan Transaksi + Potong Saldo + Log
      */
     public function store(Request $request)
     {
@@ -68,21 +74,33 @@ class TopupTransactionController extends Controller
         ]);
 
         try {
-            DB::transaction(function () use ($request) {
-                // 1. Ambil data saldo wallet di toko tersebut
+            $posUserId = $this->getPosUserId();
+            $transaction = null;
+
+            DB::transaction(function () use ($request, &$transaction) {
                 $walletStore = DigitalWalletStore::findOrFail($request->digital_wallet_store_id);
 
-                // 2. Cek apakah saldo mencukupi
                 if ($walletStore->balance < $request->nominal_request) {
                     throw new \Exception('Saldo tidak mencukupi pada wallet toko ini.');
                 }
 
-                // 3. Potong saldo
+                // Potong saldo
                 $walletStore->decrement('balance', $request->nominal_request);
 
-                // 4. Catat transaksi
-                TopupTransaction::create($request->all());
+                // Catat transaksi
+                $transaction = TopupTransaction::create($request->all());
             });
+
+            // LOG ACTIVITY (Create)
+            ActivityLogger::log(
+                'create',
+                'topup_transactions',
+                $transaction->id,
+                "Menambahkan transaksi Topup: {$transaction->cust_account_number} (Nominal: " . number_format($transaction->nominal_request) . ")",
+                $posUserId,
+                ['new' => $transaction->toArray(), 'old' => null],
+                $transaction->store_id
+            );
 
             return back()->with('message', 'Transaksi berhasil dan saldo telah dipotong.');
 
@@ -92,7 +110,7 @@ class TopupTransactionController extends Controller
     }
 
     /**
-     * UPDATE: Edit Transaksi + Penyesuaian Saldo Otomatis
+     * UPDATE: Edit Transaksi + Penyesuaian Saldo + Log (Audit Trail)
      */
     public function update(Request $request, $id)
     {
@@ -106,24 +124,38 @@ class TopupTransactionController extends Controller
         ]);
 
         try {
-            DB::transaction(function () use ($request, $id) {
+            $posUserId = $this->getPosUserId();
+            $oldData = null;
+            $updatedTransaction = null;
+
+            DB::transaction(function () use ($request, $id, &$oldData, &$updatedTransaction) {
                 $transaction = TopupTransaction::findOrFail($id);
+                $oldData = $transaction->toArray(); // Simpan Snapshot lama
+                
                 $walletStore = DigitalWalletStore::findOrFail($request->digital_wallet_store_id);
 
-                // Hitung selisih nominal (nominal lama vs nominal baru)
+                // Hitung selisih nominal
                 $diff = $request->nominal_request - $transaction->nominal_request;
 
-                // Jika nominal baru lebih besar, cek apakah saldo cukup untuk tambahannya
                 if ($diff > 0 && $walletStore->balance < $diff) {
                     throw new \Exception('Saldo tidak cukup untuk penyesuaian kenaikan nominal ini.');
                 }
 
-                // Update saldo berdasarkan selisih (jika negatif otomatis jadi increment)
                 $walletStore->decrement('balance', $diff);
-
-                // Update data transaksi
                 $transaction->update($request->all());
+                $updatedTransaction = $transaction;
             });
+
+            // LOG ACTIVITY (Update)
+            ActivityLogger::log(
+                'update',
+                'topup_transactions',
+                $id,
+                "Mengubah transaksi Topup #{$id} - Akun: {$updatedTransaction->cust_account_number}",
+                $posUserId,
+                ['old' => $oldData, 'new' => $updatedTransaction->toArray()],
+                $updatedTransaction->store_id
+            );
 
             return back()->with('message', 'Transaksi berhasil diperbarui dan saldo disesuaikan.');
 
@@ -133,15 +165,18 @@ class TopupTransactionController extends Controller
     }
 
     /**
-     * DELETE: Hapus Transaksi + Refund Saldo Otomatis
+     * DELETE: Hapus Transaksi + Refund Saldo + Log
      */
     public function destroy($id)
     {
         try {
-            DB::transaction(function () use ($id) {
+            $posUserId = $this->getPosUserId();
+            $oldDataSnapshot = null;
+
+            DB::transaction(function () use ($id, &$oldDataSnapshot) {
                 $transaction = TopupTransaction::findOrFail($id);
+                $oldDataSnapshot = $transaction->toArray(); // Snapshot sebelum hapus
                 
-                // Kembalikan saldo ke toko (Refund) sesuai nominal_request
                 $walletStore = DigitalWalletStore::find($transaction->digital_wallet_store_id);
                 if ($walletStore) {
                     $walletStore->increment('balance', $transaction->nominal_request);
@@ -149,6 +184,17 @@ class TopupTransactionController extends Controller
 
                 $transaction->delete();
             });
+
+            // LOG ACTIVITY (Delete)
+            ActivityLogger::log(
+                'delete',
+                'topup_transactions',
+                $id,
+                "MENGHAPUS (Refund) transaksi Topup #{$id} Akun: " . ($oldDataSnapshot['cust_account_number'] ?? '-'),
+                $posUserId,
+                ['old' => $oldDataSnapshot, 'new' => ['status' => 'DELETED', 'refunded_at' => now()]],
+                $oldDataSnapshot['store_id']
+            );
 
             return back()->with('message', 'Riwayat transaksi dihapus dan saldo dikembalikan.');
 

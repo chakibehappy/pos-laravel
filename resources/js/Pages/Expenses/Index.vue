@@ -125,13 +125,6 @@ const formatCurrency = (value) => {
                         </div>
                     </template>
 
-                    <template #created_by_name="{ row }">
-                        <div class="flex flex-col">
-                            <span class="text-xs font-medium text-gray-700">{{ row.creator?.name || 'Sistem' }}</span>
-                            <span class="text-[10px] text-gray-400 italic">Administrator</span>
-                        </div>
-                    </template>
-
                     <template #actions="{ row }">
                         <div class="flex justify-end gap-4">
                             <button @click="openEditModal(row)" class="text-indigo-600 hover:text-indigo-900 font-medium text-sm transition-colors">✏️</button>
@@ -184,25 +177,42 @@ const formatCurrency = (value) => {
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                           <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nominal (Rp)</label>
                                     <div class="relative">
-                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 text-sm">Rp</div>
-                                        <input v-model="form.amount" type="number" :class="{'border-red-500': form.errors.amount}" class="w-full pl-10 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" placeholder="0">
+                                        <input 
+                                            v-model="form.amount" 
+                                            type="number" 
+                                            :class="{'border-red-500': form.errors.amount}" 
+                                            class="w-full px-4 py-2.5 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
+                                            placeholder="0"
+                                        >
                                     </div>
                                     <p v-if="form.errors.amount" class="mt-1 text-xs text-red-600">{{ form.errors.amount }}</p>
                                 </div>
+
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tanggal</label>
-                                    <input v-model="form.transaction_at" type="date" :class="{'border-red-500': form.errors.transaction_at}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                                    <input 
+                                        v-model="form.transaction_at" 
+                                        type="date" 
+                                        :class="{'border-red-500': form.errors.transaction_at}" 
+                                        class="w-full px-4 py-2.5 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                                    >
                                     <p v-if="form.errors.transaction_at" class="mt-1 text-xs text-red-600">{{ form.errors.transaction_at }}</p>
                                 </div>
                             </div>
 
-                            <div class="space-y-1">
+                           <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Detail Keperluan</label>
-                                <textarea v-model="form.description" rows="2" :class="{'border-red-500': form.errors.description}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" placeholder="Contoh: Belanja ATK Kantor..."></textarea>
+                                <textarea 
+                                    v-model="form.description" 
+                                    rows="2" 
+                                    :class="{'border-red-500': form.errors.description}" 
+                                    class="w-full px-2 py-2 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
+                                    placeholder="Contoh: Belanja ATK Kantor..."
+                                ></textarea>
                                 <p v-if="form.errors.description" class="mt-1 text-xs text-red-600">{{ form.errors.description }}</p>
                             </div>
 

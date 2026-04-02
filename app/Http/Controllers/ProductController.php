@@ -24,7 +24,7 @@ class ProductController extends Controller
         if (empty($sortField)) {
             $sortField = 'updated_at';
         }
-        // Mengambil data dengan status 0 (Aktif)
+
         $products = Product::with(['category', 'store', 'unitType'])
             ->where('products.status', 0) 
             ->when($request->search, function ($query, $search) {
@@ -84,6 +84,18 @@ class ProductController extends Controller
                 'image'               => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             ]);
 
+            $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+            $posUserId = $posUserAudit ? $posUserAudit->id : null;
+            $oldData = null;
+
+            // TANGKAP DATA LAMA JIKA UPDATE
+            if ($request->id) {
+                $existingProduct = Product::find($request->id);
+                if ($existingProduct) {
+                    $oldData = $existingProduct->getRawOriginal();
+                }
+            }
+
             $data = $request->only([
                 'product_category_id', 
                 'unit_type_id',
@@ -93,24 +105,23 @@ class ProductController extends Controller
                 'selling_price',
             ]);
 
-            // Set status ke 0 (Aktif) dan reset deleted_at
             $data['status'] = 0;
             $data['deleted_at'] = null;
 
-            $product = $request->id ? Product::find($request->id) : null;
-
-            if (!$product) {
-                $userEmail = auth()->user()->email;
-                $posUser = DB::table('pos_users')->where('username', $userEmail)->first();
-                if ($posUser) {
-                    $data['created_by'] = $posUser->id;
-                }
+            // Inisialisasi jika produk baru
+            if (!$request->id) {
+                $data['created_by'] = $posUserId;
                 $data['stock'] = 0; 
             }
 
+            // Penanganan Gambar
             if ($request->hasFile('image')) {
-                if ($product && $product->image) {
-                    Storage::disk('public')->delete($product->image);
+                // Hapus gambar lama jika ada
+                if ($request->id) {
+                    $prodForImg = Product::find($request->id);
+                    if ($prodForImg && $prodForImg->image) {
+                        Storage::disk('public')->delete($prodForImg->image);
+                    }
                 }
 
                 $file = $request->file('image');
@@ -126,18 +137,17 @@ class ProductController extends Controller
                 $data['image'] = $path;
             }
 
-            $logType = $request->id ? 'update' : 'create';
-            $logDesc = ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $request->name;
+            $product = Product::updateOrCreate(['id' => $request->id], $data);
 
-            $savedProduct = Product::updateOrCreate(['id' => $request->id], $data);
-
-            $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+            // LOG ACTIVITY
             ActivityLogger::log(
-                $logType,
+                $request->id ? 'update' : 'create',
                 'products',
-                $savedProduct->id,
-                $logDesc,
-                $posUserAudit ? $posUserAudit->id : null
+                $product->id,
+                ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $product->name,
+                $posUserId,
+                ['old' => $oldData, 'new' => $product->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Data berhasil diproses!');
@@ -150,28 +160,35 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
+        $oldData = $product->getRawOriginal();
 
         $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+        $posUserId = $posUserAudit ? $posUserAudit->id : null;
+
+        // Log Activity SEBELUM status berubah
         ActivityLogger::log(
             'delete',
             'products',
             $id,
-            "Menghapus produk  : {$product->name}",
-            $posUserAudit ? $posUserAudit->id : null
+            "Menghapus produk: {$product->name}",
+            $posUserId,
+            ['old' => $oldData, 'new' => array_merge($product->getAttributes(), ['status' => 2])],
+            null
         );
 
-        // Opsional: Jika ingin gambar tetap ada saat diarsip, hapus bagian Storage::delete ini
+        // Hapus Gambar (Optional, disarankan tetap simpan jika statusnya 2/Arsip)
+        /*
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
             $product->image = null;
         }
+        */
 
-        //   Manual: Ubah status ke 2 DAN isi deleted_at
         $product->update([
             'status' => 2,
             'deleted_at' => now()
         ]);
 
-        return back()->with('message', 'Product archived!');
+        return back()->with('message', 'Produk berhasil diarsipkan!');
     }
 }

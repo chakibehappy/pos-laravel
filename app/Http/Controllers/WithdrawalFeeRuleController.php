@@ -64,6 +64,14 @@ class WithdrawalFeeRuleController extends Controller
                 $finalId = $this->getOperatorId();
                 $actionLabel = $request->id ? "Memperbarui" : "Membuat";
                 $logType = $request->id ? "update" : "create";
+                
+                $oldData = null;
+
+                // Ambil data lama jika ini adalah update
+                if ($request->id) {
+                    $ruleBefore = WithdrawalFeeRule::find($request->id);
+                    $oldData = $ruleBefore ? $ruleBefore->getRawOriginal() : null;
+                }
 
                 $rule = WithdrawalFeeRule::updateOrCreate(
                     ['id' => $request->id],
@@ -77,13 +85,15 @@ class WithdrawalFeeRuleController extends Controller
                     ]
                 );
 
-                // LOG ACTIVITY
+                // LOG ACTIVITY dengan data OLD dan NEW
                 ActivityLogger::log(
                     $logType, 
                     'withdrawal_fee_rules', 
                     $rule->id, 
-                    "$actionLabel aturan biaya penarikan ", 
-                    $finalId
+                    "$actionLabel aturan biaya penarikan: Limit " . number_format($rule->min_limit) . " - " . number_format($rule->max_limit), 
+                    $finalId,
+                    ['old' => $oldData, 'new' => $rule->getAttributes()],
+                    null
                 );
 
                 return back()->with('message', 'Aturan biaya penarikan berhasil disimpan!');
@@ -98,21 +108,24 @@ class WithdrawalFeeRuleController extends Controller
         try {
             return DB::transaction(function () use ($id) {
                 $rule = WithdrawalFeeRule::findOrFail($id);
+                $oldData = $rule->getRawOriginal(); // Simpan snapshot sebelum diupdate statusnya
                 $userOperatorId = $this->getOperatorId();
 
-                //   Manual (status 2 + deleted_at)
+                // Soft Delete Manual
                 $rule->update([
                     'status' => 2,
                     'deleted_at' => now()
                 ]);
 
-                // LOG ACTIVITY DELETE
+                // LOG ACTIVITY DELETE dengan data OLD dan NEW
                 ActivityLogger::log(
                     'delete', 
                     'withdrawal_fee_rules', 
                     $id, 
-                    "Menghapus   aturan biaya penarikan ", 
-                    $userOperatorId
+                    "Menghapus aturan biaya penarikan: Limit " . number_format($rule->min_limit) . " - " . number_format($rule->max_limit), 
+                    $userOperatorId,
+                    ['old' => $oldData, 'new' => $rule->getAttributes()],
+                    null
                 );
 
                 return back()->with('message', 'Aturan biaya berhasil diarsipkan.');

@@ -88,14 +88,18 @@ watch(search, debounce(() => {
         </div>
 
         <div class="flex flex-col md:flex-row gap-4 items-center mb-6">
-            <div v-if="routeName" class="flex flex-col md:flex-row gap-3 items-center w-full">
-                <div class="relative w-full md:w-80">
-                    <input 
-                        v-model="search"
-                        type="text" 
-                        :placeholder="placeholder"
-                        class="w-full border border-gray-300 rounded-lg pl-4 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white shadow-sm transition-all placeholder:text-gray-400 font-medium"
-                    />
+            <div v-if="routeName" class="flex flex-col md:flex-row gap-3 items-end w-full"> <div class="flex flex-col gap-1 w-full md:w-80">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                        Pencarian
+                    </label>
+                    <div class="relative w-full">
+                        <input 
+                            v-model="search"
+                            type="text" 
+                            :placeholder="placeholder"
+                            class="w-full border border-gray-300 rounded-lg pl-4 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white shadow-sm transition-all placeholder:text-gray-400 font-medium"
+                        />
+                    </div>
                 </div>
 
                 <div class="flex gap-2 w-full md:w-auto">

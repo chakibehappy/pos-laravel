@@ -93,9 +93,12 @@ class CashStoreController extends Controller
 
         $cashStore = CashStore::findOrFail($request->id);
         
+        // --- TAMBAHKAN INI: Tangkap data lama sebelum diupdate ---
+        $oldData = $cashStore->getRawOriginal();
+
         // Logika Kalkulasi Berdasarkan action_type
-        $currentCash = $cashStore->cash;
-        $inputAmount = $request->cash;
+        $currentCash = (float) $cashStore->cash;
+        $inputAmount = (float) $request->cash;
         $finalCash = $currentCash;
 
         $label = "Menambah Kas Toko ";
@@ -110,10 +113,12 @@ class CashStoreController extends Controller
             $label = "Mengeset Kas Toko ";
         }
 
+        $operatorId = auth()->user()->posUser->id;
+
         // Simpan hasil kalkulasi ke database
         $cashStore->update([
-            'cash' => $finalCash,
-            'created_by' => auth()->user()->posUser->id,
+            'cash' => max(0, $finalCash), // Pastikan tidak minus
+            'created_by' => $operatorId,
         ]);
 
         $statusLabel = [
@@ -122,9 +127,19 @@ class CashStoreController extends Controller
             'reset' => 'direset ke 0'
         ];
         
-        $store_name = Store::where('id', $request->store_id)->first()->name;
+        $store = Store::find($request->store_id);
+        $store_name = $store ? $store->name : 'Unknown Store';
         
-        ActivityLogger::log('update', 'cash_store', $cashStore->id, $label . $store_name, auth()->user()->posUser->id);
+        // LOG ACTIVITY dengan Payload Lengkap
+        ActivityLogger::log(
+            'update', 
+            'cash_store', 
+            $cashStore->id, 
+            $label . $store_name . " sebesar Rp " . number_format($inputAmount, 0, ',', '.'), 
+            $operatorId,
+            ['old' => $oldData, 'new' => $cashStore->getAttributes()], 
+            $request->store_id// <-- Payload dikirim di sini
+        );
         
         return back()->with('message', "Saldo kas berhasil {$statusLabel[$request->action_type]}!");
     }
@@ -133,6 +148,22 @@ class CashStoreController extends Controller
     {
         try {
             $cash = CashStore::findOrFail($id);
+            $operatorId = auth()->user()->posUser->id;
+            
+            // Tangkap data lama sebelum dihapus
+            $oldData = $cash->getRawOriginal();
+
+            // LOG ACTIVITY sebelum delete
+            ActivityLogger::log(
+                'delete', 
+                'cash_store', 
+                $id, 
+                "Menghapus record kas toko ID: " . $cash->store_id, 
+                $operatorId,
+                ['old' => $oldData, 'new' => null],
+                $cash->store_id// New null karena data dihapus
+            );
+
             $cash->delete();
             
             return back()->with('message', 'Data kas berhasil dihapus!');

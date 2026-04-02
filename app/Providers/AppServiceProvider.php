@@ -37,5 +37,7 @@ class AppServiceProvider extends ServiceProvider
             ],
             'csrf_token' => fn () => csrf_token(),
         ]);
+
+        
     }
 }

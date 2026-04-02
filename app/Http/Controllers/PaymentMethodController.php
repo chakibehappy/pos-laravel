@@ -61,7 +61,7 @@ class PaymentMethodController extends Controller
             ]);
 
             $method = PaymentMethod::findOrFail($request->id);
-            
+            $oldData = $method->getRawOriginal();
             $method->update([
                 'name'       => $request->name,
                 'created_by' => $posUserId,
@@ -74,7 +74,9 @@ class PaymentMethodController extends Controller
                 'payment_methods',
                 $method->id,
                 "Memperbarui metode pembayaran: {$request->name}",
-                $posUserId
+                $posUserId,
+                ['old' => $oldData, 'new' => $method->getAttributes()],
+                null
             );
         } 
         else {
@@ -98,7 +100,9 @@ class PaymentMethodController extends Controller
                         'payment_methods',
                         $newMethod->id,
                         "Menambah metode pembayaran baru: {$newMethod->name}",
-                        $posUserId
+                        $posUserId,
+                        ['old' => null, 'new' => $newMethod->getAttributes()],
+                        null
                     );
                 }
             });
@@ -115,7 +119,7 @@ class PaymentMethodController extends Controller
         try {
             $method = PaymentMethod::findOrFail($id);
             $posUserId = $this->getPosUserId();
-
+            $oldData = $method->getRawOriginal();
             // Proteksi Relasi Transaksi Dihapus sesuai permintaan
             // Data tetap diupdate ke status 2  
             $method->update([
@@ -128,7 +132,9 @@ class PaymentMethodController extends Controller
                 'payment_methods',
                 $id,
                 "Mengarsipkan metode pembayaran: {$method->name}",
-                $posUserId
+                $posUserId,
+                ['old' => $oldData, 'new' => $method->getAttributes()],
+                null
             );
 
             return redirect()->back()->with('message', 'Metode pembayaran berhasil diarsipkan!');

@@ -16,7 +16,6 @@ class DigitalWalletController extends Controller
      */
     public function index(Request $request)
     {
-        // Ambil parameter sort, default ke 'id' dan 'desc'
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
 
@@ -25,17 +24,16 @@ class DigitalWalletController extends Controller
         }
         
         $resource = DigitalWallet::query()
-            ->where('status', 0) // Pastikan hanya mengambil yang aktif
+            ->where('status', 0)
             ->when($request->search, function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%");
             })
-            // Logika Sorting Dinamis
             ->orderBy($sortField, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('DigitalWallets/Index', [
-            'resource' => $resource, // Nama variabel tetap 'resource' sesuai sistem DataTable
+            'resource' => $resource,
             'filters'  => $request->only(['search', 'sort', 'direction']),
         ]);
     }
@@ -65,26 +63,39 @@ class DigitalWalletController extends Controller
 
         try {
             $posUserId = $this->getPosUserId();
-            $logType = $request->id ? 'update' : 'create';
-            $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
+            $oldData = null;
+
+            // Jika ada ID, berarti Update. Ambil data LAMA sebelum ditimpa.
+            if ($request->id) {
+                $existingWallet = DigitalWallet::find($request->id);
+                if ($existingWallet) {
+                    $oldData = $existingWallet->getRawOriginal();
+                }
+            }
 
             $wallet = DigitalWallet::updateOrCreate(
                 ['id' => $request->id],
                 [
                     'name' => $request->name,
                     'created_by' => $posUserId,
-                    'status' => 0,       // Set aktif
-                    'deleted_at' => null // Reset jika data dipulihkan
+                    'status' => 0,
+                    'deleted_at' => null
                 ]
             );
 
-            // LOG ACTIVITY
+            // Tentukan label dan tipe log
+            $logType = $request->id ? 'update' : 'create';
+            $actionLabel = $request->id ? 'Memperbarui' : 'Membuat';
+
+            // LOG ACTIVITY dengan Payload
             ActivityLogger::log(
                 $logType,
                 'digital_wallet',
                 $wallet->id,
                 "$actionLabel platform wallet: {$wallet->name}",
-                $posUserId
+                $posUserId,
+                ['old' => $oldData, 'new' => $wallet->getAttributes()],
+                null
             );
 
             return back()->with('message', 'Platform Wallet berhasil disimpan!');
@@ -94,30 +105,32 @@ class DigitalWalletController extends Controller
     }
 
     /**
-     * Hapus Master Platform Wallet ( ).
+     * Hapus Master Platform Wallet.
      */
     public function destroy($id)
     {
         try {
             $wallet = DigitalWallet::findOrFail($id);
             
-            // Cek relasi jika platform masih digunakan di toko (DigitalWalletStore)
             if ($wallet->storeAssignments()->exists()) {
                 return back()->withErrors(['error' => 'Gagal! Platform masih digunakan oleh beberapa toko.']);
             }
 
             $posUserId = $this->getPosUserId();
+            $oldData = $wallet->getRawOriginal(); // Tangkap data sebelum diarsipkan
 
             // LOG ACTIVITY
             ActivityLogger::log(
                 'delete',
                 'digital_wallet',
                 $id,
-                "Menghapus platform wallet  : {$wallet->name}",
-                $posUserId
+                "Menghapus platform wallet: {$wallet->name}",
+                $posUserId,
+                ['old' => $oldData, 'new' => array_merge($oldData, ['status' => 2, 'deleted_at' => now()])],
+                null
             );
 
-            // Manual  
+            // Proses Arsipkan
             $wallet->update([
                 'status' => 2,
                 'deleted_at' => now()

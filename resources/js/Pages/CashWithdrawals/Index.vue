@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { useForm, usePage, Head } from '@inertiajs/vue3';
+import { ref, computed, reactive, watch } from 'vue';
+import { useForm, usePage, Head, router } from '@inertiajs/vue3';
+import debounce from 'lodash/debounce';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
+import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({
     withdrawals: Object, 
@@ -11,14 +13,32 @@ const props = defineProps({
     filters: Object
 });
 
+// --- STATE MANAGEMENT ---
 const showForm = ref(false);
 
-// Menambahkan properti sortable: true pada kolom yang didukung oleh backend
+// State untuk Filter Dinamis (Sama dengan script Riwayat Aktivitas)
+const filterState = reactive({
+    search: props.filters?.search || '',
+    store_id: props.filters?.store_id || '',
+    start_date: props.filters?.start_date || '',
+    end_date: props.filters?.end_date || '',
+});
+
+// Otomatis reload data saat filter berubah
+watch(filterState, debounce(() => {
+    router.get(route('cash-withdrawals.index'), filterState, {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true
+    });
+}, 500));
+
 const columns = [
+    { label: 'Tanggal', key: 'created_at', sortable: true },
     { label: 'Pelanggan & Unit', key: 'customer_name', sortable: true },
     { label: 'Sumber Dana', key: 'withdrawal_source_id', sortable: true },
     { label: 'Nominal Tarik', key: 'withdrawal_count', sortable: true },
-    { label: 'Fee Admin', key: 'admin_fee', sortable: true }
+    { label: 'Fee Admin', key: 'admin_fee', sortable: true },
 ];
 
 const page = usePage();
@@ -73,6 +93,17 @@ const destroy = (id) => {
 };
 
 const formatIDR = (num) => new Intl.NumberFormat('id-ID').format(num);
+
+const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
 
 const getSourceName = (id) => {
     const sources = { 1: 'DANA', 2: 'OVO', 3: 'GOPAY', 4: 'LINKAJA', 5: 'SHOPEEPAY', 6: 'LAINNYA' };
@@ -136,7 +167,7 @@ const getSourceName = (id) => {
                             </div>
 
                             <div class="flex flex-col gap-1">
-                                <label class="text-[10px] font-black text-green-400 uppercase tracking-widest ml-1">Fee Admin</label>
+                                <label class="text-[10px] font-black text-green-400 uppercase tracking-widest ml-1">Fee Admins</label>
                                 <input v-model="form.admin_fee" type="number" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-black focus:ring-2 focus:ring-green-500 outline-none bg-white" />
                             </div>
                         </div>
@@ -162,6 +193,35 @@ const getSourceName = (id) => {
                 route-name="cash-withdrawals.index" 
                 :initial-search="filters?.search || ''"
             >
+                <template #extra-filters>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div class="w-48">
+                            <SearchableSelect 
+                                v-model="filterState.store_id"
+                                :options="stores"
+                                label="Lokasi Toko"
+                                placeholder="Semua Toko"
+                            />
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mulai Tanggal</label>
+                            <input type="date" v-model="filterState.start_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sampai Tanggal</label>
+                            <input type="date" v-model="filterState.end_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        </div>
+                    </div>
+                </template>
+
+                <template #created_at="{ value }">
+                    <span class="text-[10px] font-bold text-gray-500 font-mono tracking-tighter">
+                        {{ formatDate(value) }}
+                    </span>
+                </template>
+
                 <template #customer_name="{ row }">
                     <div class="flex flex-col">
                         <span class="text-xs font-black uppercase italic tracking-tight text-blue-600">{{ row.customer_name }}</span>
@@ -182,8 +242,6 @@ const getSourceName = (id) => {
                 <template #admin_fee="{ value }">
                     <span class="text-green-600 font-bold">Rp {{ formatIDR(value) }}</span>
                 </template>
-
-                
             </DataTable>
 
         </div>

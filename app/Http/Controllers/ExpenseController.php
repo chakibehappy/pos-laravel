@@ -58,7 +58,6 @@ class ExpenseController extends Controller
                 ['key' => 'amount', 'label' => 'Nominal', 'sortable' => true],
                 ['key' => 'store_name', 'label' => 'Toko', 'sortable' => false],
                 ['key' => 'user_name', 'label' => 'PIC/Staf', 'sortable' => false],
-                ['key' => 'created_by_name', 'label' => 'Input Oleh', 'sortable' => false],
             ]
         ]);
     }
@@ -75,7 +74,6 @@ class ExpenseController extends Controller
      */
     public function store(Request $request)
     {
-        // Menambahkan pesan error kustom dalam bahasa Indonesia
         $messages = [
             'store_id.required' => 'Lokasi toko wajib dipilih.',
             'store_id.exists'   => 'Toko yang dipilih tidak valid.',
@@ -102,6 +100,16 @@ class ExpenseController extends Controller
         ], $messages);
 
         $posUserId = $this->getPosUserId();
+        $oldData = null;
+
+        // Ambil data lama jika aksi UPDATE
+        if ($request->id) {
+            $existingExpense = ExpenseTransaction::find($request->id);
+            if ($existingExpense) {
+                $oldData = $existingExpense->getRawOriginal();
+            }
+        }
+
         $data = $request->only(['store_id', 'pos_user_id', 'amount', 'description', 'transaction_at']);
         
         if ($request->hasFile('image')) {
@@ -114,15 +122,17 @@ class ExpenseController extends Controller
         }
 
         $expense = ExpenseTransaction::updateOrCreate(['id' => $request->id], $data);
-        
         $expense->load(['store', 'posUser']);
 
+        // LOG ACTIVITY dengan Payload
         ActivityLogger::log(
             $request->id ? 'update' : 'create',
             'expense_transactions',
             $expense->id,
             ($request->id ? "Update" : "Input") . " pengeluaran: Toko {$expense->store->name} oleh {$expense->posUser->name} (" . number_format($expense->amount, 0, ',', '.') . ")",
-            $posUserId
+            $posUserId,
+            ['old' => $oldData, 'new' => $expense->getAttributes()],
+            $expense->store_id
         );
 
         return back()->with('message', 'Data berhasil disimpan');
@@ -135,18 +145,22 @@ class ExpenseController extends Controller
     {
         $expense = ExpenseTransaction::with(['store', 'posUser'])->findOrFail($id);
         $posUserId = $this->getPosUserId();
+        $oldData = $expense->getRawOriginal();
 
         $expense->update([
             'status' => 2,
             'deleted_at' => now()
         ]);
 
+        // LOG ACTIVITY sebelum selesai
         ActivityLogger::log(
             'delete',
             'expense_transactions',
             $id,
             "Hapus pengeluaran: Toko {$expense->store->name} oleh {$expense->posUser->name}",
-            $posUserId
+            $posUserId,
+            ['old' => $oldData, 'new' => $expense->getAttributes()],
+            $expense->store_id
         );
 
         return back()->with('message', 'Data berhasil dihapus');
