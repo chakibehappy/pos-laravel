@@ -626,7 +626,7 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
         'shift_id' => 'required|integer|exists:shifts,id',
     ]);
 
-    $shift = Shift::findOrFail($request->$shift_id);
+    $shift = Shift::findOrFail($request->shift_id);
     $storeId = $request->store_id;
     $start = $shift->start_at;
     $end = now();
