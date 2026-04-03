@@ -630,21 +630,16 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $shift = Shift::findOrFail($request->shift_id);
     $storeId = $request->store_id;
 
-    // Fix: Parse the database UTC time into the local Jakarta timezone
-    // This ensures the 'start' time matches what the user sees in Indonesia
-    $start = Carbon::parse($shift->start_at)->timezone($timezone);
-    $end = Carbon::now($timezone);
+    // Use raw strings for the comparison to be 100% sure about the UTC hit
+    $startUtc = Carbon::parse($shift->start_at)->toDateTimeString(); 
+    $endUtc = Carbon::now('UTC')->toDateTimeString();
 
-    // Get aggregates
+    // Aggregates for Sales, Topup, Withdrawal
     $summary = DB::table('transaction_details')
         ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
         ->where('transactions.store_id', $storeId)
-        ->where('transactions.status', 0)
-        // Ensure the database comparison handles the timezone shift
-        ->whereBetween('transactions.transaction_at', [
-            $start->copy()->timezone('UTC'), 
-            $end->copy()->timezone('UTC')
-        ])
+        ->where('transactions.status', 0) // Explicit table prefix
+        ->whereBetween('transactions.transaction_at', [$startUtc, $endUtc])
         ->select(
             DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
             DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
@@ -652,13 +647,11 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
         )
         ->first();
 
+    // Expenses
     $totalExpenses = DB::table('expense_transactions')
-        ->where('store_id', $storeId)
-        ->where('status', 0)
-        ->whereBetween('transaction_at', [
-            $start->copy()->timezone('UTC'), 
-            $end->copy()->timezone('UTC')
-        ])
+        ->where('expense_transactions.store_id', $storeId)
+        ->where('expense_transactions.status', 0) // Explicit table prefix
+        ->whereBetween('expense_transactions.transaction_at', [$startUtc, $endUtc])
         ->sum('amount');
 
     $sales = (float)($summary->total_sales ?? 0);
@@ -666,19 +659,17 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $withdrawal = (float)($summary->total_withdrawal ?? 0);
     $expenses = (float)($totalExpenses ?? 0);
 
-    $netCashChange = ($sales + $topup) - ($withdrawal + $expenses);
-
     return response()->json([
         'range' => [
-            'start' => $start->toDateTimeString(), // Returns Jakarta time string for Unity
-            'end'   => $end->toDateTimeString(),   // Returns Jakarta time string for Unity
+            'start' => Carbon::parse($shift->start_at)->timezone($timezone)->toDateTimeString(),
+            'end'   => Carbon::now($timezone)->toDateTimeString(),
         ],
         'data' => [
             'sales'      => $sales,
             'topup'      => $topup,
             'withdrawal' => $withdrawal,
             'expenses'   => $expenses,
-            'net_flow'   => $netCashChange
+            'net_flow'   => ($sales + $topup) - ($withdrawal + $expenses)
         ]
     ]);
 });
