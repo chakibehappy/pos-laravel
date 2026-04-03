@@ -363,7 +363,8 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
             'details.product',
             'details.topupTransaction.transType',
             'details.topupTransaction.digitalWalletStore.wallet',
-            'details.cashWithdrawal'
+            'details.cashWithdrawal',
+            'details.cashWithdrawal.source'
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', $status)
