@@ -30,6 +30,7 @@ use App\Http\Controllers\StockFlowController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ExpenseTypeController; 
+use App\Http\Controllers\ReportStoreController;
 
 
 use Inertia\Inertia;
@@ -212,4 +213,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/expense-types', [ExpenseTypeController::class, 'store'])->name('expense-types.store');
     Route::patch('/expense-types/{id}', [ExpenseTypeController::class, 'update'])->name('expense-types.update');
     Route::delete('/expense-types/{id}', [ExpenseTypeController::class, 'destroy'])->name('expense-types.destroy');
+
+    // --- LAPORAN REKAPITULASI PER CABANG ---
+    Route::get('/report-stores', [ReportStoreController::class, 'index'])->name('report-stores.index');
+    // Opsional: Jika nanti ingin menambah fitur detail per cabang atau export
+    // Route::get('/report-stores/{id}', [ReportStoreController::class, 'show'])->name('report-stores.show');
 });

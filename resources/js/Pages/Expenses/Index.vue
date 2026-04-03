@@ -11,7 +11,7 @@ const props = defineProps({
     filters: Object,
     stores: Array,
     posUsers: Array,
-    expenseTypes: Array, // Tambahkan props baru ini
+    expenseTypes: Array,
 });
 
 const page = usePage();
@@ -20,19 +20,42 @@ const authUser = page.props.auth.user;
 const isModalOpen = ref(false);
 const isEditing = ref(false);
 
-// Menggabungkan opsi "GLOBAL" ke dalam daftar toko untuk dropdown
+/**
+ * Logic untuk mendeteksi apakah tipe yang dipilih mengandung kata 
+ * "Global" atau "Pembelian Produk".
+ */
+const isGlobalType = computed(() => {
+    if (!form.expense_type_id) return false;
+    
+    const selectedType = props.expenseTypes.find(t => t.id === form.expense_type_id);
+    if (!selectedType) return false;
+
+    const name = selectedType.name.toLowerCase();
+    return name.includes('global') || name.includes('pembelian produk');
+});
+
+/**
+ * Logic Dropdown Toko
+ */
 const storeOptions = computed(() => {
-    return [
-        { id: null, name: 'GLOBAL' },
-        ...props.stores
-    ];
+    const options = [...props.stores];
+    if (!form.expense_type_id) return options; 
+
+    const selectedType = props.expenseTypes.find(t => t.id === form.expense_type_id);
+    const typeName = selectedType ? selectedType.name.toLowerCase() : '';
+
+    if (!typeName.includes('toko')) {
+        options.unshift({ id: null, name: 'GLOBAL' });
+    }
+
+    return options;
 });
 
 const form = useForm({
     id: null,
     store_id: null,
-    expense_type_id: '', // Tambahkan field tipe pengeluaran
-    pos_user_id: '',
+    expense_type_id: '', 
+    pos_user_id: '', 
     amount: '',
     description: '',
     transaction_at: new Date().toISOString().split('T')[0],
@@ -43,8 +66,7 @@ const openAddModal = () => {
     isEditing.value = false;
     form.reset();
     form.clearErrors();
-    
-    form.store_id = null; // Default ke Global
+    form.store_id = null; 
 
     const matchedUser = props.posUsers.find(u => u.username === authUser.email);
     if (matchedUser) {
@@ -59,8 +81,8 @@ const openEditModal = (row) => {
     isEditing.value = true;
     form.clearErrors();
     form.id = row.id;
-    form.store_id = row.store_id || null;
-    form.expense_type_id = row.expense_type_id; // Isi data tipe saat edit
+    form.store_id = row.store_id || null; 
+    form.expense_type_id = row.expense_type_id;
     form.pos_user_id = row.pos_user_id;
     form.amount = row.amount;
     form.description = row.description;
@@ -70,6 +92,15 @@ const openEditModal = (row) => {
 };
 
 const submit = () => {
+    form.clearErrors();
+    const selectedType = props.expenseTypes.find(t => t.id === form.expense_type_id);
+    const typeName = selectedType ? selectedType.name.toLowerCase() : '';
+
+    if (typeName.includes('toko') && !form.store_id) {
+        form.setError('store_id', 'Lokasi Toko wajib dipilih untuk kategori ini.');
+        return;
+    }
+
     form.post(route('expenses.store'), {
         onSuccess: () => {
             isModalOpen.value = false;
@@ -116,17 +147,11 @@ const formatCurrency = (value) => {
                     </template>
 
                     <template #store_name="{ row }">
-                        <span v-if="row.store" class="text-xs text-blue-700 font-medium px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-100">
-                            {{ row.store.name }}
+                        <span v-if="row.nama_cabang" class="text-xs text-blue-700 font-medium px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-100">
+                            {{ row.nama_cabang }}
                         </span>
                         <span v-else class="text-xs text-gray-600 font-medium px-2.5 py-0.5 rounded-full bg-gray-100 border border-gray-200">
                             GLOBAL
-                        </span>
-                    </template>
-
-                    <template #expense_type_name="{ row }">
-                        <span class="text-[10px] font-bold text-indigo-600 uppercase tracking-tighter">
-                            {{ row.expense_type?.name || '-' }}
                         </span>
                     </template>
 
@@ -160,14 +185,10 @@ const formatCurrency = (value) => {
 
                     <template #actions="{ row }">
                         <div class="flex justify-end gap-2">
-                            <button @click="openEditModal(row)" 
-                                class="w-8 h-8 flex items-center justify-center bg-indigo-50 text-base rounded-lg hover:bg-indigo-100 transition-colors shadow-sm" 
-                                title="Edit">
+                            <button @click="openEditModal(row)" class="w-8 h-8 flex items-center justify-center bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm">
                                 ✏️
                             </button>
-                            <button @click="deleteExpense(row.id)" 
-                                class="w-8 h-8 flex items-center justify-center bg-red-50 text-xs rounded-lg hover:bg-red-100 transition-colors shadow-sm" 
-                                title="Hapus">
+                            <button @click="deleteExpense(row.id)" class="w-8 h-8 flex items-center justify-center bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm">
                                 ❌
                             </button>
                         </div>
@@ -176,114 +197,93 @@ const formatCurrency = (value) => {
             </div>
         </div>
 
-        <Transition 
-            enter-active-class="ease-out duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" 
-            leave-active-class="ease-in duration-200" leave-from-class="opacity-100" leave-to-class="opacity-0"
-        >
+        <Transition enter-active-class="ease-out duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="ease-in duration-200" leave-from-class="opacity-100" leave-to-class="opacity-0">
             <div v-if="isModalOpen" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-                <Transition 
-                    enter-active-class="ease-out duration-300" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" 
-                    leave-active-class="ease-in duration-200" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95"
-                >
-                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
-                        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 class="text-lg font-semibold text-gray-900">
-                                {{ isEditing ? 'Edit Pengeluaran' : 'Tambah Pengeluaran Baru' }}
-                            </h3>
-                            <button @click="isModalOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                        <h3 class="text-lg font-semibold text-gray-900">
+                            {{ isEditing ? 'Edit Pengeluaran' : 'Tambah Pengeluaran Baru' }}
+                        </h3>
+                        <button @click="isModalOpen = false" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <form @submit.prevent="submit" class="p-6 space-y-5">
+                        <div class="space-y-4">
+                            <div>
+                                <SearchableSelect 
+                                    v-model="form.expense_type_id"
+                                    :options="expenseTypes"
+                                    label="Jenis Pengeluaran"
+                                    placeholder="Pilih kategori..."
+                                />
+                                <p v-if="form.errors.expense_type_id" class="mt-1 text-xs text-red-600">{{ form.errors.expense_type_id }}</p>
+                            </div>
+
+                            <Transition
+                                enter-active-class="transition ease-out duration-200"
+                                enter-from-class="opacity-0 -translate-y-2"
+                                enter-to-class="opacity-100 translate-y-0"
+                                leave-active-class="transition ease-in duration-150"
+                                leave-from-class="opacity-100 translate-y-0"
+                                leave-to-class="opacity-0 -translate-y-2"
+                            >
+                                <div v-if="!isGlobalType" class="space-y-4">
+                                    <div>
+                                        <SearchableSelect 
+                                            v-model="form.store_id"
+                                            :options="storeOptions"
+                                            label="Lokasi Toko / Cabang"
+                                            placeholder="Cari toko..."
+                                            :allow-clear="!isEditing"
+                                        />
+                                        <p v-if="form.errors.store_id" class="mt-1 text-xs text-red-600">{{ form.errors.store_id }}</p>
+                                    </div>
+
+                                    <div>
+                                        <SearchableSelect 
+                                            v-model="form.pos_user_id"
+                                            :options="posUsers"
+                                            label="PIC / Karyawan"
+                                            placeholder="Cari nama personil..."
+                                        />
+                                        <p v-if="form.errors.pos_user_id" class="mt-1 text-xs text-red-600">{{ form.errors.pos_user_id }}</p>
+                                    </div>
+                                </div>
+                            </Transition>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nominal (Rp)</label>
+                                <input v-model="form.amount" type="number" :class="{'border-red-500': form.errors.amount}" class="w-full px-4 py-2.5 rounded-lg border-gray-300 text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                <p v-if="form.errors.amount" class="mt-1 text-xs text-red-600">{{ form.errors.amount }}</p>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tanggal</label>
+                                <input v-model="form.transaction_at" type="date" class="w-full px-4 py-2.5 rounded-lg border-gray-300 text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Detail Keperluan</label>
+                            <textarea v-model="form.description" rows="2" class="w-full px-4 py-2 rounded-lg border-gray-300 text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ketik detail..."></textarea>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lampiran Foto Nota</label>
+                            <input type="file" @input="form.image = $event.target.files[0]" class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all cursor-pointer">
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-4">
+                            <button type="button" @click="isModalOpen = false" class="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Batal</button>
+                            <button type="submit" :disabled="form.processing" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 shadow-md active:scale-95 transition-all">
+                                {{ form.processing ? 'Menyimpan...' : 'Simpan Transaksi' }}
                             </button>
                         </div>
-                        
-                        <form @submit.prevent="submit" class="p-6 space-y-5">
-                            <div class="space-y-4">
-                                <div>
-                                    <SearchableSelect 
-                                        v-model="form.expense_type_id"
-                                        :options="expenseTypes"
-                                        label="Jenis Pengeluaran"
-                                        placeholder="Pilih kategori (Produk, Gaji, dll)..."
-                                    />
-                                    <p v-if="form.errors.expense_type_id" class="mt-1 text-xs text-red-600">{{ form.errors.expense_type_id }}</p>
-                                </div>
-
-                                <div>
-                                    <SearchableSelect 
-                                        v-model="form.store_id"
-                                        :options="storeOptions"
-                                        label="Lokasi Toko / Cabang"
-                                        placeholder="Cari toko..."
-                                        allow-clear
-                                    />
-                                    <p class="mt-1 text-[10px] text-gray-500 italic">* Pilih GLOBAL jika pengeluaran tidak spesifik ke satu cabang.</p>
-                                    <p v-if="form.errors.store_id" class="mt-1 text-xs text-red-600">{{ form.errors.store_id }}</p>
-                                </div>
-
-                                <div>
-                                    <SearchableSelect 
-                                        v-model="form.pos_user_id"
-                                        :options="posUsers"
-                                        label="PIC / Karyawan"
-                                        placeholder="Cari nama personil..."
-                                    />
-                                    <p v-if="form.errors.pos_user_id" class="mt-1 text-xs text-red-600">{{ form.errors.pos_user_id }}</p>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nominal (Rp)</label>
-                                    <input 
-                                        v-model="form.amount" 
-                                        type="number" 
-                                        :class="{'border-red-500': form.errors.amount}" 
-                                        class="w-full px-4 py-2.5 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
-                                        placeholder="0"
-                                    >
-                                    <p v-if="form.errors.amount" class="mt-1 text-xs text-red-600">{{ form.errors.amount }}</p>
-                                </div>
-
-                                <div class="space-y-1">
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tanggal</label>
-                                    <input 
-                                        v-model="form.transaction_at" 
-                                        type="date" 
-                                        :class="{'border-red-500': form.errors.transaction_at}" 
-                                        class="w-full px-4 py-2.5 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                    >
-                                    <p v-if="form.errors.transaction_at" class="mt-1 text-xs text-red-600">{{ form.errors.transaction_at }}</p>
-                                </div>
-                            </div>
-
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Detail Keperluan</label>
-                                <textarea 
-                                    v-model="form.description" 
-                                    rows="2" 
-                                    :class="{'border-red-500': form.errors.description}" 
-                                    class="w-full px-4 py-2 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
-                                    placeholder="Contoh: Belanja ATK Kantor..."
-                                ></textarea>
-                                <p v-if="form.errors.description" class="mt-1 text-xs text-red-600">{{ form.errors.description }}</p>
-                            </div>
-
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lampiran Foto Nota</label>
-                                <input type="file" @input="form.image = $event.target.files[0]" class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all cursor-pointer">
-                                <p v-if="form.errors.image" class="mt-1 text-xs text-red-600">{{ form.errors.image }}</p>
-                            </div>
-
-                            <div class="flex justify-end gap-3 pt-4">
-                                <button type="button" @click="isModalOpen = false" class="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                                    Batal
-                                </button>
-                                <button type="submit" :disabled="form.processing" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center transition-all shadow-md active:scale-95">
-                                    {{ form.processing ? 'Menyimpan...' : 'Simpan Transaksi' }}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </Transition>
+                    </form>
+                </div>
             </div>
         </Transition>
     </AuthenticatedLayout>
