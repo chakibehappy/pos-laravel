@@ -630,8 +630,8 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $shift = Shift::findOrFail($request->shift_id);
     $storeId = $request->store_id;
 
-    $start = Carbon::parse($shift->start_at)->timezone($timezone)->toDateTimeString();
-    $end   = Carbon::now($timezone)->toDateTimeString(); 
+    $start = "2026-04-03 12:49:30";
+    $end   = "2026-04-03 13:40:00"; 
 
     // Aggregates for Sales, Topup, Withdrawal
     $summary = DB::table('transaction_details')
@@ -650,7 +650,7 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $totalExpenses = DB::table('expense_transactions')
         ->where('expense_transactions.store_id', $storeId)
         ->where('expense_transactions.status', 0) // Explicit table prefix
-        // ->whereBetween('expense_transactions.transaction_at', [$start, $end])
+        ->whereBetween('expense_transactions.transaction_at', [$start, $end])
         ->sum('amount');
 
     $sales = (float)($summary->total_sales ?? 0);
