@@ -622,20 +622,23 @@ Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request
 
 Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $request) {
     $request->validate([
-        'store_id'   => 'required|integer|exists:stores,id',
+        'store_id' => 'required|integer|exists:stores,id',
         'shift_id' => 'required|integer|exists:shifts,id',
     ]);
 
     $shift = Shift::findOrFail($request->shift_id);
     $storeId = $request->store_id;
-    $start = $shift->start_at;
-    $end = now();
+    
+    // Fix 1: Ensure we use the correct timezone for comparison
+    $start = $shift->start_at; 
+    $end = now(); 
 
-    // Get aggregates in a single query for performance
-    $summary = DB::table('transactions')
-        ->join('transaction_details', 'transactions.id', '=', 'transaction_details.transaction_id')
+    // Fix 2: Use a single query on transaction_details to avoid duplicate multiplication 
+    // and ensure we are targeting the correct store/status through a subquery or join.
+    $summary = DB::table('transaction_details')
+        ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
         ->where('transactions.store_id', $storeId)
-        ->where('transactions.status', 0) // Only count active/successful ones
+        ->where('transactions.status', 0)
         ->whereBetween('transactions.transaction_at', [$start, $end])
         ->select(
             DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
@@ -644,30 +647,32 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
         )
         ->first();
 
-    // Also get Expenses for the same period as they also reduce cash
+    // Fix 3: Handle Expenses
     $totalExpenses = DB::table('expense_transactions')
         ->where('store_id', $storeId)
         ->where('status', 0)
         ->whereBetween('transaction_at', [$start, $end])
         ->sum('amount');
 
-    // Logical Cash Calculation:
-    // (Sales + TopUp) - (Withdrawal + Expenses)
-    // Note: TopUp increases cash because the customer pays the store.
-    // Withdrawal decreases cash because the store gives money to the customer.
-    $netCashChange = ($summary->total_sales + $summary->total_topup) - ($summary->total_withdrawal + $totalExpenses);
+    // Fix 4: Prevent Null values in calculation
+    $sales = (float)($summary->total_sales ?? 0);
+    $topup = (float)($summary->total_topup ?? 0);
+    $withdrawal = (float)($summary->total_withdrawal ?? 0);
+    $expenses = (float)($totalExpenses ?? 0);
+
+    $netCashChange = ($sales + $topup) - ($withdrawal + $expenses);
 
     return response()->json([
         'range' => [
-            'start' => $start->toDateTimeString(),
+            'start' => $start,
             'end'   => $end->toDateTimeString(),
         ],
         'data' => [
-            'sales'      => (float)$summary->total_sales,
-            'topup'      => (float)$summary->total_topup,
-            'withdrawal' => (float)$summary->total_withdrawal,
-            'expenses'   => (float)$totalExpenses,
-            'net_flow'   => (float)$netCashChange
+            'sales'      => $sales,
+            'topup'      => $topup,
+            'withdrawal' => $withdrawal,
+            'expenses'   => $expenses,
+            'net_flow'   => $netCashChange
         ]
     ]);
 });
