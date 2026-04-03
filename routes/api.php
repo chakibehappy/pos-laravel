@@ -329,7 +329,8 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     $timezone = 'Asia/Jakarta';
 
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    // $endOfDay   = Carbon::now($timezone)->endOfDay();
+    $startDate = Carbon::now($timezone)->subDays(7)->startOfDay();
+    $endDate   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
             'posUser',
@@ -342,7 +343,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', 0)
-        // ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        ->whereBetween('transaction_at', [$startDate, $endDate])
         ->orderBy('transaction_at', 'desc')
         ->get();
 
@@ -369,7 +370,8 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
     $timezone = 'Asia/Jakarta';
 
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    // $endOfDay   = Carbon::now($timezone)->endOfDay();
+    $startDate = Carbon::now($timezone)->subDays(7)->startOfDay();
+    $endDate   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
             'posUser',
@@ -381,7 +383,7 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', $status)
-        // ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        ->whereBetween('transaction_at', [$startDate, $endDate])
         ->orderBy('transaction_at', 'desc')
         ->get();
 
@@ -529,4 +531,47 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'error'   => $e->getMessage()
         ], 500);
     }
+});
+
+use App\Models\Shift;
+
+Route::middleware('auth:sanctum')->post('/start-shift', function (Request $request) {
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+        'start_cash' => 'required|numeric',
+    ]);
+
+    $user = $request->user();
+
+    // Safety Check: Ensure no open shift already exists for this user/store
+    $exists = Shift::where('pos_user_id', $user->id)
+        ->where('store_id', $request->store_id)
+        ->where('status', 0)
+        ->exists();
+
+    if ($exists) {
+        return response()->json(['message' => 'You already have an active shift'], 422);
+    }
+
+    $shift = Shift::create([
+        'store_id' => $request->store_id,
+        'pos_user_id' => $user->id,
+        'start_at' => now(),
+        'start_cash' => $request->start_cash,
+        'status' => 0, // 0 = Open/Active
+    ]);
+
+    ActivityLogger::log(
+        'create', 
+        'shifts', 
+        $shift->id, 
+        'Mulai Shift dengan modal: Rp.' . $request->start_cash, 
+        $user->id
+    );
+
+    return response()->json([
+        'message' => 'Shift started successfully',
+        'shift_id' => $shift->id,
+        'start_cash' => $shift->start_cash
+    ], 201);
 });
