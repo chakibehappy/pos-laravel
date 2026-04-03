@@ -631,8 +631,8 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $shift = Shift::findOrFail($request->shift_id);
     $storeId = $request->store_id;
 
-    $start = "2026-04-03 12:49:30";
-    $end   = "2026-04-03 13:40:00"; 
+    $start = Carbon::parse($shift->start_at)->timezone($timezone)->toDateTimeString();
+    $end   = Carbon::now($timezone)->toDateTimeString(); 
 
     // Aggregates for Sales, Topup, Withdrawal
     $summary = DB::table('transaction_details')
