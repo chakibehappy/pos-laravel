@@ -610,12 +610,64 @@ Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request
         'update', 
         'shifts', 
         $shift->id, 
-        'Akhiri Shift. Fisik: Rp.'.$request->end_cash.' | Sistem: Rp.'.$currentStoreCash, 
+        'Akhiri Shift. Total Kas Toko: Rp.'.$currentStoreCash.' | Jumlah Setor: Rp.'.$request->end_cash, 
         $request->user()->id
     );
 
     return response()->json([
         'message' => 'Shift closed successfully',
         'shift' => $shift
+    ]);
+});
+
+Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $request) {
+    $request->validate([
+        'store_id'   => 'required|integer|exists:stores,id',
+        'shift_id' => 'required|integer|exists:id',
+    ]);
+
+    $shift = Shift::findOrFail($shift_id);
+    $storeId = $request->store_id;
+    $start = $shift->start_at;
+    $end = now();
+
+    // Get aggregates in a single query for performance
+    $summary = DB::table('transactions')
+        ->join('transaction_details', 'transactions.id', '=', 'transaction_details.transaction_id')
+        ->where('transactions.store_id', $storeId)
+        ->where('transactions.status', 0) // Only count active/successful ones
+        ->whereBetween('transactions.transaction_at', [$start, $end])
+        ->select(
+            DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
+            DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
+            DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
+        )
+        ->first();
+
+    // Also get Expenses for the same period as they also reduce cash
+    $totalExpenses = DB::table('expense_transactions')
+        ->where('store_id', $storeId)
+        ->where('status', 0)
+        ->whereBetween('transaction_at', [$start, $end])
+        ->sum('amount');
+
+    // Logical Cash Calculation:
+    // (Sales + TopUp) - (Withdrawal + Expenses)
+    // Note: TopUp increases cash because the customer pays the store.
+    // Withdrawal decreases cash because the store gives money to the customer.
+    $netCashChange = ($summary->total_sales + $summary->total_topup) - ($summary->total_withdrawal + $totalExpenses);
+
+    return response()->json([
+        'range' => [
+            'start' => $start->toDateTimeString(),
+            'end'   => $end->toDateTimeString(),
+        ],
+        'data' => [
+            'sales'      => (float)$summary->total_sales,
+            'topup'      => (float)$summary->total_topup,
+            'withdrawal' => (float)$summary->total_withdrawal,
+            'expenses'   => (float)$totalExpenses,
+            'net_flow'   => (float)$netCashChange
+        ]
     ]);
 });
