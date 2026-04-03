@@ -650,7 +650,7 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $totalExpenses = DB::table('expense_transactions')
         ->where('expense_transactions.store_id', $storeId)
         ->where('expense_transactions.status', 0) // Explicit table prefix
-        ->whereBetween('expense_transactions.transaction_at', [$start, $end])
+        // ->whereBetween('expense_transactions.transaction_at', [$start, $end])
         ->sum('amount');
 
     $sales = (float)($summary->total_sales ?? 0);
