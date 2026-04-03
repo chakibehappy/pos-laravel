@@ -18,9 +18,20 @@ class CashWithdrawalController extends Controller
      */
     public function index(Request $request)
     {
-        // Parameter sorting dari DataTable.vue
-        $sortField = $request->input('sort', 'created_at'); 
+        // Perbaikan: Gunakan filled() untuk memastikan sort tidak null/kosong saat pencarian dihapus
+        $sortField = $request->filled('sort') ? $request->sort : 'created_at'; 
         $sortDirection = $request->input('direction', 'desc'); 
+
+        // Mapping untuk kolom sorting agar SQL tidak bingung saat menerima key dari front-end
+        $sortMapping = [
+            'customer_name'    => 'customer_name',
+            'withdrawal_count' => 'withdrawal_count',
+            'admin_fee'        => 'admin_fee',
+            'created_at'       => 'created_at',
+            'store_id'         => 'store_id'
+        ];
+
+        $orderColumn = $sortMapping[$sortField] ?? 'created_at';
 
         // Query Utama
         $withdrawals = CashWithdrawal::with(['store'])
@@ -44,8 +55,8 @@ class CashWithdrawalController extends Controller
             ->when($request->end_date, function ($query, $endDate) {
                 $query->whereDate('created_at', '<=', $endDate);
             })
-            // Logika Sorting
-            ->orderBy($sortField, $sortDirection)
+            // Logika Sorting dengan fallback ke orderColumn yang tervalidasi
+            ->orderBy($orderColumn, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 

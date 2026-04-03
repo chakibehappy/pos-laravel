@@ -36,13 +36,14 @@ const menuItems = [
     },
     { 
         label: 'Master Kategori', icon: '🗂️', isDropdown: true,
-        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
+        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*', 'expense-types.*'],
         children: [
             { label: 'Mutasi Stok', name: 'stock-flow.index', route: route('stock-flow.index') },
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
             { label: 'Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
-            { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') }
+            { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') },
+            { label: 'Tipe Pengeluaran', name: 'expense-types.index', route: route('expense-types.index') }
         ]
     },
     { 

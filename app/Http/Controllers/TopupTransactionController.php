@@ -30,8 +30,20 @@ class TopupTransactionController extends Controller
      */
     public function index(Request $request)
     {
-        $sortField = $request->input('sort', 'created_at');
+        // Validasi sort field agar tidak error saat pencarian dihapus
+        $sortField = $request->filled('sort') ? $request->sort : 'created_at';
         $sortDirection = $request->input('direction', 'desc');
+
+        // Mapping untuk kolom sorting yang berasal dari join/relasi
+        $sortMapping = [
+            'store_id'            => 'store_id',
+            'topup_trans_type_id' => 'topup_trans_type_id',
+            'nominal_request'     => 'nominal_request',
+            'nominal_pay'         => 'nominal_pay',
+            'created_at'          => 'created_at'
+        ];
+
+        $orderColumn = $sortMapping[$sortField] ?? 'created_at';
 
         $transactions = TopupTransaction::with(['store', 'transType'])
             ->when($request->search, function ($query, $search) {
@@ -45,7 +57,7 @@ class TopupTransactionController extends Controller
                       });
                 });
             })
-            ->orderBy($sortField, $sortDirection)
+            ->orderBy($orderColumn, $sortDirection)
             ->paginate(10)
             ->withQueryString();
 

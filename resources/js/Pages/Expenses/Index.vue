@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue';
-import { useForm, Head, router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { useForm, Head, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -11,14 +11,27 @@ const props = defineProps({
     filters: Object,
     stores: Array,
     posUsers: Array,
+    expenseTypes: Array, // Tambahkan props baru ini
 });
+
+const page = usePage();
+const authUser = page.props.auth.user;
 
 const isModalOpen = ref(false);
 const isEditing = ref(false);
 
+// Menggabungkan opsi "GLOBAL" ke dalam daftar toko untuk dropdown
+const storeOptions = computed(() => {
+    return [
+        { id: null, name: 'GLOBAL' },
+        ...props.stores
+    ];
+});
+
 const form = useForm({
     id: null,
-    store_id: '',
+    store_id: null,
+    expense_type_id: '', // Tambahkan field tipe pengeluaran
     pos_user_id: '',
     amount: '',
     description: '',
@@ -29,16 +42,25 @@ const form = useForm({
 const openAddModal = () => {
     isEditing.value = false;
     form.reset();
-    form.clearErrors(); // Bersihkan error sebelumnya
+    form.clearErrors();
+    
+    form.store_id = null; // Default ke Global
+
+    const matchedUser = props.posUsers.find(u => u.username === authUser.email);
+    if (matchedUser) {
+        form.pos_user_id = matchedUser.id;
+    }
+    
     form.transaction_at = new Date().toISOString().split('T')[0];
     isModalOpen.value = true;
 };
 
 const openEditModal = (row) => {
     isEditing.value = true;
-    form.clearErrors(); // Bersihkan error sebelumnya
+    form.clearErrors();
     form.id = row.id;
-    form.store_id = row.store_id;
+    form.store_id = row.store_id || null;
+    form.expense_type_id = row.expense_type_id; // Isi data tipe saat edit
     form.pos_user_id = row.pos_user_id;
     form.amount = row.amount;
     form.description = row.description;
@@ -93,6 +115,21 @@ const formatCurrency = (value) => {
                         <span class="text-gray-600">{{ new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) }}</span>
                     </template>
 
+                    <template #store_name="{ row }">
+                        <span v-if="row.store" class="text-xs text-blue-700 font-medium px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-100">
+                            {{ row.store.name }}
+                        </span>
+                        <span v-else class="text-xs text-gray-600 font-medium px-2.5 py-0.5 rounded-full bg-gray-100 border border-gray-200">
+                            GLOBAL
+                        </span>
+                    </template>
+
+                    <template #expense_type_name="{ row }">
+                        <span class="text-[10px] font-bold text-indigo-600 uppercase tracking-tighter">
+                            {{ row.expense_type?.name || '-' }}
+                        </span>
+                    </template>
+
                     <template #image="{ value }">
                         <div v-if="value" class="flex items-center justify-start">
                             <a :href="'/storage/' + value" target="_blank" class="block group">
@@ -112,23 +149,27 @@ const formatCurrency = (value) => {
                         </span>
                     </template>
 
-                    <template #store_name="{ row }">
-                        <span class="text-sm text-gray-700 font-medium px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-100">
-                            {{ row.store?.name || 'N/A' }}
-                        </span>
-                    </template>
-
                     <template #user_name="{ row }">
                         <div class="flex flex-col">
                             <span class="font-medium text-gray-900">{{ row.pos_user?.name || 'Sistem' }}</span>
-                            <span class="text-[11px] text-gray-500 italic">Oleh Staf</span>
+                            <span v-if="row.pos_user?.role" class="text-[10px] uppercase tracking-wider text-indigo-500 font-bold">
+                                {{ row.pos_user.role }}
+                            </span>
                         </div>
                     </template>
 
                     <template #actions="{ row }">
-                        <div class="flex justify-end gap-4">
-                            <button @click="openEditModal(row)" class="text-indigo-600 hover:text-indigo-900 font-medium text-sm transition-colors">✏️</button>
-                            <button @click="deleteExpense(row.id)" class="text-red-600 hover:text-red-900 font-medium text-sm transition-colors">❌</button>
+                        <div class="flex justify-end gap-2">
+                            <button @click="openEditModal(row)" 
+                                class="w-8 h-8 flex items-center justify-center bg-indigo-50 text-base rounded-lg hover:bg-indigo-100 transition-colors shadow-sm" 
+                                title="Edit">
+                                ✏️
+                            </button>
+                            <button @click="deleteExpense(row.id)" 
+                                class="w-8 h-8 flex items-center justify-center bg-red-50 text-xs rounded-lg hover:bg-red-100 transition-colors shadow-sm" 
+                                title="Hapus">
+                                ❌
+                            </button>
                         </div>
                     </template>
                 </DataTable>
@@ -144,7 +185,7 @@ const formatCurrency = (value) => {
                     enter-active-class="ease-out duration-300" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" 
                     leave-active-class="ease-in duration-200" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95"
                 >
-                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-visible border border-gray-100">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
                         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <h3 class="text-lg font-semibold text-gray-900">
                                 {{ isEditing ? 'Edit Pengeluaran' : 'Tambah Pengeluaran Baru' }}
@@ -158,11 +199,23 @@ const formatCurrency = (value) => {
                             <div class="space-y-4">
                                 <div>
                                     <SearchableSelect 
-                                        v-model="form.store_id"
-                                        :options="stores"
-                                        label="Lokasi Toko / Cabang"
-                                        placeholder="Cari dan pilih toko..."
+                                        v-model="form.expense_type_id"
+                                        :options="expenseTypes"
+                                        label="Jenis Pengeluaran"
+                                        placeholder="Pilih kategori (Produk, Gaji, dll)..."
                                     />
+                                    <p v-if="form.errors.expense_type_id" class="mt-1 text-xs text-red-600">{{ form.errors.expense_type_id }}</p>
+                                </div>
+
+                                <div>
+                                    <SearchableSelect 
+                                        v-model="form.store_id"
+                                        :options="storeOptions"
+                                        label="Lokasi Toko / Cabang"
+                                        placeholder="Cari toko..."
+                                        allow-clear
+                                    />
+                                    <p class="mt-1 text-[10px] text-gray-500 italic">* Pilih GLOBAL jika pengeluaran tidak spesifik ke satu cabang.</p>
                                     <p v-if="form.errors.store_id" class="mt-1 text-xs text-red-600">{{ form.errors.store_id }}</p>
                                 </div>
 
@@ -177,18 +230,16 @@ const formatCurrency = (value) => {
                                 </div>
                             </div>
 
-                           <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nominal (Rp)</label>
-                                    <div class="relative">
-                                        <input 
-                                            v-model="form.amount" 
-                                            type="number" 
-                                            :class="{'border-red-500': form.errors.amount}" 
-                                            class="w-full px-4 py-2.5 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
-                                            placeholder="0"
-                                        >
-                                    </div>
+                                    <input 
+                                        v-model="form.amount" 
+                                        type="number" 
+                                        :class="{'border-red-500': form.errors.amount}" 
+                                        class="w-full px-4 py-2.5 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
+                                        placeholder="0"
+                                    >
                                     <p v-if="form.errors.amount" class="mt-1 text-xs text-red-600">{{ form.errors.amount }}</p>
                                 </div>
 
@@ -204,13 +255,13 @@ const formatCurrency = (value) => {
                                 </div>
                             </div>
 
-                           <div class="space-y-1">
+                            <div class="space-y-1">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Detail Keperluan</label>
                                 <textarea 
                                     v-model="form.description" 
                                     rows="2" 
                                     :class="{'border-red-500': form.errors.description}" 
-                                    class="w-full px-2 py-2 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
+                                    class="w-full px-4 py-2 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
                                     placeholder="Contoh: Belanja ATK Kantor..."
                                 ></textarea>
                                 <p v-if="form.errors.description" class="mt-1 text-xs text-red-600">{{ form.errors.description }}</p>

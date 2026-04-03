@@ -60,13 +60,14 @@ const menuItems = [
     },
     { 
         label: 'Master Kategori', icon: '🗂️', isDropdown: true,
-        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*'],
+        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*', 'expense-types.*'],
         children: [
             { label: 'Mutasi Stok', name: 'stock-flow.index', route: route('stock-flow.index') }, // TAMBAHAN DISINI
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
             { label: 'Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
-            { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') }
+            { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') },
+            { label: 'Tipe Pengeluaran', name: 'expense-types.index', route: route('expense-types.index') }
         ]
     },
     { 
@@ -78,7 +79,7 @@ const menuItems = [
             { label: 'Riwayat Tarik Tunai', name: 'cash-withdrawals.index', route: route('cash-withdrawals.index') },
             { label: 'Riwayat Pengeluaran', name: 'expenses.index', route: route('expenses.index') },
             { label: 'Aturan Biaya', name: 'topup-fee-rules.index', route: route('topup-fee-rules.index') },
-            { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') },
+            { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
     { label: 'Jenis Layanan', icon: '📋', name: 'services.index', route: route('services.index') },
