@@ -23,6 +23,7 @@ use App\Models\CashWithdrawal;
 use App\Models\TopupFeeRule;
 use App\Models\WithdrawalFeeRule;
 use App\Models\Shift;
+use App\Models\ExpenseTransaction;
 
 use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
@@ -622,47 +623,45 @@ Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request
 
 Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $request) {
     $request->validate([
-        'store_id' => 'required',
-        'shift_id' => 'required',
+        'store_id' => 'required|integer|exists:stores,id',
+        'shift_id' => 'required|integer|exists:shifts,id',
     ]);
 
+    $timezone = 'Asia/Jakarta';
     $shift = Shift::findOrFail($request->shift_id);
-    $storeId = $request->store_id; // Keep it as is from request
+    $storeId = $request->store_id;
 
     $start = "2026-04-03 12:49:30";
     $end   = "2026-04-03 13:40:00"; 
 
-    // Use DB::select to execute RAW SQL exactly as you did in your test
-    $summary = DB::select("
-        SELECT 
-            SUM(CASE WHEN td.product_id IS NOT NULL THEN td.subtotal ELSE 0 END) as total_sales,
-            SUM(CASE WHEN td.topup_transaction_id IS NOT NULL THEN td.subtotal ELSE 0 END) as total_topup,
-            SUM(CASE WHEN td.cash_withdrawal_id IS NOT NULL THEN td.subtotal ELSE 0 END) as total_withdrawal
-        FROM transaction_details td
-        JOIN transactions t ON td.transaction_id = t.id
-        WHERE t.store_id = ? 
-          AND t.status = 0 
-          AND t.transaction_at BETWEEN ? AND ?
-    ", [$storeId, $start, $end])[0];
+    // Aggregates for Sales, Topup, Withdrawal
+    $summary = DB::table('transaction_details')
+        ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
+        ->where('transactions.store_id', $storeId)
+        ->where('transactions.status', 0) // Explicit table prefix
+        ->whereBetween('transactions.transaction_at', [$start, $end])
+        ->select(
+            DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
+            DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
+            DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
+        )
+        ->first();
 
-    // Raw Expense query
-    $expenseResult = DB::select("
-        SELECT SUM(amount) as total 
-        FROM expense_transactions 
-        WHERE store_id = ? 
-          AND status = 0 
-          AND transaction_at BETWEEN ? AND ?
-    ", [$storeId, $start, $end])[0];
+    // Expenses
+    $totalExpenses = ExpenseTransaction::where('store_id', $storeId)
+        ->where('status', 0) // Explicit table prefix
+        ->whereBetween('transaction_at', [$start, $end])
+        ->sum('amount');
 
     $sales = (float)($summary->total_sales ?? 0);
     $topup = (float)($summary->total_topup ?? 0);
     $withdrawal = (float)($summary->total_withdrawal ?? 0);
-    $expenses = (float)($expenseResult->total ?? 0);
+    $expenses = (float)($totalExpenses ?? 0);
 
     return response()->json([
         'range' => [
-            'start' => $start,
-            'end'   => $end,
+            'start' => Carbon::parse($shift->start_at)->timezone($timezone)->toDateTimeString(),
+            'end'   => Carbon::now($timezone)->toDateTimeString(),
         ],
         'data' => [
             'sales'      => $sales,
