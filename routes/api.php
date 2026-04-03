@@ -604,6 +604,8 @@ Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request
         'status'           => 1, // 1 = Closed
     ]);
 
+    CashStore::where('store_id', $shift->store_id)->decrement('cash', $request->end_cash);
+        
     ActivityLogger::log(
         'update', 
         'shifts', 
