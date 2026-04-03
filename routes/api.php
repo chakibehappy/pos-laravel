@@ -631,7 +631,7 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $storeId = $request->store_id;
 
     $timezone = 'Asia/Jakarta';
-    $start = Carbon::parse($shift->start_at)->timezone($timezone)->toDateTimeString();
+    $start = $shift->start_at;
     $end   = DB::raw("CONVERT_TZ(NOW(), @@session.time_zone, 'Asia/Jakarta')");
 
     // Aggregates for Sales, Topup, Withdrawal
