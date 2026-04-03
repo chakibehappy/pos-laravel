@@ -17,6 +17,7 @@ class ExpenseTransaction extends Model
     protected $fillable = [
         'store_id',
         'pos_user_id',
+        'expense_type_id', // Tambahkan kolom type
         'amount',
         'description',
         'image',
@@ -36,6 +37,14 @@ class ExpenseTransaction extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Relasi ke Tipe Pengeluaran
+     */
+    public function expenseType()
+    {
+        return $this->belongsTo(ExpenseType::class, 'expense_type_id');
+    }
 
     /**
      * Relasi ke Toko

@@ -41,7 +41,8 @@ class TransactionController extends Controller
             });
         }
 
-        $sortField = $request->get('sort', 'transactions.transaction_at'); 
+        // Perbaikan pada bagian sorting
+        $sortField = $request->filled('sort') ? $request->sort : 'transaction_at'; 
         $sortDirection = $request->get('direction', 'desc'); 
         
         $sortMapping = [
@@ -52,7 +53,7 @@ class TransactionController extends Controller
             'total'          => 'transactions.total'
         ];
 
-        $orderColumn = $sortMapping[$sortField] ?? $sortField;
+        $orderColumn = $sortMapping[$sortField] ?? 'transactions.transaction_at';
         $query->orderBy($orderColumn, $sortDirection);
 
         return Inertia::render('Transactions/Index', [

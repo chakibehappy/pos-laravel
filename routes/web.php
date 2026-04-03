@@ -29,6 +29,7 @@ use App\Http\Controllers\ExpenseController; //
 use App\Http\Controllers\StockFlowController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\ExpenseTypeController; 
 
 
 use Inertia\Inertia;
@@ -206,4 +207,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/services', [ServiceController::class, 'store'])->name('services.store');
     Route::post('/services/{id}', [ServiceController::class, 'update'])->name('services.update');
     Route::delete('/services/{id}', [ServiceController::class, 'destroy'])->name('services.destroy');
+
+    Route::get('/expense-types', [ExpenseTypeController::class, 'index'])->name('expense-types.index');
+    Route::post('/expense-types', [ExpenseTypeController::class, 'store'])->name('expense-types.store');
+    Route::patch('/expense-types/{id}', [ExpenseTypeController::class, 'update'])->name('expense-types.update');
+    Route::delete('/expense-types/{id}', [ExpenseTypeController::class, 'destroy'])->name('expense-types.destroy');
 });
