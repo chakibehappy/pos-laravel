@@ -67,7 +67,14 @@ Route::post('/pos-user-login', function (Request $request) {
     if (!$user || !Hash::check($request->pin, $user->pin)) {
         return response()->json(['message' => 'Invalid POS user credentials'], 401);
     }
-    
+
+    // --- NEW SHIFT CHECK LOGIC ---
+    // Check if there is an open shift for this user at this store
+    $activeShift = \App\Models\Shift::where('pos_user_id', $user->id)
+        ->where('store_id', $request->store_id)
+        ->where('status', 0) // 0 is Open
+        ->first();
+
     ActivityLogger::log(
         'login', 
         'stores', 
@@ -80,7 +87,10 @@ Route::post('/pos-user-login', function (Request $request) {
     return response()->json([
         'user' => $user,
         'token' => $token,
-        'token_type' => 'Bearer'
+        'token_type' => 'Bearer',
+        'shift_active' => $activeShift ? true : false,
+        'active_shift_id' => $activeShift ? $activeShift->id : null,
+        'start_cash' => $activeShift ? $activeShift->start_cash : 0,
     ]);
 });
 
