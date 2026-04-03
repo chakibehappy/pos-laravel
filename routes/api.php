@@ -623,7 +623,7 @@ Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request
 Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $request) {
     $request->validate([
         'store_id'   => 'required|integer|exists:stores,id',
-        'shift_id' => 'required|integer|exists:id',
+        'shift_id' => 'required|integer|exists:shifts,id',
     ]);
 
     $shift = Shift::findOrFail($shift_id);
