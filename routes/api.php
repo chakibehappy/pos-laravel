@@ -316,7 +316,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     $timezone = 'Asia/Jakarta';
 
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    $endOfDay   = Carbon::now($timezone)->endOfDay();
+    // $endOfDay   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
             'posUser',
@@ -329,7 +329,7 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', 0)
-        ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        // ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
 
@@ -356,7 +356,7 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
     $timezone = 'Asia/Jakarta';
 
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    $endOfDay   = Carbon::now($timezone)->endOfDay();
+    // $endOfDay   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
             'posUser',
@@ -368,7 +368,7 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', $status)
-        ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        // ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
         ->orderBy('transaction_at', 'desc')
         ->get();
 
