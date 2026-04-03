@@ -22,6 +22,7 @@ use App\Models\CashStore;
 use App\Models\CashWithdrawal;
 use App\Models\TopupFeeRule;
 use App\Models\WithdrawalFeeRule;
+use App\Models\Shift;
 
 use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
@@ -533,7 +534,6 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
     }
 });
 
-use App\Models\Shift;
 
 Route::middleware('auth:sanctum')->post('/start-shift', function (Request $request) {
     $request->validate([
