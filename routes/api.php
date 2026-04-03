@@ -575,3 +575,45 @@ Route::middleware('auth:sanctum')->post('/start-shift', function (Request $reque
         'start_cash' => $shift->start_cash
     ], 201);
 });
+
+Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request) {
+    $request->validate([
+        'shift_id'       => 'required|integer|exists:shifts,id',
+        'end_cash'       => 'required|numeric', // The actual money in the drawer
+        'collector_name' => 'nullable|string',
+        'notes'          => 'nullable|string',
+    ]);
+
+    $shift = Shift::where('id', $request->shift_id)
+        ->where('status', 0) // Must still be open
+        ->first();
+
+    if (!$shift) {
+        return response()->json(['message' => 'Active shift not found or already closed'], 404);
+    }
+
+    // Logic: The "Expected" cash is what's currently in the CashStore for this store
+    $currentStoreCash = CashStore::where('store_id', $shift->store_id)->value('cash') ?? 0;
+
+    $shift->update([
+        'end_at'           => now(),
+        'end_cash'         => $request->end_cash,       // Physical count
+        'exp_end_cash'     => $currentStoreCash,        // System expectation
+        'collector_name'   => $request->collector_name,
+        'notes'            => $request->notes,
+        'status'           => 1, // 1 = Closed
+    ]);
+
+    ActivityLogger::log(
+        'update', 
+        'shifts', 
+        $shift->id, 
+        'Akhiri Shift. Fisik: Rp.'.$request->end_cash.' | Sistem: Rp.'.$currentStoreCash, 
+        $request->user()->id
+    );
+
+    return response()->json([
+        'message' => 'Shift closed successfully',
+        'shift' => $shift
+    ]);
+});
