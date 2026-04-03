@@ -626,20 +626,25 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
         'shift_id' => 'required|integer|exists:shifts,id',
     ]);
 
+    $timezone = 'Asia/Jakarta';
     $shift = Shift::findOrFail($request->shift_id);
     $storeId = $request->store_id;
-    
-    // Fix 1: Ensure we use the correct timezone for comparison
-    $start = $shift->start_at; 
-    $end = now(); 
 
-    // Fix 2: Use a single query on transaction_details to avoid duplicate multiplication 
-    // and ensure we are targeting the correct store/status through a subquery or join.
+    // Fix: Parse the database UTC time into the local Jakarta timezone
+    // This ensures the 'start' time matches what the user sees in Indonesia
+    $start = Carbon::parse($shift->start_at)->timezone($timezone);
+    $end = Carbon::now($timezone);
+
+    // Get aggregates
     $summary = DB::table('transaction_details')
         ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
         ->where('transactions.store_id', $storeId)
         ->where('transactions.status', 0)
-        ->whereBetween('transactions.transaction_at', [$start, $end])
+        // Ensure the database comparison handles the timezone shift
+        ->whereBetween('transactions.transaction_at', [
+            $start->copy()->timezone('UTC'), 
+            $end->copy()->timezone('UTC')
+        ])
         ->select(
             DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
             DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
@@ -647,14 +652,15 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
         )
         ->first();
 
-    // Fix 3: Handle Expenses
     $totalExpenses = DB::table('expense_transactions')
         ->where('store_id', $storeId)
         ->where('status', 0)
-        ->whereBetween('transaction_at', [$start, $end])
+        ->whereBetween('transaction_at', [
+            $start->copy()->timezone('UTC'), 
+            $end->copy()->timezone('UTC')
+        ])
         ->sum('amount');
 
-    // Fix 4: Prevent Null values in calculation
     $sales = (float)($summary->total_sales ?? 0);
     $topup = (float)($summary->total_topup ?? 0);
     $withdrawal = (float)($summary->total_withdrawal ?? 0);
@@ -664,8 +670,8 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
 
     return response()->json([
         'range' => [
-            'start' => $start,
-            'end'   => $end->toDateTimeString(),
+            'start' => $start->toDateTimeString(), // Returns Jakarta time string for Unity
+            'end'   => $end->toDateTimeString(),   // Returns Jakarta time string for Unity
         ],
         'data' => [
             'sales'      => $sales,
