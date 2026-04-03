@@ -16,38 +16,46 @@ class ActivityLogController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Menangkap parameter sorting dari UI
-        $sortField = $request->input('sort', 'created_at'); 
+        // 1. Menangkap parameter sorting (Gunakan filled untuk memastikan tidak null)
+        $sortField = $request->filled('sort') ? $request->sort : 'created_at'; 
         $sortDirection = $request->input('direction', 'desc'); 
 
-        // 2. Query dasar dengan Eager Loading (Relasi: executor & store)
+        // 2. Query dasar dengan Eager Loading
         $query = ActivityLog::with(['executor', 'store']);
 
-        // 3. LOGIKA SORTING
+        // 3. LOGIKA SORTING (Amankan ambiguitas kolom dengan select)
         if ($sortField === 'store_name') {
             $query->leftJoin('stores', 'activity_logs.store_id', '=', 'stores.id')
                   ->select('activity_logs.*') 
                   ->orderBy('stores.name', $sortDirection);
         } 
         elseif ($sortField === 'user_name') {
-            // Join ke pos_users untuk mengurutkan berdasarkan nama Eksekutor
             $query->leftJoin('pos_users', 'activity_logs.created_by', '=', 'pos_users.id')
                   ->select('activity_logs.*')
                   ->orderBy('pos_users.name', $sortDirection);
         } 
         else {
-            // Sort standar (prefix tabel untuk menghindari ambiguitas saat join)
-            $query->orderBy("activity_logs.$sortField", $sortDirection);
+            // Mapping field untuk keamanan
+            $allowedSorts = ['action', 'reference_type', 'description', 'created_at', 'id'];
+            $orderField = in_array($sortField, $allowedSorts) ? $sortField : 'created_at';
+            $query->orderBy("activity_logs.$orderField", $sortDirection);
         }
 
         // 4. LOGIKA FILTERING
         
-        // Pencarian Global
+        // Pencarian Global (Perbaikan: Tambahkan pencarian ke relasi agar lebih komprehensif)
         if ($request->filled('search')) {
-            $query->where(function($q) use ($request) {
-                $q->where('description', 'like', "%{$request->search}%")
-                  ->orWhere('action', 'like', "%{$request->search}%")
-                  ->orWhere('reference_type', 'like', "%{$request->search}%");
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('activity_logs.description', 'like', "%{$search}%")
+                  ->orWhere('activity_logs.action', 'like', "%{$search}%")
+                  ->orWhere('activity_logs.reference_type', 'like', "%{$search}%")
+                  ->orWhereHas('store', function($sq) use ($search) {
+                      $sq->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('executor', function($sq) use ($search) {
+                      $sq->where('name', 'like', "%{$search}%");
+                  });
             });
         }
 
@@ -61,7 +69,7 @@ class ActivityLogController extends Controller
             return $q->where('activity_logs.created_by', $request->pos_user_id);
         });
 
-        // Filter per Tindakan (CREATE, UPDATE, dll)
+        // Filter per Tindakan
         $query->when($request->filled('action'), function ($q) use ($request) {
             return $q->where('activity_logs.action', $request->action);
         });
@@ -91,10 +99,8 @@ class ActivityLogController extends Controller
                                 'payload'        => $log->payload, 
                             ]),
             
-            // Dropdown Toko
             'stores' => Store::select('id', 'name')->orderBy('name')->get(),
             
-            // DROPDOWN EKSEKUTOR: Hanya menampilkan user yang benar-benar punya riwayat aktivitas
             'posUsers' => PosUser::whereIn('id', function($q) {
                                 $q->select('created_by')
                                   ->from('activity_logs')
