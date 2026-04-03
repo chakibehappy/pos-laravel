@@ -55,7 +55,7 @@ class CashWithdrawal extends Model
      */
     public function source(): BelongsTo
     {
-        return $this->belongsTo(DigitalWallet::class, 'withdrawal_source_id');
+        return $this->belongsTo(WithdrawalSourceType::class, 'withdrawal_source_id');
     }
 
     /**
