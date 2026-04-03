@@ -42,6 +42,9 @@ Route::post('/store-login', function (Request $request) {
     if (!$store || !Hash::check($request->password, $store->password)) {
         return response()->json(['message' => 'Invalid store credentials'], 401);
     }
+    // Get the current physical cash balance for this store
+    $cashRecord = CashStore::where('store_id', $store->id)->first();
+    $store->store_cash = $cashRecord ? $cashRecord->cash : 0.00;
 
     $operators = $store->operators()->where('is_active', 1)
         ->whereNotIn('pos_users.role', ['admin', 'developer'])
