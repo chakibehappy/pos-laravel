@@ -11,12 +11,9 @@ class ReportStoreController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Ambil data store untuk dropdown filter (Hanya yang aktif & tidak terhapus)
         $stores = Store::where('status', '!=', 2)
             ->whereNull('deleted_at')
             ->get(['id', 'name']);
-
-        // 2. Ambil daftar Kategori Produk secara dinamis (Warna Merah di Vue)
         $productCategories = DB::table('product_categories')
             ->where('status', '!=', 2)
             ->whereNull('deleted_at')
@@ -27,15 +24,10 @@ class ReportStoreController extends Controller
             ->where('status', '!=', 2)
             ->whereNull('deleted_at')
             ->get(['id', 'name']);
-
-        // 4. Ambil data report utama
         $reportData = Store::query()
             ->select([
                 'stores.id',
                 'stores.name as nama_cabang',
-                
-                // SUBQUERY UNTUK MAPPING QTY:
-                // Jika Topup/Tarik Tunai = 1, Jika Fisik = Nilai Kolom quantity
                 DB::raw("(
                     SELECT SUM(
                         CASE 
@@ -64,8 +56,6 @@ class ReportStoreController extends Controller
                     AND td.deleted_at IS NULL      /* Soft Delete Detail */
                     " . $this->applyDateFilter($request) . "
                 ) as total"),
-
-                // Placeholder untuk laba (Akan diisi pada tahap berikutnya)
                 DB::raw("0 as laba_kotor"),
                 DB::raw("0 as laba_bersih")
             ])
@@ -75,8 +65,6 @@ class ReportStoreController extends Controller
                 $query->where('stores.id', $storeId);
             })
             ->get();
-
-        // 5. Normalisasi data agar key kategori/wallet tersedia (mencegah error undefined di Vue)
         $reportData->transform(function ($item) use ($productCategories, $dynamicWallets) {
             // Pastikan angka adalah numeric agar formatNumber di Vue tidak error
             $item->qty = (float) ($item->qty ?? 0);
@@ -101,15 +89,9 @@ class ReportStoreController extends Controller
             'reportData' => $reportData,
         ]);
     }
-
-    /**
-     * Helper untuk injeksi filter tanggal ke dalam Raw Subquery
-     */
     private function applyDateFilter($request)
     {
         $sql = "";
-        // Gunakan parameter binding jika memungkinkan untuk keamanan, 
-        // namun untuk raw string pastikan input sudah tervalidasi.
         if ($request->start_date) {
             $sql .= " AND t.transaction_at >= '{$request->start_date} 00:00:00'";
         }

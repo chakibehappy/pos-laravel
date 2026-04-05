@@ -34,15 +34,4 @@ export default defineConfig({
         vue(),
         tailwindcss(),
     ],
-    server: {
-        // TAMBAHKAN INI
-        host: '0.0.0.0', 
-        hmr: {
-            host: '192.168.1.184',
-        },
-        // ---
-        watch: {
-            ignored: ['**/storage/framework/views/**'],
-        },
-    },
 });

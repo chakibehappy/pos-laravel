@@ -29,6 +29,7 @@ class StoreProductController extends Controller
                 'stores.name as store_name', 
                 'products.name as product_name',
                 'products.buying_price as product_buying_price',
+                'products.selling_price as product_selling_price',
                 'products.sku as product_sku',
                 'pos_users.name as creator_name'
             );
@@ -68,6 +69,7 @@ class StoreProductController extends Controller
             'product_name'         => 'products.name',
             'product_sku'          => 'products.sku',
             'product_buying_price' => 'products.buying_price',
+            'product_selling_price' => 'products.selling_price',
             'stock'                => 'store_products.stock',
             'updated_at'           => 'store_products.updated_at'
         ];
@@ -82,7 +84,7 @@ class StoreProductController extends Controller
             'stocks' => $query->paginate(10)->withQueryString(),
             'stores' => Store::where('stores.status', '!=', 2)->get(['id', 'name', 'store_type_id']),
             'storeTypes' => StoreType::all(['id', 'name']),
-            'products' => Product::where('products.status', '!=', 2)->get(['id', 'name', 'sku', 'buying_price']),
+            'products' => Product::where('products.status', '!=', 2)->get(['id', 'name', 'sku', 'buying_price', 'selling_price']),
             'categories' => ProductCategory::all(['id', 'name']),
             'filters' => $request->only(['search', 'store_id', 'store_type_id', 'product_category_id', 'sort', 'direction']),
         ]);
