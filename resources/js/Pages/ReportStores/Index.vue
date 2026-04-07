@@ -7,6 +7,7 @@ import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({
     stores: { type: Array, default: () => [] },
+    storeTypes: { type: Array, default: () => [] },
     productCategories: { type: Array, default: () => [] },
     dynamicWallets: { type: Array, default: () => [] },
     filters: Object,
@@ -14,12 +15,27 @@ const props = defineProps({
 });
 
 const filterState = reactive({
+    // Default otomatis ke jenis usaha pertama jika tidak ada filter aktif
+    store_type_id: props.filters?.store_type_id || (props.storeTypes.length > 0 ? props.storeTypes[0].id : ''),
     store_id: props.filters?.store_id || '',
     start_date: props.filters?.start_date || '',
     end_date: props.filters?.end_date || '',
 });
 
-// Menghitung total kolom dinamis (2 kolom per kategori/wallet + 2 untuk Tarik Tunai)
+// --- LOGIKA FILTER CABANG BERDASARKAN JENIS USAHA ---
+const filteredStores = computed(() => {
+    if (!filterState.store_type_id) {
+        return props.stores;
+    }
+    return props.stores.filter(store => store.store_type_id == filterState.store_type_id);
+});
+
+// Reset store_id jika jenis usaha berubah
+watch(() => filterState.store_type_id, () => {
+    filterState.store_id = ''; 
+});
+// ----------------------------------------------------
+
 const totalPenjualanColumns = computed(() => {
     const catCols = (props.productCategories?.length || 0) * 2;
     const walletCols = (props.dynamicWallets?.length || 0) * 2;
@@ -65,9 +81,26 @@ const exportExcel = () => {
                     </div>
 
                     <div class="flex flex-wrap gap-6 items-end">
+                        <div class="w-64">
+                            <label class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 block">Jenis Usaha</label>
+                            <select 
+                                v-model="filterState.store_type_id" 
+                                class="w-full border border-gray-200 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all uppercase appearance-none bg-white cursor-pointer"
+                                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem;">
+                                <option value="">SEMUA JENIS USAHA</option>
+                                <option v-for="type in storeTypes" :key="type.id" :value="type.id">
+                                    {{ type.name }}
+                                </option>
+                            </select>
+                        </div>
+
                         <div class="w-72">
                             <label class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 block">Pilih Cabang</label>
-                            <SearchableSelect v-model="filterState.store_id" :options="stores" placeholder="SEMUA CABANG" />
+                            <SearchableSelect 
+                                v-model="filterState.store_id" 
+                                :options="filteredStores" 
+                                placeholder="SEMUA CABANG" 
+                            />
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mulai Tanggal</label>
@@ -132,10 +165,10 @@ const exportExcel = () => {
 
                                 <template v-for="wallet in dynamicWallets" :key="'val-wal-' + wallet.id">
                                     <td class="px-2 py-4 text-right text-gray-400 italic bg-gray-50/10">
-                                        {{ formatNumber(row[wallet.name?.toLowerCase() + '_beli']) }}
+                                        {{ formatNumber(row[wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}
                                     </td>
                                     <td class="px-2 py-4 text-right font-bold text-blue-600 border-r border-gray-100">
-                                        {{ formatNumber(row[wallet.name?.toLowerCase() + '_jual']) }}
+                                        {{ formatNumber(row[wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}
                                     </td>
                                 </template>
 

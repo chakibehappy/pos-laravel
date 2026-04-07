@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Store;
+use App\Models\ExpenseType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -11,7 +12,14 @@ class ReportStoreController extends Controller
 {
     public function index(Request $request)
     {
+        // Menambahkan store_type_id agar dropdown di Vue bisa memfilter otomatis
         $stores = Store::where('status', '!=', 2)
+            ->whereNull('deleted_at')
+            ->get(['id', 'name', 'store_type_id']);
+
+        // Tambahan filter Jenis Usaha
+        $storeTypes = DB::table('store_types')
+            ->where('status', '!=', 2)
             ->whereNull('deleted_at')
             ->get(['id', 'name']);
 
@@ -81,7 +89,7 @@ class ReportStoreController extends Controller
                 ) as tarik_tunai_beli")
             ]);
 
-        // 2. Subquery Kategori Produk (Tetap pakai * quantity karena ini stok barang fisik)
+        // 2. Subquery Kategori Produk
         foreach ($productCategories as $cat) {
             $catId = $cat->id;
             $key = strtolower($cat->name);
@@ -133,7 +141,7 @@ class ReportStoreController extends Controller
             ) as {$key}_jual"));
 
             $reportQuery->addSelect(DB::raw("(
-                SELECT SUM(td.buying_prices) -- LANGSUNG AMBIL DARI KOLOM TANPA * QTY
+                SELECT SUM(td.buying_prices)
                 FROM transactions t
                 JOIN transaction_details td ON t.id = td.transaction_id
                 JOIN topup_transactions tt ON td.topup_transaction_id = tt.id
@@ -147,26 +155,44 @@ class ReportStoreController extends Controller
             ) as {$key}_beli"));
         }
 
-        // 3. Eksekusi Query
+        // 3. Eksekusi Query dengan Filter Utama
         $reportData = $reportQuery->where('stores.status', '!=', 2)
             ->whereNull('stores.deleted_at')
+            ->when($request->store_type_id, function ($query, $typeId) {
+                $query->where('stores.store_type_id', $typeId);
+            })
             ->when($request->store_id, function ($query, $storeId) {
                 $query->where('stores.id', $storeId);
             })
             ->get();
 
-        // 4. Transformasi & Pengisian Kolom Pembelian (Total Modal)
-        $reportData->transform(function ($item) use ($productCategories, $dynamicWallets) {
+        // 4. Transformasi Data
+        $reportData->transform(function ($item) use ($productCategories, $dynamicWallets, $request) {
             $item->qty = (float) ($item->qty ?? 0);
             $item->total = (float) ($item->total ?? 0);
             $item->tarik_tunai_jual = (float) ($item->tarik_tunai_jual ?? 0);
             $item->tarik_tunai_beli = (float) ($item->tarik_tunai_beli ?? 0);
+
+            // Operasional Khusus "PENGELUARAN TOKO"
+            $operasional = DB::table('expense_transactions')
+                ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
+                ->where('expense_transactions.store_id', $item->id)
+                ->where('expense_types.name', 'PENGELUARAN TOKO') 
+                ->where('expense_transactions.status', 0)
+                ->whereNull('expense_transactions.deleted_at')
+                ->when($request->start_date, function($q) use ($request) {
+                    return $q->whereDate('expense_transactions.transaction_at', '>=', $request->start_date);
+                })
+                ->when($request->end_date, function($q) use ($request) {
+                    return $q->whereDate('expense_transactions.transaction_at', '<=', $request->end_date);
+                })
+                ->sum('expense_transactions.amount');
             
             $totalModal = 0;
 
             foreach ($productCategories as $cat) {
-                $keyJual = strtolower($cat->name) . '_jual';
                 $keyBeli = strtolower($cat->name) . '_beli';
+                $keyJual = strtolower($cat->name) . '_jual';
                 $item->$keyJual = (float) ($item->$keyJual ?? 0);
                 $item->$keyBeli = (float) ($item->$keyBeli ?? 0);
                 $totalModal += $item->$keyBeli;
@@ -176,7 +202,6 @@ class ReportStoreController extends Controller
                 $cleanKey = strtolower(str_replace(' ', '_', $wallet->name));
                 $keyJual = $cleanKey . '_jual';
                 $keyBeli = $cleanKey . '_beli';
-                
                 $item->$keyJual = (float) ($item->$keyJual ?? 0);
                 $item->$keyBeli = (float) ($item->$keyBeli ?? 0);
                 $totalModal += $item->$keyBeli;
@@ -185,17 +210,19 @@ class ReportStoreController extends Controller
             $totalModal += $item->tarik_tunai_beli;
 
             $item->pembelian = $totalModal; 
+            $item->operasional = (float) $operasional; 
             $item->laba_kotor = $item->total - $totalModal;
-            $item->laba_bersih = $item->laba_kotor; 
+            $item->laba_bersih = $item->laba_kotor - $item->operasional;
 
             return $item;
         });
 
         return Inertia::render('ReportStores/Index', [
-            'stores' => $stores,
+            'stores' => $stores, // Mengandung store_type_id untuk filter frontend
+            'storeTypes' => $storeTypes,
             'productCategories' => $productCategories,
             'dynamicWallets' => $dynamicWallets,
-            'filters' => $request->only(['store_id', 'start_date', 'end_date']),
+            'filters' => $request->only(['store_id', 'store_type_id', 'start_date', 'end_date']),
             'reportData' => $reportData,
         ]);
     }
