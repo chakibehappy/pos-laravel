@@ -33,13 +33,70 @@ const filteredStores = computed(() => {
 // Reset store_id jika jenis usaha berubah
 watch(() => filterState.store_type_id, () => {
     filterState.store_id = ''; 
+    filterState.start_date = ''; // Tambahkan ini
+    filterState.end_date = '';   // Tambahkan ini
+});
+
+/**
+ * LOGIKA RESET TANGGAL SAAT CABANG DI-KOSONGKAN
+ * Memantau perubahan store_id. Jika sebelumnya ada isi (oldVal) 
+ * dan sekarang menjadi kosong (newVal), maka reset tanggal.
+ */
+watch(() => filterState.store_id, (newVal, oldVal) => {
+    if (oldVal && !newVal) {
+        filterState.start_date = '';
+        filterState.end_date = '';
+    }
 });
 // ----------------------------------------------------
 
 const totalPenjualanColumns = computed(() => {
+    // Menghitung kolom dinamis untuk header (2 kolom per kategori/wallet: Jual & Beli)
     const catCols = (props.productCategories?.length || 0) * 2;
     const walletCols = (props.dynamicWallets?.length || 0) * 2;
-    return catCols + walletCols + 2; 
+    return catCols + walletCols + 2; // +2 untuk Tarik Tunai
+});
+
+// --- LOGIKA HITUNG TOTAL UNTUK FOOTER ---
+const totals = computed(() => {
+    const res = {
+        qty: 0,
+        total: 0,
+        laba_kotor: 0,
+        operasional: 0,
+        laba_bersih: 0,
+        tarik_tunai_beli: 0,
+        tarik_tunai_jual: 0,
+        categories: {},
+        wallets: {}
+    };
+
+    props.reportData.forEach(item => {
+        res.qty += parseFloat(item.qty || 0);
+        res.total += parseFloat(item.total || 0);
+        res.laba_kotor += parseFloat(item.laba_kotor || 0);
+        res.operasional += parseFloat(item.operasional || 0);
+        res.laba_bersih += parseFloat(item.laba_bersih || 0);
+        res.tarik_tunai_beli += parseFloat(item.tarik_tunai_beli || 0);
+        res.tarik_tunai_jual += parseFloat(item.tarik_tunai_jual || 0);
+
+        props.productCategories.forEach(cat => {
+            const keyJual = `${cat.name.toLowerCase()}_jual`;
+            const keyBeli = `${cat.name.toLowerCase()}_beli`;
+            res.categories[keyJual] = (res.categories[keyJual] || 0) + parseFloat(item[keyJual] || 0);
+            res.categories[keyBeli] = (res.categories[keyBeli] || 0) + parseFloat(item[keyBeli] || 0);
+        });
+
+        props.dynamicWallets.forEach(wallet => {
+            const cleanKey = wallet.name.toLowerCase().replace(/\s+/g, '_');
+            const keyJual = `${cleanKey}_jual`;
+            const keyBeli = `${cleanKey}_beli`;
+            res.wallets[keyJual] = (res.wallets[keyJual] || 0) + parseFloat(item[keyJual] || 0);
+            res.wallets[keyBeli] = (res.wallets[keyBeli] || 0) + parseFloat(item[keyBeli] || 0);
+        });
+    });
+
+    return res;
 });
 
 const formatNumber = (val) => new Intl.NumberFormat('id-ID').format(val || 0);
@@ -54,13 +111,29 @@ const updateFilters = debounce(() => {
 
 watch(() => filterState, updateFilters, { deep: true });
 
+/**
+ * FUNGSI EXPORT EXCEL
+ */
 const exportExcel = () => {
-    window.location.href = route('report-stores.export', filterState);
+    const selectedStoreType = props.storeTypes.find(t => t.id == filterState.store_type_id);
+    const storeTypeName = selectedStoreType ? selectedStoreType.name : 'SEMUA JENIS USAHA';
+
+    const selectedStore = props.stores.find(s => s.id == filterState.store_id);
+    const storeName = selectedStore ? selectedStore.name : 'SELURUH TOKO';
+
+    const exportParams = {
+        ...filterState,
+        store_type_name: storeTypeName,
+        store_name: storeName
+    };
+
+    const params = new URLSearchParams(exportParams).toString();
+    window.location.href = route('report-stores.export') + '?' + params;
 };
 </script>
 
 <template>
-    <Head title="Laporan Rekapitulasi Penjualan Detail" />
+    <Head title="Laporan Neraca Penjualan " />
 
     <AuthenticatedLayout>
         <div class="p-8">
@@ -69,11 +142,15 @@ const exportExcel = () => {
                 <div class="p-8 border-b border-gray-100">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                         <div>
-                            <h2 class="text-xl font-black text-gray-800 uppercase tracking-tight">Rekapitulasi Penjualan Detail</h2>
+                            <h2 class="text-xl font-black text-gray-800 uppercase tracking-tight">Neraca Penjualan</h2>
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Arus Jual-Beli Terintegrasi (Real-time)</p>
                         </div>
-                        <button @click="exportExcel" class="bg-gray-900 hover:bg-gray-800 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-md active:scale-95">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        
+                        <button 
+                            @click="exportExcel" 
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-md active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
                             Export Excel
@@ -102,6 +179,7 @@ const exportExcel = () => {
                                 placeholder="SEMUA CABANG" 
                             />
                         </div>
+
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mulai Tanggal</label>
                             <input type="date" v-model="filterState.start_date" class="border border-gray-200 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase" />
@@ -172,19 +250,16 @@ const exportExcel = () => {
                                     </td>
                                 </template>
 
-                                <td class="px-2 py-4 text-right text-gray-400 italic bg-amber-50/5">{{ formatNumber(row.tarik_tunai_beli) }}</td>
-                                <td class="px-2 py-4 text-right font-bold text-amber-700 bg-amber-50/20 border-r border-gray-200">{{ formatNumber(row.tarik_tunai_jual) }}</td>
+                                <td class="px-2 py-4 text-right text-gray-400 italic bg-amber-50/5">{{ formatNumber(row.tar_beli || row.tarik_tunai_beli) }}</td>
+                                <td class="px-2 py-4 text-right font-bold text-amber-700 bg-amber-50/20 border-r border-gray-200">{{ formatNumber(row.tar_jual || row.tarik_tunai_jual) }}</td>
 
                                 <td class="px-4 py-4 text-right font-black text-gray-900 border-r border-gray-200">{{ formatNumber(row.total) }}</td>
-                                
                                 <td class="px-4 py-4 text-right font-bold text-blue-600 border-r border-gray-200 bg-blue-50/10 italic">
                                     {{ formatNumber(row.laba_kotor) }}
                                 </td>
-
                                 <td class="px-4 py-4 text-right font-bold text-red-600 border-r border-gray-200 bg-red-50/10 italic">
                                     {{ formatNumber(row.operasional || 0) }}
                                 </td>
-
                                 <td class="px-6 py-4 text-right">
                                     <span class="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-black tracking-tighter">
                                         {{ formatNumber(row.laba_bersih) }}
@@ -192,6 +267,31 @@ const exportExcel = () => {
                                 </td>
                             </tr>
                         </tbody>
+
+                        <tfoot v-if="reportData.length > 0" class="sticky bottom-0 z-50">
+                            <tr class="bg-red-600 text-white font-black uppercase tracking-widest">
+                                <td class="sticky-column left-0 px-6 py-4 border-r border-red-700 bg-red-600 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">TOTAL</td>
+                                <td class="px-4 py-4 text-right border-r border-red-700">{{ formatNumber(totals.qty) }}</td>
+                                
+                                <template v-for="cat in productCategories" :key="'foot-cat-' + cat.id">
+                                    <td class="px-2 py-4 text-right border-r border-red-700/50 bg-red-700/20">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_beli']) }}</td>
+                                    <td class="px-2 py-4 text-right border-r border-red-700 bg-red-700/40">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_jual']) }}</td>
+                                </template>
+
+                                <template v-for="wallet in dynamicWallets" :key="'foot-wal-' + wallet.id">
+                                    <td class="px-2 py-4 text-right border-r border-red-700/50 bg-red-700/20">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}</td>
+                                    <td class="px-2 py-4 text-right border-r border-red-700 bg-red-700/40">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}</td>
+                                </template>
+
+                                <td class="px-2 py-4 text-right border-r border-red-700/50 bg-red-700/20">{{ formatNumber(totals.tarik_tunai_beli) }}</td>
+                                <td class="px-2 py-4 text-right border-r border-red-700 bg-red-700/40">{{ formatNumber(totals.tarik_tunai_jual) }}</td>
+
+                                <td class="px-4 py-4 text-right border-r border-red-700">{{ formatNumber(totals.total) }}</td>
+                                <td class="px-4 py-4 text-right border-r border-red-700">{{ formatNumber(totals.laba_kotor) }}</td>
+                                <td class="px-4 py-4 text-right border-r border-red-700">{{ formatNumber(totals.operasional) }}</td>
+                                <td class="px-6 py-4 text-right">{{ formatNumber(totals.laba_bersih) }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
 
@@ -244,6 +344,18 @@ thead th.sticky-column {
     z-index: 60;
 }
 
+/* Footer Sticky */
+tfoot td {
+    position: sticky;
+    bottom: 0;
+    z-index: 45;
+}
+
+tfoot td.sticky-column {
+    z-index: 61;
+}
+
+/* Custom Scrollbar */
 .overflow-x-auto::-webkit-scrollbar { height: 8px; }
 .overflow-x-auto::-webkit-scrollbar-track { background: #f8fafc; }
 .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }

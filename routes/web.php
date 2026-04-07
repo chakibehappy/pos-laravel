@@ -216,6 +216,5 @@ Route::middleware(['auth'])->group(function () {
 
     // --- LAPORAN REKAPITULASI PER CABANG ---
     Route::get('/report-stores', [ReportStoreController::class, 'index'])->name('report-stores.index');
-    // Opsional: Jika nanti ingin menambah fitur detail per cabang atau export
-    // Route::get('/report-stores/{id}', [ReportStoreController::class, 'show'])->name('report-stores.show');
+    Route::get('/report-stores/export', [ReportStoreController::class, 'export'])->name('report-stores.export');
 });

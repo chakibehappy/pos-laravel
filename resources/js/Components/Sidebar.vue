@@ -83,7 +83,7 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
-    { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
+    { label: 'Neraca Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
     { label: 'Riwayat Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
 ];
 
