@@ -18,7 +18,7 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
     protected $reportData;
     protected $categories;
     protected $wallets;
-    protected $params; // Untuk menyimpan info Periode, Nama Toko, Jenis Usaha
+    protected $params; // Untuk menyimpan info Periode, Nama Toko, Jenis Usaha, dan nominal global
 
     public function __construct($reportData, $categories, $wallets, $params = [])
     {
@@ -28,7 +28,6 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
         $this->params = $params;
     }
 
-    // Tentukan tabel mulai dari baris ke-5 untuk memberi ruang Judul
     public function startCell(): string
     {
         return 'A5';
@@ -60,22 +59,33 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
 
             $row[] = $item->total; 
             $row[] = $item->operasional;
-            $row[] = $item->laba_bersih;
+            $row[] = $item->laba_cabang;
 
             return $row;
         });
 
-        // --- LOGIKA PENJUMLAHAN TOTAL DI BAWAH ---
         if ($rows->count() > 0) {
-            $totalRow = ['TOTAL']; // Kolom A
-            
-            // Hitung total untuk setiap kolom mulai dari QTY (index 1) sampai akhir
             $numCols = count($rows[0]);
+            
+            // 1. Baris TOTAL
+            $totalRow = ['TOTAL'];
             for ($i = 1; $i < $numCols; $i++) {
                 $totalRow[$i] = $rows->sum($i);
             }
-            
             $rows->push($totalRow);
+
+            // 2. Baris PENGELUARAN GLOBAL
+            $globalExpense = (float)($this->params['global_expense'] ?? 0);
+            $globalRow = array_fill(0, $numCols, '');
+            $globalRow[0] = 'PENGELUARAN GLOBAL';
+            $globalRow[$numCols - 1] = $globalExpense; 
+            $rows->push($globalRow);
+
+            // 3. Baris LABA BERSIH (Akhir)
+            $netProfitRow = array_fill(0, $numCols, '');
+            $netProfitRow[0] = 'LABA BERSIH';
+            $netProfitRow[$numCols - 1] = $totalRow[$numCols - 1] - $globalExpense;
+            $rows->push($netProfitRow);
         }
 
         return $rows;
@@ -124,7 +134,7 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
                 $lastColNum = 2 + (count($this->categories) * 2) + (count($this->wallets) * 2) + 2 + 3;
                 $lastCol = $this->getColumnLetter($lastColNum);
 
-                // --- BAGIAN 1: JUDUL DAN INFO (Baris 1-3) ---
+                // --- JUDUL DAN INFO ---
                 $sheet->setCellValue('A1', 'Laporan Transaksi Maar Company');
                 $sheet->mergeCells("A1:{$lastCol}1");
                 $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
@@ -132,29 +142,17 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
 
                 $startDate = $this->params['start_date'] ? Carbon::parse($this->params['start_date'])->format('d-m-Y') : '-';
                 $endDate = $this->params['end_date'] ? Carbon::parse($this->params['end_date'])->format('d-m-Y') : '-';
-                
-                $storeTypeName = strtoupper($this->params['store_type_name'] ?? 'SEMUA JENIS USAHA');
-                $storeName = strtoupper($this->params['store_name'] ?? 'SELURUH TOKO');
-
-                $sheet->setCellValue('A2', 'Periode:');
-                $sheet->setCellValue('B2', $startDate);
-                $sheet->setCellValue('C2', 'Hingga :');
-                $sheet->setCellValue('D2', $endDate);
-                
-                $sheet->setCellValue('A3', 'Jenis Usaha:');
-                $sheet->setCellValue('B3', $storeTypeName);
-                $sheet->setCellValue('C3', 'Nama Toko:');
-                $sheet->setCellValue('D3', $storeName);
-
+                $sheet->setCellValue('A2', 'Periode:'); $sheet->setCellValue('B2', $startDate);
+                $sheet->setCellValue('C2', 'Hingga :'); $sheet->setCellValue('D2', $endDate);
+                $sheet->setCellValue('A3', 'Jenis Usaha:'); $sheet->setCellValue('B3', strtoupper($this->params['store_type_name'] ?? 'SEMUA'));
+                $sheet->setCellValue('C3', 'Nama Toko:'); $sheet->setCellValue('D3', strtoupper($this->params['store_name'] ?? 'SELURUH TOKO'));
                 $sheet->getStyle('A2:A3')->getFont()->setBold(true);
                 $sheet->getStyle('C2:C3')->getFont()->setBold(true);
 
-                // --- BAGIAN 2: HEADER TABEL (Mulai di Baris 5) ---
+                // --- HEADER TABEL ---
                 $hStart = 5; $hEnd = 7;
-                
                 $sheet->mergeCells("A{$hStart}:A{$hEnd}"); 
                 $sheet->mergeCells("B{$hStart}:B{$hEnd}"); 
-
                 $detailColsCount = (count($this->categories) * 2) + (count($this->wallets) * 2) + 2;
                 $sheet->mergeCells("C{$hStart}:" . $this->getColumnLetter(2 + $detailColsCount) . "{$hStart}");
 
@@ -164,33 +162,39 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
                     $sheet->mergeCells($this->getColumnLetter($currentCol) . ($hStart+1) . ':' . $this->getColumnLetter($currentCol + 1) . ($hStart+1));
                     $currentCol += 2;
                 }
-
                 for ($j = 0; $j < 3; $j++) {
                     $col = $this->getColumnLetter($currentCol + $j);
                     $sheet->mergeCells("{$col}{$hStart}:{$col}{$hEnd}");
                 }
 
-                // --- BAGIAN 3: STYLING HEADER ---
-                $headerRange = "A{$hStart}:{$lastCol}{$hEnd}";
-                $sheet->getStyle($headerRange)->applyFromArray([
+                $sheet->getStyle("A{$hStart}:{$lastCol}{$hEnd}")->applyFromArray([
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '92D050']],
                     'font' => ['bold' => true, 'size' => 10],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
                 ]);
 
-                // --- BAGIAN 4: STYLING BARIS TOTAL (BARIS TERAKHIR) ---
-                $totalRange = "A{$lastRow}:{$lastCol}{$lastRow}";
-                $sheet->getStyle($totalRange)->applyFromArray([
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF0000']], // Warna Merah
-                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']], // Teks Putih
-                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                // --- STYLING BARIS FOOTER ---
+                
+                // Baris TOTAL (Merah)
+                $sheet->getStyle("A".($lastRow-2).":{$lastCol}".($lastRow-2))->applyFromArray([
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FF0000']],
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                 ]);
 
-                // Border untuk seluruh tabel
+                // Baris PENGELUARAN GLOBAL (Teks Bold)
+                $sheet->getStyle("A".($lastRow-1).":{$lastCol}".($lastRow-1))->getFont()->setBold(true);
+
+                // Baris LABA BERSIH (Kuning)
+                $sheet->getStyle("A{$lastRow}:{$lastCol}{$lastRow}")->applyFromArray([
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFF00']],
+                    'font' => ['bold' => true],
+                ]);
+
+                // Border & Format Angka
                 $sheet->getStyle("A{$hStart}:{$lastCol}{$lastRow}")->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 ]);
-
+                $sheet->getStyle("B8:{$lastCol}{$lastRow}")->getNumberFormat()->setFormatCode('#,##0');
                 $sheet->getStyle("C{$hEnd}:{$lastCol}{$hEnd}")->getFont()->setSize(8);
             },
         ];

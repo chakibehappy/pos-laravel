@@ -33,7 +33,18 @@ class ReportStoreController extends Controller
             ->whereNull('deleted_at')
             ->get(['id', 'name']);
 
-        // Menggunakan method privat untuk mengambil data
+        // 1. HITUNG PENGELUARAN GLOBAL (Case-Insensitive)
+        // Menjumlahkan semua expense yang tipe namanya mengandung kata "global"
+        $globalExpense = DB::table('expense_transactions')
+            ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
+            ->whereRaw("LOWER(expense_types.name) LIKE ?", ['%global%'])
+            ->where('expense_transactions.status', 0)
+            ->whereNull('expense_transactions.deleted_at')
+            ->when($request->start_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '>=', $request->start_date))
+            ->when($request->end_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '<=', $request->end_date))
+            ->sum('expense_transactions.amount');
+
+        // Menggunakan method privat untuk mengambil data report per cabang
         $reportData = $this->getReportData($request, $productCategories, $dynamicWallets);
 
         return Inertia::render('ReportStores/Index', [
@@ -43,6 +54,7 @@ class ReportStoreController extends Controller
             'dynamicWallets' => $dynamicWallets,
             'filters' => $request->only(['store_id', 'store_type_id', 'start_date', 'end_date']),
             'reportData' => $reportData,
+            'globalExpense' => (float)$globalExpense, // Dikirim ke Vue
         ]);
     }
 
@@ -59,8 +71,21 @@ class ReportStoreController extends Controller
 
         $reportData = $this->getReportData($request, $productCategories, $dynamicWallets);
 
-        // Menangkap semua parameter termasuk nama filter dari Vue
-        $params = $request->all();
+        // --- PENAMBAHAN BAGIAN PENGELUARAN GLOBAL ---
+        $globalExpense = DB::table('expense_transactions')
+            ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
+            ->whereRaw("LOWER(expense_types.name) LIKE ?", ['%global%'])
+            ->where('expense_transactions.status', 0)
+            ->whereNull('expense_transactions.deleted_at')
+            ->when($request->start_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '>=', $request->start_date))
+            ->when($request->end_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '<=', $request->end_date))
+            ->sum('expense_transactions.amount');
+
+        // Gabungkan nilai global_expense ke dalam array params
+        $params = array_merge($request->all(), [
+            'global_expense' => (float)$globalExpense
+        ]);
+        // --------------------------------------------
 
         $fileName = 'Rekap_Laporan_Toko_' . date('Y-m-d_His') . '.xlsx';
 
@@ -191,7 +216,7 @@ class ReportStoreController extends Controller
             $item->pembelian = $totalModal; 
             $item->operasional = (float) $operasional; 
             $item->laba_kotor = $item->total - $totalModal;
-            $item->laba_bersih = $item->laba_kotor - $item->operasional;
+            $item->laba_cabang = $item->laba_kotor - $item->operasional;
 
             return $item;
         });

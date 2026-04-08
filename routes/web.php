@@ -31,7 +31,8 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ExpenseTypeController; 
 use App\Http\Controllers\ReportStoreController;
-
+use App\Http\Controllers\ReportBuyingController;
+use App\Http\Controllers\ReportExpenseController;
 
 use Inertia\Inertia;
 
@@ -217,4 +218,13 @@ Route::middleware(['auth'])->group(function () {
     // --- LAPORAN REKAPITULASI PER CABANG ---
     Route::get('/report-stores', [ReportStoreController::class, 'index'])->name('report-stores.index');
     Route::get('/report-stores/export', [ReportStoreController::class, 'export'])->name('report-stores.export');
+
+    // ----- route sementara laporan----
+    Route::get('/report-buying', [ReportBuyingController::class, 'index'])->name('report-buying.index');
+    Route::get('/report-buying/export', [ReportBuyingController::class, 'export'])->name('report-buying.export');
+
+    Route::get('/report-expense', [ReportExpenseController::class, 'index'])->name('report-expense.index');
+    Route::post('/report-expense', [ReportExpenseController::class, 'store'])->name('report-expense.store');
+    Route::delete('/report-expense/{id}', [ReportExpenseController::class, 'destroy'])->name('report-expense.destroy');
+    Route::get('/report-expense/export', [ReportExpenseController::class, 'export'])->name('report-expense.export');
 });

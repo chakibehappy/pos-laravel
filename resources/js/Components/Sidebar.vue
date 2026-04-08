@@ -84,6 +84,8 @@ const menuItems = [
         ]
     },
     { label: 'Neraca Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
+    // { label: 'Laporan Pembelian', icon: '📦', name: 'report-buying.index', route: route('report-buying.index') },
+    // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },
     { label: 'Riwayat Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
 ];
 
