@@ -69,21 +69,36 @@ class ExpenseController extends Controller
             });
 
         return Inertia::render('Expenses/Index', [
-            'resource' => $query->paginate(10)->withQueryString(),
-            'stores' => Store::select('id', 'name')->get(),
-            'expenseTypes' => ExpenseType::select('id', 'name')->get(), // Tambahkan data untuk dropdown
-            'posUsers' => $posUsers,
-            'filters' => $request->only(['search', 'sort', 'direction', 'store_id']),
-            'columns' => [
-                ['key' => 'transaction_at', 'label' => 'Tanggal', 'sortable' => true],
-                ['key' => 'image', 'label' => 'Dokumentasi', 'sortable' => false],
-                ['key' => 'expense_type_name', 'label' => 'Tipe', 'sortable' => false], // Tambahkan kolom tipe
-                ['key' => 'description', 'label' => 'Keterangan', 'sortable' => true],
-                ['key' => 'amount', 'label' => 'Nominal', 'sortable' => true],
-                ['key' => 'store_name', 'label' => 'Toko', 'sortable' => false],
-                ['key' => 'user_name', 'label' => 'PIC/Staf', 'sortable' => false],
-            ]
-        ]);
+    'resource' => $query->paginate(10)->through(function ($item) {
+        return [
+            'id'               => $item->id,
+            'transaction_at'   => $item->transaction_at,
+            'image'            => $item->image,
+            'description'      => $item->description,
+            'amount'           => $item->amount,
+            'expense_type_id'  => $item->expense_type_id,
+            // Mapping alias agar terbaca di Vue:
+            'expense_type_name'=> $item->expenseType?->name,
+            'nama_cabang'      => $item->store?->name, // Ini yang bikin teks 'GLOBAL' hilang
+            'pos_user'         => $item->posUser,
+            'store_id'         => $item->store_id,
+            'pos_user_id'      => $item->pos_user_id,
+        ];
+    })->withQueryString(),
+    'stores'       => Store::select('id', 'name')->get(),
+    'expenseTypes' => ExpenseType::select('id', 'name')->get(),
+    'posUsers'     => $posUsers,
+    'filters'      => $request->only(['search', 'sort', 'direction', 'store_id']),
+    'columns'      => [
+        ['key' => 'transaction_at', 'label' => 'Tanggal', 'sortable' => true],
+        ['key' => 'image', 'label' => 'Dokumentasi', 'sortable' => false],
+        ['key' => 'expense_type_name', 'label' => 'Tipe', 'sortable' => false],
+        ['key' => 'description', 'label' => 'Keterangan', 'sortable' => true],
+        ['key' => 'amount', 'label' => 'Nominal', 'sortable' => true],
+        ['key' => 'store_name', 'label' => 'Toko', 'sortable' => false],
+        ['key' => 'user_name', 'label' => 'PIC/Staf', 'sortable' => false],
+    ]
+]);
     }
 
     /**
