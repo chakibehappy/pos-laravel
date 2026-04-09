@@ -67,7 +67,8 @@ const columns = [
     { label: 'Cabang', key: 'store_name', sortable: true }, 
     { label: 'Produk', key: 'product_name', sortable: true }, 
     { label: 'SKU', key: 'product_sku', sortable: true },
-    { label: 'Modal', key: 'product_buying_price', sortable: true }, 
+    { label: 'Modal', key: 'product_buying_price', sortable: true },
+    { label: 'Harga Jual', key: 'product_selling_price', sortable: true }, 
     { label: 'Jumlah Stok', key: 'stock', sortable: true },
     { label: 'Dibuat Oleh', key: 'creator' }
 ];
@@ -154,6 +155,7 @@ const handleExport = () => {
                                     <div class="flex flex-col text-gray-800">
                                         <span>{{ p.name }}</span>
                                         <span class="text-blue-600 text-[10px] font-black">Modal: Rp {{ new Intl.NumberFormat('id-ID').format(p.buying_price || 0) }}</span>
+                                        <span class="text-green-600 text-[10px] font-black">J: Rp {{ new Intl.NumberFormat('id-ID').format(p.selling_price || 0) }}</span>
                                     </div>
                                 </div>
                             </div>
