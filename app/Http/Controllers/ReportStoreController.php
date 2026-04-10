@@ -157,7 +157,7 @@ class ReportStoreController extends Controller
         // 2. Subquery Kategori Produk
         foreach ($productCategories as $cat) {
             $catId = $cat->id;
-            $key = strtolower($cat->name);
+            $key = strtolower(str_replace(' ', '_', $cat->name)); 
             $reportQuery->addSelect(DB::raw("(SELECT SUM(td.subtotal) FROM transactions t JOIN transaction_details td ON t.id = td.transaction_id JOIN products p ON td.product_id = p.id WHERE t.store_id = stores.id AND p.product_category_id = {$catId} AND t.status = 0 AND t.deleted_at IS NULL AND td.deleted_at IS NULL " . $this->applyDateFilter($request) . ") as {$key}_jual"));
             $reportQuery->addSelect(DB::raw("(SELECT SUM(td.buying_prices * td.quantity) FROM transactions t JOIN transaction_details td ON t.id = td.transaction_id JOIN products p ON td.product_id = p.id WHERE t.store_id = stores.id AND p.product_category_id = {$catId} AND t.status = 0 AND t.deleted_at IS NULL AND td.deleted_at IS NULL " . $this->applyDateFilter($request) . ") as {$key}_beli"));
         }
