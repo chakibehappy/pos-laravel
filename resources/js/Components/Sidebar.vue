@@ -60,15 +60,15 @@ const menuItems = [
     },
     { 
         label: 'Master Kategori', icon: '🗂️', isDropdown: true,
-        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*', 'expense-types.*', 'services.*' ],
+        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*', 'expense-types.*' ],
         children: [
-            { label: 'Mutasi Stok', name: 'stock-flow.index', route: route('stock-flow.index') }, // TAMBAHAN DISINI
+            { label: 'Mutasi Stok', name: 'stock-flow.index', route: route('stock-flow.index') },
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
             { label: 'Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
             { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') },
             { label: 'Tipe Pengeluaran', name: 'expense-types.index', route: route('expense-types.index') },
-            { label: 'Jenis Layanan',  name: 'services.index', route: route('services.index') },
+        // { label: 'Jenis Layanan',  name: 'services.index', route: route('services.index') },
         ]
     },
     { 
@@ -83,11 +83,16 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
-    { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
-    // { label: 'Laporan Pembelian', icon: '📦', name: 'report-buying.index', route: route('report-buying.index') },
-    // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },
+    { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index'), roles: ['owner', 'developer'] },
     { label: 'Riwayat Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
+     // { label: 'Laporan Pembelian', icon: '📦', name: 'report-buying.index', route: route('report-buying.index') },
+    // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },
 ];
+
+// Helper untuk validasi role
+const canShow = (item) => {
+    return !item.roles || item.roles.includes(page.props.auth.role);
+};
 
 const isItemActive = (item) => {
     if (!item.isDropdown) return route().current(item.name);
@@ -112,20 +117,21 @@ const handleMouseLeaveNav = () => {
     clearTimeout(debounceTimer);
     currentDisplayed.value = null;
     setTimeout(() => {
-        const activeItem = menuItems.find(item => isItemActive(item));
+        const activeItem = menuItems.find(item => canShow(item) && isItemActive(item));
         if (activeItem) currentDisplayed.value = activeItem.label;
     }, EXIT_ANIM_TIME);
 };
 
 const checkActiveDropdown = () => {
-    const activeItem = menuItems.find(item => isItemActive(item));
+    const activeItem = menuItems.find(item => canShow(item) && isItemActive(item));
     if (activeItem) currentDisplayed.value = activeItem.label;
+
     if (props.isMinimized) {
         openDropdown.value = null;
         return;
     }
     for (const item of menuItems) {
-        if (item.isDropdown && isItemActive(item)) {
+        if (canShow(item) && item.isDropdown && isItemActive(item)) {
             openDropdown.value = item.label;
             return;
         }
@@ -163,7 +169,7 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
 
         <nav @mouseleave="handleMouseLeaveNav" class="flex-1 pt-10 space-y-4 overflow-y-auto overflow-x-hidden custom-scrollbar pl-4">
             <template v-for="item in menuItems" :key="item.label">
-                <div class="relative w-full" @mouseenter="handleHover(item.label)">
+                <div v-if="canShow(item)" class="relative w-full" @mouseenter="handleHover(item.label)">
                     
                     <Transition name="jelly">
                         <div v-if="currentDisplayed === item.label" 
@@ -211,7 +217,7 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
             </template>
         </nav>
 
-        <div class="p-4 mb-4 border-t border-white/5">
+        <!-- <div class="p-4 mb-4 border-t border-white/5">
             <Link :href="route('logout')" method="post" as="button" 
                   class="flex items-center w-full sidebar-main-transition text-xs font-bold uppercase text-gray-400 hover:text-red-400 rounded-l-xl hover:bg-red-400/5 group" 
                   :class="isMinimized ? 'justify-center px-0 h-12' : 'px-4 py-3 gap-4'">
@@ -220,14 +226,13 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
                 </div>
                 <Transition name="text-pop"><span v-if="!isMinimized">Keluar</span></Transition>
             </Link>
-        </div>
+        </div> -->
     </div>
 </template>
 
 <style scoped>
 .custom-scrollbar::-webkit-scrollbar { width: 0px; }
 
-/* ANIMASI JELLY / KENYAL */
 .jelly-enter-active {
     animation: jelly-in 0.5s both;
 }

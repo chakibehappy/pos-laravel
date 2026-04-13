@@ -161,6 +161,8 @@ const destroy = (id) => {
                         <option value="cashier">KASIR</option>
                         <option value="collector">KOLEKTOR</option>
                         <option value="admin">ADMIN</option>
+                        <option value="owner">OWNER</option>
+                        <option value="developer">DEV</option>
                     </select>
                     <button @click="submit" :disabled="form.processing" class="bg-black text-white h-[42px] rounded-lg font-bold text-xs uppercase hover:bg-gray-800 transition-all shadow-sm active:scale-95 disabled:opacity-50">
                         Simpan
@@ -212,6 +214,8 @@ const destroy = (id) => {
                                     <option value="cashier">KASIR</option>
                                     <option value="collector">KOLEKTOR</option>
                                     <option value="admin">ADMIN</option>
+                                    <option value="owner">OWNER</option>
+                                    <option value="developer">DEV</option>
                                 </select>
                             </div>
                         </div>
