@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Transaction; // Pastikan Model Transaction diimport
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -36,9 +37,20 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Logika mapping role: Cek email di tb users ke username di tb pos_users
+        $user = $request->user();
+        $role = null;
+
+        if ($user) {
+            $role = DB::table('pos_users')
+                ->where('username', $user->email)
+                ->value('role');
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
+                'role' => $role, // Mapping role untuk digunakan di Vue
                 'api_token' => $request->session()->get('api_token'),
             ],
             'csrf_token' => fn () => csrf_token(),

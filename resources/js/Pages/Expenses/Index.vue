@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, reactive, watch } from 'vue';
 import { useForm, Head, router, usePage } from '@inertiajs/vue3';
+import debounce from 'lodash/debounce';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -19,6 +20,23 @@ const authUser = page.props.auth.user;
 
 const isModalOpen = ref(false);
 const isEditing = ref(false);
+
+// --- STATE FILTER DINAMIS ---
+const filterState = reactive({
+    search: props.filters?.search || '',
+    store_id: props.filters?.store_id || '',
+    expense_type_id: props.filters?.expense_type_id || '',
+    date: props.filters?.date || '', // Mengganti start_date & end_date menjadi date
+});
+
+// Otomatis reload data saat filter di atas berubah
+watch(filterState, debounce(() => {
+    router.get(route('expenses.index'), filterState, {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true
+    });
+}, 500));
 
 /**
  * Logic untuk mendeteksi apakah tipe yang dipilih mengandung kata 
@@ -141,7 +159,39 @@ const formatCurrency = (value) => {
                     route-name="expenses.index"
                     show-add-button
                     @on-add="openAddModal"
+                    :initial-search="filters?.search || ''"
                 >
+                    <template #extra-filters>
+                        <div class="flex flex-wrap items-end gap-3">
+                            <div class="w-48">
+                                <SearchableSelect 
+                                    v-model="filterState.store_id"
+                                    :options="stores"
+                                    label="Lokasi Toko"
+                                    placeholder="Semua Toko"
+                                />
+                            </div>
+
+                            <div class="w-48">
+                                <SearchableSelect 
+                                    v-model="filterState.expense_type_id"
+                                    :options="expenseTypes"
+                                    label="Jenis Pengeluaran"
+                                    placeholder="Semua Jenis"
+                                />
+                            </div>
+
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tanggal</label>
+                                <input 
+                                    type="date" 
+                                    v-model="filterState.date" 
+                                    class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" 
+                                />
+                            </div>
+                        </div>
+                    </template>
+
                     <template #transaction_at="{ value }">
                         <span class="text-gray-600">{{ new Date(value).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) }}</span>
                     </template>
