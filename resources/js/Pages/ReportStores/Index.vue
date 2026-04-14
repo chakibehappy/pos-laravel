@@ -192,7 +192,7 @@ const exportExcel = () => {
                     </div>
                 </div>
 
-                <div class="overflow-x-auto overflow-y-auto max-h-[700px] relative border-separate">
+                <div class="overflow-x-auto overflow-y-auto max-h-[600px] relative border-separate">
                     <table class="w-full text-[10px] border-separate border-spacing-0">
                         <thead class="bg-gray-50">
                             <tr class="header-row-1">
@@ -206,13 +206,13 @@ const exportExcel = () => {
                             </tr>
 
                             <tr class="header-row-2">
-                                <th v-for="cat in productCategories" :key="'h2-cat-' + cat.id" colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-red-600 border-b border-r border-gray-200 bg-gray-50">
+                                <th v-for="cat in productCategories" :key="'h2-cat-' + cat.id" colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-blue-400 border-b border-r border-gray-200 bg-gray-50" >
                                     {{ cat.name }}
                                 </th>
                                 <th v-for="wallet in dynamicWallets" :key="'h2-wal-' + wallet.id" colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-blue-600 border-b border-r border-gray-200 bg-gray-50">
                                     {{ wallet.name }}
                                 </th>
-                                <th colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-amber-600 bg-amber-50 border-b border-r border-gray-200">
+                                <th colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-blue-800 border-b border-r border-gray-200 bg-gray-50">
                                     Tarik Tunai
                                 </th>
                             </tr>
@@ -293,7 +293,6 @@ const exportExcel = () => {
                                 <td class="px-4 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.operasional) }}</td>
                                 <td class="px-6 py-4 text-right bg-gray-100">{{ formatNumber(totals.laba_cabang) }}</td>
                             </tr>
-                            
                             <tr class="bg-gray-100 text-black font-black uppercase tracking-widest border-t border-black/20 ">
                                 <td class="sticky-column left-0 px-6 py-4 border-r border-black/10 bg-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">PENGELUARAN GLOBAL</td>
                                 <td :colspan="totalPenjualanColumns + 4" class="bg-gray-100  shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]"></td>
@@ -301,16 +300,20 @@ const exportExcel = () => {
                                     {{ formatNumber(globalExpense) }}
                                 </td>
                             </tr>
-
-                            <tr class="bg-[#FDC700] text-black font-black uppercase tracking-widest border-t border-black/20">
-                                <td class="sticky-column left-0 px-6 py-4 border-r border-black/10 bg-[#FDC700] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">LABA BERSIH</td>
-                                <td :colspan="totalPenjualanColumns + 4" class="bg-[#FDC700] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]"></td>
-                                <td class="px-6 py-5 text-right bg-[#FDC700] font-black text-xl tracking-tighter shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">
-                                    RP {{ formatNumber(labaBersihTotal) }}
-                                </td>
-                            </tr>
                         </tfoot>
                     </table>
+                </div>
+
+                <div v-if="reportData.length > 0" class="border-t border-gray-200">
+                    <div class="flex items-center justify-between px-8 py-6 bg-[#FDC700]">
+                        <div>
+                            <span class="text-[12px] font-black uppercase tracking-tighter block">Laba Bersih Akhir</span>
+                            <span class="text-[9px] font-bold opacity-60 uppercase">Dihitung dari total laba cabang - pengeluaran global</span>
+                        </div>
+                        <div class="text-2xl font-black tracking-tighter">
+                            RP {{ formatNumber(labaBersihTotal) }}
+                        </div>
+                    </div>
                 </div>
 
                 <div v-if="reportData.length === 0" class="p-20 text-center">
@@ -343,12 +346,12 @@ thead th {
 }
 
 .header-row-2 th {
-    top: 45px; 
+    top: 39.9px; 
     z-index: 39;
 }
 
 .header-row-3 th {
-    top: 77px; 
+    top: 71.3px; 
     z-index: 38;
 }
 
