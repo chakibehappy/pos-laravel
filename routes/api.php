@@ -67,13 +67,14 @@ Route::post('/pos-user-login', function (Request $request) {
     if (!$user || !Hash::check($request->pin, $user->pin)) {
         return response()->json(['message' => 'Invalid POS user credentials'], 401);
     }
-    
     ActivityLogger::log(
         'login', 
         'stores', 
         $request->store_id, 
         'Login Aplikasi POS '. $request->store_name, 
-        $request->pos_user_id
+        $request->pos_user_id,
+        ['device' => $request->device_name, 'ip' => $request->ip()], 
+        $request->store_id 
     );
     $token = $user->createToken($request->device_name)->plainTextToken;
 
@@ -96,15 +97,13 @@ Route::middleware('auth:sanctum')->post('/logout', function (Request $request) {
         $storeId,
         'Logout Aplikasi POS',
         $user->id
+        
     );
-    // Delete current token only (logout this device)
     $user->currentAccessToken()->delete();
     return response()->json([
         'message' => 'Logged out successfully'
     ]);
 });
-
-// Protected Routes (Requires Token)
 Route::middleware('auth:sanctum')->get('/products', function (Request $request) {
 
     $storeId = $request->user()->store_id;
@@ -164,11 +163,8 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 'updatedData' => PosHelper::getPosData($request->store_id),
             ], 200); 
         }
-
-        // --- START ACTUAL PROCESSING ---
         DB::beginTransaction();
 
-        // Create Transaction Header
         $transaction = Transaction::create([
             'store_id'       => $request->store_id,
             'payment_id'     => $paymentId,
@@ -179,16 +175,6 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             'total'          => $request->total,
         ]);
 
-        
-        ActivityLogger::log(
-            'create', 
-            'transactions', 
-            $transaction->id, 
-            'Menambah transaksi penjualan sejumlah Rp.' . $request->total, 
-            $posUser->id
-        );
-
-        // Create Transaction Items
         foreach ($request->items as $item) {
             $topupId = null;
             $withdrawalId = null;
@@ -280,6 +266,18 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             }
         }
 
+        $transaction->refresh();
+        $transaction->load(['details.product', 'details.topupTransaction', 'details.cashWithdrawal']);
+
+        ActivityLogger::log(
+            'create', 
+            'transactions', 
+            $transaction->id, 
+            'Menambah transaksi penjualan sejumlah Rp.' . number_format($request->total, 0, ',', '.'), 
+            $posUser->id,
+            ['new' => $transaction->toArray()], 
+            $request->store_id
+        );
 
         DB::commit();
 
@@ -401,13 +399,14 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
             'delete_requested_by' => $posUser->id,
             'delete_reason' => $request->reason,
         ]);
-        
         ActivityLogger::log(
-            'login', 
-            'stores', 
-            $request->store_id, 
-            'Request hapus penjualan '. $request->store_name, 
-            $posUser->id
+            'update', // Gunakan 'update' karena status berubah
+            'transactions', 
+            $transaction->id, 
+            'Request hapus penjualan ID: '. $transaction->id, 
+            $posUser->id,
+            ['reason' => $request->reason, 'old_status' => 0, 'new_status' => 1],
+            $transaction->store_id
         );
 
         return response()->json([
@@ -489,15 +488,15 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'reference_type'  => 'expense_transactions',
             'created_at'      => now(),
         ]);
-        
         ActivityLogger::log(
             'create', 
             'expense_transactions', 
             $expenseId, 
-            'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $request->description . ' sejumlah Rp.' . $request->amount, 
-            $posUser->id
+            'Menambah pengeluaran: '. $request->description, 
+            $posUser->id,
+            ['amount' => $request->amount, 'description' => $request->description],
+            $request->store_id
         );
-
         DB::commit();
 
         return response()->json([
@@ -515,3 +514,215 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
         ], 500);
     }
 });
+
+// // currently used :
+// Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $request) {
+
+//     $request->validate([
+//         'store_id' => 'required|integer|exists:stores,id',
+//     ]);
+
+//     $storeId = $request->store_id;
+
+//     $timezone = 'Asia/Jakarta';
+
+//     $startOfDay = Carbon::now($timezone)->startOfDay();
+//     $endOfDay   = Carbon::now($timezone)->endOfDay();
+
+//     $transactions = Transaction::with([
+//             'posUser',
+//             'details.product',
+//             // 'details.topupTransaction',
+//             'details.topupTransaction.transType',
+//             'details.topupTransaction.digitalWalletStore.wallet',
+//             'details.cashWithdrawal'
+//         ])
+//         ->where('store_id', $storeId)
+//         ->where('transactions.status', 0)
+//         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+//         ->orderBy('transaction_at', 'desc')
+//         ->get();
+
+//     return response()->json([
+//         'timezone' => $timezone,
+//         'date' => $startOfDay->toDateString(),
+//         'store_id' => $storeId,
+//         'count' => $transactions->count(),
+//         'transactions' => $transactions,
+//     ]);
+// });
+
+// // get transaction by status, and also pass pos user id for logger
+// Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Request $request) {
+
+//     $request->validate([
+//         'store_id' => 'required|integer|exists:stores,id',
+//         'status'   => 'nullable|integer|in:0,1,2',
+//     ]);
+
+//     $storeId = $request->store_id;
+//     $status  = $request->status; // default to 0
+
+//     $timezone = 'Asia/Jakarta';
+
+//     $startOfDay = Carbon::now($timezone)->startOfDay();
+//     $endOfDay   = Carbon::now($timezone)->endOfDay();
+
+//     $transactions = Transaction::with([
+//             'posUser',
+//             'details.product',
+//             'details.topupTransaction.transType',
+//             'details.topupTransaction.digitalWalletStore.wallet',
+//             'details.cashWithdrawal'
+//         ])
+//         ->where('store_id', $storeId)
+//         ->where('transactions.status', $status)
+//         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+//         ->orderBy('transaction_at', 'desc')
+//         ->get();
+
+//     return response()->json([
+//         'timezone' => $timezone,
+//         'date' => $startOfDay->toDateString(),
+//         'store_id' => $storeId,
+//         'count' => $transactions->count(),
+//         'transactions' => $transactions,
+//     ]);
+// });
+
+
+// Route::middleware('auth:sanctum')->post('/request-delete', function (Request $request) {
+//         $request->validate([
+//             'reason' => 'required|string|max:255',
+//             'transaction_id' => 'required|integer|exists:transactions,id',
+//         ]);
+
+//         $transaction = Transaction::findOrFail($request->transaction_id);
+        
+//         if ($transaction->status !== 0) {
+//             return response()->json([
+//                 'message' => 'Transaction cannot be requested for deletion.',
+//             ], 422);
+//         }
+
+//         $posUser = $request->user();
+
+//         $transaction->update([
+//             'status' => 1,
+//             'delete_requested_by' => $posUser->id,
+//             'delete_reason' => $request->reason,
+//         ]);
+        
+//         ActivityLogger::log(
+//             'login', 
+//             'stores', 
+//             $request->store_id, 
+//             'Request hapus penjualan '. $request->store_name, 
+//             $posUser->id
+//         );
+
+//         return response()->json([
+//             'message' => 'Delete request submitted successfully.',
+//             'transaction_id' => $transaction->id,
+//             'status' => $transaction->status,
+//         ]);
+//     }
+// );
+
+// Route::middleware('auth:sanctum')->get('/get-expenses', function (Request $request) {
+
+//     $request->validate([
+//         'store_id' => 'required|integer|exists:stores,id'
+//     ]);
+
+//     $storeId = $request->store_id;
+//     $timezone = 'Asia/Jakarta';
+
+//     $startDate = Carbon::now($timezone)->subDay()->startOfDay(); // yesterday 00:00
+//     $endDate   = Carbon::now($timezone)->endOfDay();             // today 23:59
+
+//     $expenses = DB::table('expense_transactions')
+//         ->leftJoin('pos_users', 'expense_transactions.pos_user_id', '=', 'pos_users.id')
+//         ->where('expense_transactions.store_id', $storeId)
+//         ->where('expense_transactions.status', 0)
+//         ->whereBetween('expense_transactions.transaction_at', [$startDate, $endDate])
+//         ->orderBy('expense_transactions.transaction_at', 'desc')
+//         ->select(
+//             'expense_transactions.*',
+//             'pos_users.name as pos_user_name',
+//             'pos_users.username as pos_user_username'
+//         )
+//         ->get();
+
+//     return response()->json([
+//         'expenses'  => $expenses,
+//     ]);
+// });
+
+// Route::middleware('auth:sanctum')->post('/expenses', function (Request $request) {
+
+//     $request->validate([
+//         'store_id'       => 'required|integer|exists:stores,id',
+//         'amount'         => 'required|numeric|min:1',
+//         'description'    => 'required|string',
+//         'image'          => 'nullable|string',
+//     ]);
+
+//     $posUser = $request->user();
+
+//     DB::beginTransaction();
+
+//     try {
+//         $expenseId = DB::table('expense_transactions')->insertGetId([
+//             'store_id'       => $request->store_id,
+//             'pos_user_id'    => $posUser->id,
+//             'amount'         => $request->amount,
+//             'description'    => $request->description,
+//             'image'          => $request->image,
+//             'transaction_at' => now(),
+//             'status'         => 0,
+//             'created_by'     => $posUser->id,
+//             'created_at'     => now(),
+//             'updated_at'     => now(),
+//         ]);
+
+//         // Decrease physical store cash
+//         CashStore::where('store_id', $request->store_id)
+//             ->decrement('cash', $request->amount);
+
+//         // Insert into cash_flow
+//         DB::table('cash_flow')->insert([
+//             'store_id'        => $request->store_id,
+//             'created_by'      => $posUser->id,
+//             'amount'           => -1 * $request->amount, // money out
+//             'transaction_type'=> 'expense',
+//             'reference_id'    => $expenseId,
+//             'reference_type'  => 'expense_transactions',
+//             'created_at'      => now(),
+//         ]);
+        
+//         ActivityLogger::log(
+//             'create', 
+//             'expense_transactions', 
+//             $expenseId, 
+//             'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $request->description . ' sejumlah Rp.' . $request->amount, 
+//             $posUser->id
+//         );
+
+//         DB::commit();
+
+//         return response()->json([
+//             'message'    => 'Expense created successfully',
+//             'expense_id' => $expenseId,
+//         ], 201);
+
+//     } catch (\Throwable $e) {
+
+//         DB::rollBack();
+
+//         return response()->json([
+//             'message' => 'Failed to create expense',
+//             'error'   => $e->getMessage()
+//         ], 500);
+//     }
+// });

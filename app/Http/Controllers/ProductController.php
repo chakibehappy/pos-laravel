@@ -70,92 +70,114 @@ class ProductController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        try {
-            $request->validate([
-                'id'                  => 'nullable|numeric',
-                'product_category_id' => 'required|exists:product_categories,id',
-                'unit_type_id'        => 'required|exists:unit_types,id',
-                'name'                => 'required|string|max:150',
-                'sku'                 => 'nullable|string|max:50',
-                'buying_price'        => 'required|numeric|min:0',
-                'selling_price'       => 'required|numeric|min:0',
-                'image'               => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-            ]);
+   public function store(Request $request)
+{
+    try {
+        $request->validate([
+            'id'                  => 'nullable|numeric',
+            'product_category_id' => 'required|exists:product_categories,id',
+            'unit_type_id'        => 'required|exists:unit_types,id',
+            'name'                => 'required|string|max:150',
+            'sku'                 => 'nullable|string|max:50',
+            'buying_price'        => 'required|numeric|min:0',
+            'selling_price'       => 'required|numeric|min:0',
+            'image'               => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
 
-            $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
-            $posUserId = $posUserAudit ? $posUserAudit->id : null;
-            $oldData = null;
+        $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+        $posUserId = $posUserAudit ? $posUserAudit->id : null;
+        
+        $oldData = null;
+        $changeDetails = ""; // Untuk menyimpan detail perubahan
 
-            // TANGKAP DATA LAMA JIKA UPDATE
-            if ($request->id) {
-                $existingProduct = Product::find($request->id);
-                if ($existingProduct) {
-                    $oldData = $existingProduct->getRawOriginal();
-                }
-            }
+        if ($request->id) {
+            $existingProduct = Product::find($request->id);
+            if ($existingProduct) {
+                $oldData = $existingProduct->getRawOriginal();
+                
+                // --- LOGIKA DETEKSI PERUBAHAN ---
+                $fieldsToWatch = [
+                    'name'          => 'Nama',
+                    'sku'           => 'SKU',
+                    'buying_price'  => 'Harga Beli',
+                    'selling_price' => 'Harga Jual'
+                ];
 
-            $data = $request->only([
-                'product_category_id', 
-                'unit_type_id',
-                'name', 
-                'sku', 
-                'buying_price', 
-                'selling_price',
-            ]);
+                $changes = [];
+                foreach ($fieldsToWatch as $field => $label) {
+                    if ($oldData[$field] != $request->$field) {
+                        $oldVal = $oldData[$field];
+                        $newVal = $request->$field;
 
-            $data['status'] = 0;
-            $data['deleted_at'] = null;
+                        // Format angka jika itu adalah harga
+                        if (str_contains($field, 'price')) {
+                            $oldVal = number_format($oldVal);
+                            $newVal = number_format($newVal);
+                        }
 
-            // Inisialisasi jika produk baru
-            if (!$request->id) {
-                $data['created_by'] = $posUserId;
-                $data['stock'] = 0; 
-            }
-
-            // Penanganan Gambar
-            if ($request->hasFile('image')) {
-                // Hapus gambar lama jika ada
-                if ($request->id) {
-                    $prodForImg = Product::find($request->id);
-                    if ($prodForImg && $prodForImg->image) {
-                        Storage::disk('public')->delete($prodForImg->image);
+                        $changes[] = "$label dari ($oldVal) menjadi ($newVal)";
                     }
                 }
-
-                $file = $request->file('image');
-                $filename = time() . '_' . uniqid() . '.png';
                 
-                $manager = new ImageManager(new Driver());
-                $image = $manager->read($file);
-                $image->scale(width: 800);
-                $encoded = $image->toPng(); 
-
-                $path = 'products/' . $filename;
-                Storage::disk('public')->put($path, (string) $encoded);
-                $data['image'] = $path;
+                if (!empty($changes)) {
+                    $changeDetails = " " . implode(", ", $changes);
+                }
+                // --------------------------------
             }
-
-            $product = Product::updateOrCreate(['id' => $request->id], $data);
-
-            // LOG ACTIVITY
-            ActivityLogger::log(
-                $request->id ? 'update' : 'create',
-                'products',
-                $product->id,
-                ($request->id ? 'Memperbarui' : 'Membuat') . " produk: " . $product->name,
-                $posUserId,
-                ['old' => $oldData, 'new' => $product->getAttributes()],
-                null
-            );
-
-            return back()->with('message', 'Data berhasil diproses!');
-
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Gagal simpan: ' . $e->getMessage()]);
         }
+
+        $data = $request->only(['product_category_id', 'unit_type_id', 'name', 'sku', 'buying_price', 'selling_price']);
+        $data['status'] = 0;
+        $data['deleted_at'] = null;
+
+        if (!$request->id) {
+            $data['created_by'] = $posUserId;
+            $data['stock'] = 0; 
+        }
+
+        // Penanganan Gambar (tetap seperti kode Anda)
+        if ($request->hasFile('image')) {
+            if ($request->id) {
+                $prodForImg = Product::find($request->id);
+                if ($prodForImg && $prodForImg->image) {
+                    Storage::disk('public')->delete($prodForImg->image);
+                }
+            }
+            $file = $request->file('image');
+            $filename = time() . '_' . uniqid() . '.png';
+            $manager = new ImageManager(new Driver());
+            $image = $manager->read($file);
+            $image->scale(width: 800);
+            $encoded = $image->toPng(); 
+            $path = 'products/' . $filename;
+            Storage::disk('public')->put($path, (string) $encoded);
+            $data['image'] = $path;
+        }
+
+        $product = Product::updateOrCreate(['id' => $request->id], $data);
+
+        // LOG ACTIVITY
+        $logAction = $request->id ? 'update' : 'create';
+        $logMessage = $request->id 
+            ? "Memperbarui produk {$product->name}:" . ($changeDetails ?: " Tidak ada perubahan data signifikan")
+            : "Membuat produk baru: " . $product->name;
+
+        ActivityLogger::log(
+            $logAction,
+            'products',
+            $product->id,
+            $logMessage,
+            $posUserId,
+            ['old' => $oldData, 'new' => $product->getAttributes()],
+            null
+        );
+
+        return back()->with('message', 'Data berhasil diproses!');
+
+    } catch (\Exception $e) {
+        return back()->withErrors(['error' => 'Gagal simpan: ' . $e->getMessage()]);
     }
+}
 
     public function destroy($id)
     {
