@@ -145,8 +145,7 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
 
 <template>
     <div 
-        class="hidden md:flex relative bg-[#0f0f0f] text-white flex-col flex-shrink-0 z-[50] rounded-r-[60px] shadow-xl sidebar-main-transition"
-        style="height: calc(100vh - 64px);" 
+        class="hidden md:flex relative bg-[#0f0f0f] text-white flex-col flex-shrink-0 z-[50] rounded-r-[60px] shadow-xl sidebar-main-transition h-screen"
         :class="isMinimized ? 'w-20' : 'w-64'"
     >   
         <button @click="toggleSidebar" class="absolute right-[-10px] top-1/2 -translate-y-1/2 w-[6px] h-32 bg-gray-600/30 rounded-full z-[100] transition-all hover:bg-gray-500/50 cursor-pointer flex items-center justify-center group">
@@ -163,10 +162,13 @@ watch(() => props.isMinimized, (min) => min ? (openDropdown.value = null) : setT
                     <div class="text-lg font-black uppercase italic tracking-tighter text-white leading-none whitespace-nowrap">
                         MAAR COMPANY
                     </div>
+                    <div class="text-[8px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-1">
+                        <span class="text-white">{{ $page.component }}</span>
+                    </div>
                 </div>
             </Transition>
         </div>
-
+        
         <nav @mouseleave="handleMouseLeaveNav" class="flex-1 pt-10 space-y-4 overflow-y-auto overflow-x-hidden custom-scrollbar pl-4">
             <template v-for="item in menuItems" :key="item.label">
                 <div v-if="canShow(item)" class="relative w-full" @mouseenter="handleHover(item.label)">

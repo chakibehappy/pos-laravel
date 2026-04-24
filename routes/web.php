@@ -33,7 +33,7 @@ use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\ReportStoreController;
 use App\Http\Controllers\ReportBuyingController;
 use App\Http\Controllers\ReportExpenseController;
-
+use App\Http\Controllers\DashboardController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -227,4 +227,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/report-expense', [ReportExpenseController::class, 'store'])->name('report-expense.store');
     Route::delete('/report-expense/{id}', [ReportExpenseController::class, 'destroy'])->name('report-expense.destroy');
     Route::get('/report-expense/export', [ReportExpenseController::class, 'export'])->name('report-expense.export');
+
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });

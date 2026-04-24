@@ -91,56 +91,63 @@ class StoreProductController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'store_id'   => 'required|exists:stores,id',
-            'product_id' => 'required|exists:products,id',
-            'stock'      => 'required|integer|min:0',
-        ]);
+{
+    $request->validate([
+        'store_id'   => 'required|exists:stores,id',
+        'product_id' => 'required|exists:products,id',
+        'stock'      => 'required|integer|min:0',
+    ]);
 
-        return DB::transaction(function () use ($request) {
-            $adminEmail = auth()->user()->email;
-            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-            $createdBy = $posUser ? $posUser->id : null;
+    return DB::transaction(function () use ($request) {
+        $adminEmail = auth()->user()->email;
+        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+        $createdBy = $posUser ? $posUser->id : null;
 
-            // Ambil data lama untuk logging payload
-            $existing = StoreProduct::where('store_id', $request->store_id)
-                ->where('product_id', $request->product_id)
-                ->first();
+        // 1. Ambil data lama SEBELUM diupdate
+        $existing = StoreProduct::where('store_id', $request->store_id)
+            ->where('product_id', $request->product_id)
+            ->first();
 
-            $oldData = $existing ? $existing->getRawOriginal() : null;
-            $isRestoring = ($existing && $existing->status == 2);
-            
-            $logType = ($existing && !$isRestoring) ? "update" : "create";
-            $actionLabel = ($existing && !$isRestoring) ? "Memperbarui" : "Menambah";
+        // Ambil nilai stok lama, jika tidak ada (barang baru) maka 0
+        $oldStock = $existing ? $existing->stock : 0;
+        $oldData = $existing ? $existing->getRawOriginal() : null;
+        $isRestoring = ($existing && $existing->status == 2);
+        
+        $logType = ($existing && !$isRestoring) ? "update" : "create";
+        $actionLabel = ($existing && !$isRestoring) ? "Memperbarui" : "Menambah";
 
-            $sp = StoreProduct::updateOrCreate(
-                ['store_id' => $request->store_id, 'product_id' => $request->product_id],
-                [
-                    'stock' => $request->stock, 
-                    'created_by' => $createdBy,
-                    'status' => 0, 
-                    'deleted_at' => null 
-                ]
-            );
+        // 2. Tentukan keterangan perubahan stok secara dinamis
+        $stockChangeInfo = ($existing && !$isRestoring) 
+            ? "dari {$oldStock} menjadi {$request->stock}" 
+            : "menjadi {$request->stock}";
 
-            $product = Product::find($request->product_id);
-            $store = Store::find($request->store_id);
+        $sp = StoreProduct::updateOrCreate(
+            ['store_id' => $request->store_id, 'product_id' => $request->product_id],
+            [
+                'stock' => $request->stock, 
+                'created_by' => $createdBy,
+                'status' => 0, 
+                'deleted_at' => null 
+            ]
+        );
 
-            // LOG ACTIVITY DENGAN PAYLOAD STOK LAMA & BARU
-            ActivityLogger::log(
-                $logType,
-                'store_products',
-                $sp->id,
-                "{$actionLabel} stok produk {$product->name} di {$store->name} menjadi {$request->stock}",
-                $createdBy,
-                ['old' => $oldData, 'new' => $sp->getAttributes()],
-                $request->store_id
-            );
+        $product = Product::find($request->product_id);
+        $store = Store::find($request->store_id);
 
-            return back()->with('message', 'Data stok cabang berhasil diperbarui!');
-        });
-    }
+        // 3. LOG ACTIVITY dengan deskripsi baru
+        ActivityLogger::log(
+            $logType,
+            'store_products',
+            $sp->id,
+            "{$actionLabel} stok produk {$product->name} di {$store->name} {$stockChangeInfo}",
+            $createdBy,
+            ['old' => $oldData, 'new' => $sp->getAttributes()],
+            $request->store_id
+        );
+
+        return back()->with('message', 'Data stok cabang berhasil diperbarui!');
+    });
+}
 
     public function update(Request $request, $id)
     {
