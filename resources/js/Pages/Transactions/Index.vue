@@ -5,9 +5,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
-// IMPORT VIEW DETAIL
-import TransactionDetailView from '@/Pages/TransactionsDetails/Index.vue';
-
 const props = defineProps({ 
     transactions: Object,
     stores: Array, 
@@ -36,10 +33,7 @@ const isEditMode = ref(false);
 const errorMessage = ref('');
 const productOptions = ref([]); 
 
-// STATE DETAIL MODAL
-const isDetailModalOpen = ref(false);
-const selectedTransactionId = ref(null);
-const detailRef = ref(null);
+const isReadOnly = ref(false);
 
 const withdrawalTypeOptions = computed(() => {
     return (props.withdrawal_source_type || []).map(item => ({
@@ -74,7 +68,6 @@ const singleEntry = ref({
     withdrawal_source_id: '' 
 });
 
-// --- LOGIKA STOK & SALDO VIRTUAL ---
 
 const refreshProductList = () => {
     productOptions.value = []; 
@@ -211,12 +204,26 @@ const addToBatch = () => {
         if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
             errorMessage.value = "Lengkapi data Tarik Tunai!"; return;
         }
-        const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
+
+        const nominalBersih = Number(singleEntry.value.withdrawal_amount) - Number(singleEntry.value.admin_fee);
+
         form.details.push({
-            type: 'tarik_tunai', product_id: null, name: `TARIK TUNAI [${wType.name}]`,
+            type: 'tarik_tunai', 
+            product_id: null, 
+            name: `TARIK TUNAI [${wType.name}]`,
             note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
-            price: combinedPrice, quantity: 1, subtotal: combinedPrice, 
-            meta: { customer_name: singleEntry.value.customer_name, amount: singleEntry.value.withdrawal_amount, fee: singleEntry.value.admin_fee, withdrawal_source_id: wType.id }
+            
+
+            price: 0, 
+            quantity: 1, 
+            subtotal: 0, 
+            
+            meta: { 
+                customer_name: singleEntry.value.customer_name, 
+                amount: singleEntry.value.withdrawal_amount, // Nominal kotor tetap dicatat
+                fee: singleEntry.value.admin_fee, 
+                withdrawal_source_id: wType.id 
+            }
         });
     }
     
@@ -233,6 +240,7 @@ const addToBatch = () => {
 const closeForm = () => {
     showForm.value = false;
     isEditMode.value = false;
+    isReadOnly.value = false;
     errorMessage.value = '';
     form.reset();
     form.details = [];
@@ -261,6 +269,7 @@ const submit = () => {
 };
 
 const openCreate = () => {
+    isReadOnly.value = false;
     isEditMode.value = false;
     form.reset();
     form.id = null; 
@@ -272,6 +281,7 @@ const openCreate = () => {
 };
 
 const openEdit = (row) => {
+    if (!isReadOnly.value) isReadOnly.value = false;
     isEditMode.value = true;
     form.id = row.id;
     form.store_id = row.store_id;
@@ -304,12 +314,11 @@ const openEdit = (row) => {
     calculateAll();
     showForm.value = true;
 };
-
-const handleOpenDetail = (id) => {
-    selectedTransactionId.value = id;
-    isDetailModalOpen.value = true;
-    setTimeout(() => { detailRef.value?.fetchDetails(); }, 50);
+const openDetail = (row) => {
+    isReadOnly.value = true;
+    openEdit(row); // Memanfaatkan logika mapping data yang sudah ada di openEdit
 };
+
 
 const confirmDelete = (row) => {
     if (confirm(`Apakah Anda yakin ingin membatalkan transaksi #${row.id}?\nStok dan saldo akan otomatis dikembalikan.`)) {
@@ -327,23 +336,26 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
             <div v-if="showForm" :class="isEditMode ? 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4' : ''">
                 <div class="p-6 bg-white rounded-xl border border-gray-200 shadow-md relative" :class="isEditMode ? 'w-full max-w-6xl max-h-[90vh] overflow-y-auto' : 'mb-8'">
                     <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-black uppercase tracking-tighter text-gray-800">
+                        <!-- <h2 class="text-lg font-black uppercase tracking-tighter text-gray-800">
                             {{ isEditMode ? 'Edit Transaksi #' + form.id : 'Input Transaksi Baru' }}
+                        </h2> -->
+                        <h2 class="text-lg font-black uppercase tracking-tighter text-gray-800">
+                            {{ isReadOnly ? 'Detail Transaksi #' + form.id : (isEditMode ? 'Edit Transaksi #' + form.id : 'Input Transaksi Baru') }}
                         </h2>
                         <button @click="closeForm" class="text-gray-400 hover:text-red-500 font-bold">✕ Close</button>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <SearchableSelect label="Toko" v-model="form.store_id" :options="stores" :disabled="isEditMode" />
+                        <SearchableSelect label="Toko" v-model="form.store_id" :options="stores" :disabled="isEditMode || isReadOnly" />
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Waktu Transaksi</label>
-                            <input v-model="form.transaction_at" type="datetime-local" class="border border-gray-300 rounded-lg p-2 text-sm h-[38px] outline-none" />
+                            <input v-model="form.transaction_at" :disabled="isReadOnly" type="datetime-local" class="border border-gray-300 rounded-lg p-2 text-sm h-[38px] outline-none" />
                         </div>
-                        <SearchableSelect label="Kasir (Nota)" v-model="form.pos_user_id" :options="pos_users" />
-                        <SearchableSelect label="Metode Bayar" v-model="form.payment_id" :options="paymentMethods" />
+                        <SearchableSelect label="Kasir (Nota)" v-model="form.pos_user_id" :options="pos_users" :disabled="isReadOnly" />
+                        <SearchableSelect label="Metode Bayar" v-model="form.payment_id" :options="paymentMethods" :disabled="isReadOnly" />
                     </div>
 
-                    <div class="p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6 border border-dashed border-gray-300">
+                    <div v-if="!isReadOnly" class="p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6 border border-dashed border-gray-300">
                         <div class="md:col-span-2 flex flex-col gap-1">
                             <label class="text-[10px] font-bold text-gray-400 uppercase">Jenis</label>
                             <select v-model="singleEntry.type" class="border border-gray-300 rounded-lg p-2 text-xs h-[38px] bg-white outline-none">
@@ -398,7 +410,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                                     <th class="p-3 text-right">Harga</th>
                                     <th class="p-3 text-center">Qty</th>
                                     <th class="p-3 text-right">Total</th>
-                                    <th class="p-3 w-10"></th>
+                                    <th v-if="!isReadOnly" class="p-3 w-10"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -406,12 +418,45 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                                     <td class="p-3">
                                         <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[9px] uppercase font-bold text-gray-600">{{ item.type.replace('_', ' ') }}</span>
                                     </td>
-                                    <td class="p-3 font-bold uppercase">{{ item.name }}/{{ item.wallet_name }}</td>
-                                    <td class="p-3 text-gray-500 italic">{{ item.note }}</td>
-                                    <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
-                                    <td class="p-3 text-center">{{ item.quantity }}</td>
-                                    <td class="p-3 text-right font-bold text-gray-800">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
+                                    <td class="p-3 font-bold uppercase">
+                                        <template v-if="item.type === 'tarik_tunai'">
+                                            {{ item.name.replace('TARIK TUNAI [', '').replace(']', '') }}
+                                        </template>
+                                        <template v-else>
+                                            {{ item.name }}{{ item.wallet_name ? '/' + item.wallet_name : '' }}
+                                        </template>
+                                    </td>
+                                    <td class="p-3 text-gray-500 italic">
+                                        <template v-if="item.type === 'tarik_tunai'">
+                                            a/n {{ item.meta.customer_name }} | Nominal: {{ Number(item.meta.amount).toLocaleString('id-ID') }}
+                                        </template>
+                                        <template v-else>
+                                            {{ item.note }}
+                                        </template>
+                                    </td>
+                                    <td class="p-3 text-right">
+                                        <template v-if="item.type === 'tarik_tunai'">
+                                            <span class="text-black-800">Admin: {{ Number(item.meta.fee).toLocaleString('id-ID') }}</span>
+                                        </template>
+                                        <template v-else>
+                                            {{ Number(item.price).toLocaleString('id-ID') }}
+                                        </template>
+                                    </td>
                                     <td class="p-3 text-center">
+                                        <template v-if="item.type === 'tarik_tunai'">
+                                            <span class="font-bold text-green-700">
+                                                {{ (Number(item.meta.amount) - Number(item.meta.fee)).toLocaleString('id-ID') }}
+                                            </span>
+                                        </template>
+                                        <template v-else>
+                                            {{ item.quantity }}
+                                        </template>
+                                    </td>
+                                    <td class="p-3 text-right font-bold text-gray-800">
+                                        <template v-if="item.type === 'tarik_tunai'">-</template>
+                                        <template v-else>{{ Number(item.subtotal).toLocaleString('id-ID') }}</template>
+                                    </td>
+                                    <td v-if="!isReadOnly" class="p-3 text-center">
                                         <button @click="form.details.splice(idx,1); calculateAll()" class="text-red-400 hover:text-red-600 font-bold">✕</button>
                                     </td>
                                 </tr>
@@ -422,11 +467,13 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                     <div class="flex justify-between items-center pt-6 border-t border-gray-100">
                         <div class="flex flex-col">
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grand Total</span>
-                            <div class="text-3xl font-black italic text-gray-900">Rp {{ form.total.toLocaleString('id-ID') }}</div>
+                            <div class="text-3xl font-black italic text-gray-900">
+                                {{ form.total > 0 ? 'Rp ' + form.total.toLocaleString('id-ID') : 'Rp. -' }}
+                            </div>
                         </div>
                         <div class="flex items-center gap-4">
                             <span v-if="errorMessage" class="text-red-500 font-bold text-xs uppercase">{{ errorMessage }}</span>
-                            <button @click="submit" :disabled="form.processing" class="px-10 py-3 bg-black text-white rounded-xl font-bold uppercase hover:bg-gray-800 shadow-lg transition-all active:scale-95">
+                            <button v-if="!isReadOnly" @click="submit" :disabled="form.processing" class="px-10 py-3 bg-black text-white rounded-xl font-bold uppercase hover:bg-gray-800 shadow-lg transition-all active:scale-95">
                                 {{ form.processing ? 'Menyimpan...' : (isEditMode ? 'Update Transaksi' : 'Simpan Transaksi') }}
                             </button>
                         </div>
@@ -461,24 +508,20 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                 </template>
 
                 <template #total="{ value }"> 
-                    <span class="font-black text-gray-900 italic text-sm">Rp {{ Number(value).toLocaleString('id-ID') }}</span> 
+                    <span class="font-black text-gray-900 italic text-sm">
+                        {{ Number(value) > 0 ? 'Rp ' + Number(value).toLocaleString('id-ID') : '-' }}
+                    </span> 
                 </template>
 
                 <template #actions="{ row }">
                     <div class="flex items-center gap-2 justify-end">
-                        <button @click="handleOpenDetail(row.id)" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100">🔎</button>
+                        <!-- <button @click="handleOpenDetail(row.id)" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100">🔎</button> -->
+                         <button @click="openDetail(row)" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100">🔎</button>
                         <button @click="openEdit(row)" class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg font-black text-[10px] uppercase hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-100">✏️</button>
                         <button @click="confirmDelete(row)" class="px-3 py-1 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100">❌</button>
                     </div>
                 </template>
             </DataTable>
         </div>
-
-        <TransactionDetailView 
-            ref="detailRef"
-            :show="isDetailModalOpen" 
-            :transaction-id="selectedTransactionId" 
-            @close="isDetailModalOpen = false" 
-        />
     </AuthenticatedLayout>
 </template>

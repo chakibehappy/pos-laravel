@@ -85,7 +85,9 @@ Route::post('/pos-user-login', function (Request $request) {
         'stores', 
         $request->store_id, 
         'Login Aplikasi POS '. $request->store_name, 
-        $request->pos_user_id
+        $request->pos_user_id,
+         ['device' => $request->device_name, 'ip' => $request->ip()], 
+        $request->store_id 
     );
     $token = $user->createToken($request->device_name)->plainTextToken;
 
@@ -195,13 +197,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         ]);
 
         
-        ActivityLogger::log(
-            'create', 
-            'transactions', 
-            $transaction->id, 
-            'Menambah transaksi penjualan sejumlah Rp.' . $request->total, 
-            $posUser->id
-        );
+        
 
         // Create Transaction Items
         foreach ($request->items as $item) {
@@ -294,6 +290,19 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->increment('cash', $lineSubtotal);
             }
         }
+
+        $transaction->refresh();
+        $transaction->load(['details.product', 'details.topupTransaction', 'details.cashWithdrawal']);
+
+        ActivityLogger::log(
+            'create', 
+            'transactions', 
+            $transaction->id, 
+            'Menambah transaksi penjualan sejumlah Rp.' . number_format($request->total, 0, ',', '.'), 
+            $posUser->id,
+            ['new' => $transaction->toArray()], 
+            $request->store_id
+        );
 
 
         DB::commit();
@@ -421,12 +430,14 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
             'delete_reason' => $request->reason,
         ]);
         
-        ActivityLogger::log(
-            'login', 
-            'stores', 
-            $request->store_id, 
-            'Request hapus penjualan '. $request->store_name, 
-            $posUser->id
+       ActivityLogger::log(
+            'update', // Gunakan 'update' karena status berubah
+            'transactions', 
+            $transaction->id, 
+            'Request hapus penjualan ID: '. $transaction->id, 
+            $posUser->id,
+            ['reason' => $request->reason, 'old_status' => 0, 'new_status' => 1],
+            $transaction->store_id
         );
 
         return response()->json([
@@ -509,12 +520,14 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'created_at'      => now(),
         ]);
         
-        ActivityLogger::log(
+         ActivityLogger::log(
             'create', 
             'expense_transactions', 
             $expenseId, 
-            'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $request->description . ' sejumlah Rp.' . $request->amount, 
-            $posUser->id
+            'Menambah pengeluaran: '. $request->description, 
+            $posUser->id,
+            ['amount' => $request->amount, 'description' => $request->description],
+            $request->store_id
         );
 
         DB::commit();

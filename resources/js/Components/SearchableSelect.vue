@@ -5,7 +5,8 @@ const props = defineProps({
     modelValue: [String, Number],
     options: Array,
     label: String,
-    placeholder: String
+    placeholder: String,
+    disabled: Boolean
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -39,15 +40,13 @@ const filteredOptions = computed(() => {
     );
 });
 
-// Handler saat user mengetik atau menghapus
 const onInput = () => {
+    if (props.disabled) return; // <--- Cegah input jika disabled
     isOpen.value = true;
-    // Jika user menghapus semua teks, kosongkan value di parent
     if (search.value === '') {
         emit('update:modelValue', '');
     }
 };
-
 const selectOption = (opt) => {
     search.value = opt.name;
     emit('update:modelValue', opt.id);
@@ -80,6 +79,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
                 @focus="isOpen = true"
                 @input="onInput"
                 :placeholder="placeholder"
+                :disabled="disabled"
                 class="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
             />
             
