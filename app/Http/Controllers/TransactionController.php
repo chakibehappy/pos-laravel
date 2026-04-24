@@ -225,18 +225,26 @@ class TransactionController extends Controller
                         DigitalWalletStore::where('id', $item['meta']['digital_wallet_store_id'])->decrement('balance', $item['meta']['nominal_topup']);
                     }
 
-                    if ($item['type'] === 'tarik_tunai') {
+                   if ($item['type'] === 'tarik_tunai') {
+                        $nominalTarik = $item['meta']['amount'];
+                        $feeAdmin = $item['meta']['fee'];
+                        $jumlahKeluarKas = $nominalTarik - $feeAdmin; // Rumus: Nominal dikurangi fee
+
                         $cashWithId = DB::table('cash_withdrawals')->insertGetId([
                             'store_id'             => $storeId,
                             'customer_name'        => $item['meta']['customer_name'],
                             'withdrawal_source_id' => $item['meta']['withdrawal_source_id'],
-                            'withdrawal_count'     => $item['meta']['amount'],
-                            'admin_fee'            => $item['meta']['fee'],
+                            'withdrawal_count'     => $nominalTarik,
+                            'admin_fee'            => $feeAdmin,
                             'created_by'           => $automatedCreatedBy,
                             'created_at'           => $request->transaction_at,
                             'updated_at'           => now(),
                         ]);
-                        DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $item['meta']['amount']);
+
+                        // Update: Kas toko hanya berkurang nominal bersih yang diserahkan ke pelanggan
+                        DB::table('cash_store')
+                            ->where('store_id', $storeId)
+                            ->decrement('cash', $jumlahKeluarKas);
                     }
 
                     $transaction->details()->create([
@@ -301,8 +309,12 @@ class TransactionController extends Controller
             if ($detail->cash_withdrawal_id) {
                 $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
                 if ($withdraw) {
+                    // Hitung kembali nominal bersih yang dulu dikeluarkan
+                    $jumlahMasukKembali = $withdraw->withdrawal_count - $withdraw->admin_fee;
+                    
                     DB::table('cash_store')->where('store_id', $transaction->store_id)
-                        ->increment('cash', $withdraw->withdrawal_count);
+                        ->increment('cash', $jumlahMasukKembali);
+                        
                     DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
                 }
             }

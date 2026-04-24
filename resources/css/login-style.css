@@ -101,11 +101,11 @@
 }
 
 .login-button {
-    width: 350px;
+    width: 100%;           /* Mengikuti lebar kartu secara otomatis */
+    margin-left: 0;        /* Menghapus pergeseran paksa ke kiri */
     background-color: #ffc107;
     color: #1e293b;
     font-weight: 900;
-    margin-left: -25px;
     border-radius: 1rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -113,7 +113,8 @@
     border: none;
     cursor: pointer;
     box-shadow: 0 10px 15px -3px rgba(255, 249, 196, 0.5);
-    padding: 16px 32px
+    padding: 16px 32px;
+    box-sizing: border-box; /* Memastikan padding tidak menambah lebar total */
 }
 .login-button:hover { background-color: #e6af06; }
 
@@ -143,7 +144,9 @@
         padding: 48px;
         border-radius: 2.5rem;
     }
-    
+     .login-button {
+        width: 100%; /* Atau tetap 400px jika kartu desktop cukup luas */
+    }
     .card-title { font-size: 1.875rem; }
 
     .input-group {

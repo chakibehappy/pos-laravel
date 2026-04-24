@@ -6,6 +6,7 @@ const page = usePage();
 
 const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
+     { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
     { 
         label: 'Pengguna', icon: '👤', isDropdown: true,
         activeOn: ['users.*', 'pos_users.*', 'accounts.*'],
@@ -59,7 +60,7 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
-    { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
+   
     // { label: 'Laporan Pembelian', icon: '📦', name: 'report-buying.index', route: route('report-buying.index') },
     // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },
     // { label: 'Jenis Layanan', icon: '📋', name: 'services.index', route: route('services.index') },
@@ -108,31 +109,27 @@ watch(() => page.url, () => { openSheet.value = null; });
             </div>
         </Transition>
 
-        <nav class="fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-white/10 z-[130] px-4 pb-safe-area shadow-lg">
-            <div class="flex items-center gap-2 h-16 overflow-x-auto no-scrollbar py-2">
+        <nav class="fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-white/10 z-[130] px-2 pb-safe-area shadow-lg">
+            <div class="flex items-center h-16 overflow-x-auto no-scrollbar py-2 px-2 gap-1">
                 <template v-for="item in menuItems" :key="item.label">
                     <component 
                         :is="item.isDropdown ? 'button' : Link"
                         :href="!item.isDropdown ? item.route : undefined"
                         @click="item.isDropdown ? toggleSheet(item.label) : null"
-                        class="flex flex-col items-center justify-center min-w-[70px] h-full rounded-xl transition-all relative shrink-0"
+                        class="flex flex-col items-center justify-center min-w-[75px] h-full rounded-xl transition-all relative shrink-0"
                         :class="isItemActive(item) ? 'text-yellow-400' : 'text-gray-500'"
                     >
                         <span class="text-xl mb-1 transition-transform" :class="isItemActive(item) ? 'scale-110' : 'opacity-60'">
                             {{ item.icon }}
                         </span>
-                        <span class="text-[9px] font-black uppercase tracking-tighter whitespace-nowrap">
+                        <span class="text-[9px] font-black uppercase tracking-tighter whitespace-nowrap px-1">
                             {{ item.label }}
                         </span>
                         
                         <div v-if="isItemActive(item)" class="absolute -bottom-1 w-6 h-1 bg-yellow-400 rounded-full shadow-[0_0_8px_rgba(250,204,21,0.5)]"></div>
                     </component>
                 </template>
-
-                <!-- <Link :href="route('logout')" method="post" as="button" class="flex flex-col items-center justify-center min-w-[70px] h-full text-gray-500 shrink-0">
-                    <span class="text-xl mb-1 opacity-60">🚪</span>
-                    <span class="text-[9px] font-black uppercase tracking-tighter">Keluar</span>
-                </Link> -->
+                <div class="min-w-[20px] shrink-0"></div>
             </div>
         </nav>
     </div>
