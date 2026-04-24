@@ -22,6 +22,8 @@ use App\Models\CashStore;
 use App\Models\CashWithdrawal;
 use App\Models\TopupFeeRule;
 use App\Models\WithdrawalFeeRule;
+use App\Models\Shift;
+use App\Models\ExpenseTransaction;
 
 use App\Helpers\PosHelper;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +44,9 @@ Route::post('/store-login', function (Request $request) {
     if (!$store || !Hash::check($request->password, $store->password)) {
         return response()->json(['message' => 'Invalid store credentials'], 401);
     }
+    // Get the current physical cash balance for this store
+    $cashRecord = CashStore::where('store_id', $store->id)->first();
+    $store->store_cash = $cashRecord ? $cashRecord->cash : 0.00;
 
     $operators = $store->operators()->where('is_active', 1)
         ->whereNotIn('pos_users.role', ['admin', 'developer'])
@@ -67,21 +72,30 @@ Route::post('/pos-user-login', function (Request $request) {
     if (!$user || !Hash::check($request->pin, $user->pin)) {
         return response()->json(['message' => 'Invalid POS user credentials'], 401);
     }
+
+    // --- NEW SHIFT CHECK LOGIC ---
+    // Check if there is an open shift for this user at this store
+    $activeShift = \App\Models\Shift::where('pos_user_id', $user->id)
+        ->where('store_id', $request->store_id)
+        ->where('status', 0) // 0 is Open
+        ->first();
+
     ActivityLogger::log(
         'login', 
         'stores', 
         $request->store_id, 
         'Login Aplikasi POS '. $request->store_name, 
-        $request->pos_user_id,
-        ['device' => $request->device_name, 'ip' => $request->ip()], 
-        $request->store_id 
+        $request->pos_user_id
     );
     $token = $user->createToken($request->device_name)->plainTextToken;
 
     return response()->json([
         'user' => $user,
         'token' => $token,
-        'token_type' => 'Bearer'
+        'token_type' => 'Bearer',
+        'shift_active' => $activeShift ? true : false,
+        'active_shift_id' => $activeShift ? $activeShift->id : null,
+        'start_cash' => $activeShift ? $activeShift->start_cash : 0,
     ]);
 });
 
@@ -97,13 +111,15 @@ Route::middleware('auth:sanctum')->post('/logout', function (Request $request) {
         $storeId,
         'Logout Aplikasi POS',
         $user->id
-        
     );
+    // Delete current token only (logout this device)
     $user->currentAccessToken()->delete();
     return response()->json([
         'message' => 'Logged out successfully'
     ]);
 });
+
+// Protected Routes (Requires Token)
 Route::middleware('auth:sanctum')->get('/products', function (Request $request) {
 
     $storeId = $request->user()->store_id;
@@ -163,8 +179,11 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 'updatedData' => PosHelper::getPosData($request->store_id),
             ], 200); 
         }
+
+        // --- START ACTUAL PROCESSING ---
         DB::beginTransaction();
 
+        // Create Transaction Header
         $transaction = Transaction::create([
             'store_id'       => $request->store_id,
             'payment_id'     => $paymentId,
@@ -175,6 +194,16 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             'total'          => $request->total,
         ]);
 
+        
+        ActivityLogger::log(
+            'create', 
+            'transactions', 
+            $transaction->id, 
+            'Menambah transaksi penjualan sejumlah Rp.' . $request->total, 
+            $posUser->id
+        );
+
+        // Create Transaction Items
         foreach ($request->items as $item) {
             $topupId = null;
             $withdrawalId = null;
@@ -266,18 +295,6 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             }
         }
 
-        $transaction->refresh();
-        $transaction->load(['details.product', 'details.topupTransaction', 'details.cashWithdrawal']);
-
-        ActivityLogger::log(
-            'create', 
-            'transactions', 
-            $transaction->id, 
-            'Menambah transaksi penjualan sejumlah Rp.' . number_format($request->total, 0, ',', '.'), 
-            $posUser->id,
-            ['new' => $transaction->toArray()], 
-            $request->store_id
-        );
 
         DB::commit();
 
@@ -314,7 +331,8 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
     $timezone = 'Asia/Jakarta';
 
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    $endOfDay   = Carbon::now($timezone)->endOfDay();
+    $startDate = Carbon::now($timezone)->subDays(7)->startOfDay();
+    $endDate   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
             'posUser',
@@ -322,11 +340,12 @@ Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $r
             // 'details.topupTransaction',
             'details.topupTransaction.transType',
             'details.topupTransaction.digitalWalletStore.wallet',
-            'details.cashWithdrawal'
+            'details.cashWithdrawal',
+            'details.cashWithdrawal.source'
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', 0)
-        ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        ->whereBetween('transaction_at', [$startDate, $endDate])
         ->orderBy('transaction_at', 'desc')
         ->get();
 
@@ -353,18 +372,20 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
     $timezone = 'Asia/Jakarta';
 
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    $endOfDay   = Carbon::now($timezone)->endOfDay();
+    $startDate = Carbon::now($timezone)->subDays(7)->startOfDay();
+    $endDate   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
             'posUser',
             'details.product',
             'details.topupTransaction.transType',
             'details.topupTransaction.digitalWalletStore.wallet',
-            'details.cashWithdrawal'
+            'details.cashWithdrawal',
+            'details.cashWithdrawal.source'
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', $status)
-        ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
+        ->whereBetween('transaction_at', [$startDate, $endDate])
         ->orderBy('transaction_at', 'desc')
         ->get();
 
@@ -399,14 +420,13 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
             'delete_requested_by' => $posUser->id,
             'delete_reason' => $request->reason,
         ]);
+        
         ActivityLogger::log(
-            'update', // Gunakan 'update' karena status berubah
-            'transactions', 
-            $transaction->id, 
-            'Request hapus penjualan ID: '. $transaction->id, 
-            $posUser->id,
-            ['reason' => $request->reason, 'old_status' => 0, 'new_status' => 1],
-            $transaction->store_id
+            'login', 
+            'stores', 
+            $request->store_id, 
+            'Request hapus penjualan '. $request->store_name, 
+            $posUser->id
         );
 
         return response()->json([
@@ -488,15 +508,15 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'reference_type'  => 'expense_transactions',
             'created_at'      => now(),
         ]);
+        
         ActivityLogger::log(
             'create', 
             'expense_transactions', 
             $expenseId, 
-            'Menambah pengeluaran: '. $request->description, 
-            $posUser->id,
-            ['amount' => $request->amount, 'description' => $request->description],
-            $request->store_id
+            'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $request->description . ' sejumlah Rp.' . $request->amount, 
+            $posUser->id
         );
+
         DB::commit();
 
         return response()->json([
@@ -515,214 +535,140 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
     }
 });
 
-// // currently used :
-// Route::middleware('auth:sanctum')->get('/get-transactions', function (Request $request) {
 
-//     $request->validate([
-//         'store_id' => 'required|integer|exists:stores,id',
-//     ]);
+Route::middleware('auth:sanctum')->post('/start-shift', function (Request $request) {
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+        'start_cash' => 'required|numeric',
+    ]);
 
-//     $storeId = $request->store_id;
+    $user = $request->user();
 
-//     $timezone = 'Asia/Jakarta';
+    // Safety Check: Ensure no open shift already exists for this user/store
+    $exists = Shift::where('pos_user_id', $user->id)
+        ->where('store_id', $request->store_id)
+        ->where('status', 0)
+        ->exists();
 
-//     $startOfDay = Carbon::now($timezone)->startOfDay();
-//     $endOfDay   = Carbon::now($timezone)->endOfDay();
+    if ($exists) {
+        return response()->json(['message' => 'You already have an active shift'], 422);
+    }
 
-//     $transactions = Transaction::with([
-//             'posUser',
-//             'details.product',
-//             // 'details.topupTransaction',
-//             'details.topupTransaction.transType',
-//             'details.topupTransaction.digitalWalletStore.wallet',
-//             'details.cashWithdrawal'
-//         ])
-//         ->where('store_id', $storeId)
-//         ->where('transactions.status', 0)
-//         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
-//         ->orderBy('transaction_at', 'desc')
-//         ->get();
+    $shift = Shift::create([
+        'store_id' => $request->store_id,
+        'pos_user_id' => $user->id,
+        'start_at' => now(),
+        'start_cash' => $request->start_cash,
+        'status' => 0, // 0 = Open/Active
+    ]);
 
-//     return response()->json([
-//         'timezone' => $timezone,
-//         'date' => $startOfDay->toDateString(),
-//         'store_id' => $storeId,
-//         'count' => $transactions->count(),
-//         'transactions' => $transactions,
-//     ]);
-// });
+    ActivityLogger::log(
+        'create', 
+        'shifts', 
+        $shift->id, 
+        'Mulai Shift dengan modal: Rp.' . $request->start_cash, 
+        $user->id
+    );
 
-// // get transaction by status, and also pass pos user id for logger
-// Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Request $request) {
+    return response()->json([
+        'message' => 'Shift started successfully',
+        'shift_id' => $shift->id,
+        'start_cash' => $shift->start_cash
+    ], 201);
+});
 
-//     $request->validate([
-//         'store_id' => 'required|integer|exists:stores,id',
-//         'status'   => 'nullable|integer|in:0,1,2',
-//     ]);
+Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request) {
+    $request->validate([
+        'shift_id'       => 'required|integer|exists:shifts,id',
+        'end_cash'       => 'required|numeric', // The actual money in the drawer
+        'collector_name' => 'nullable|string',
+        'notes'          => 'nullable|string',
+    ]);
 
-//     $storeId = $request->store_id;
-//     $status  = $request->status; // default to 0
+    $shift = Shift::where('id', $request->shift_id)
+        ->where('status', 0) // Must still be open
+        ->first();
 
-//     $timezone = 'Asia/Jakarta';
+    if (!$shift) {
+        return response()->json(['message' => 'Active shift not found or already closed'], 404);
+    }
 
-//     $startOfDay = Carbon::now($timezone)->startOfDay();
-//     $endOfDay   = Carbon::now($timezone)->endOfDay();
+    // Logic: The "Expected" cash is what's currently in the CashStore for this store
+    $currentStoreCash = CashStore::where('store_id', $shift->store_id)->value('cash') ?? 0;
 
-//     $transactions = Transaction::with([
-//             'posUser',
-//             'details.product',
-//             'details.topupTransaction.transType',
-//             'details.topupTransaction.digitalWalletStore.wallet',
-//             'details.cashWithdrawal'
-//         ])
-//         ->where('store_id', $storeId)
-//         ->where('transactions.status', $status)
-//         ->whereBetween('transaction_at', [$startOfDay, $endOfDay])
-//         ->orderBy('transaction_at', 'desc')
-//         ->get();
+    $shift->update([
+        'end_at'           => now(),
+        'end_cash'         => $request->end_cash,       // Physical count
+        'exp_end_cash'     => $currentStoreCash,        // System expectation
+        'collector_name'   => $request->collector_name,
+        'notes'            => $request->notes,
+        'status'           => 1, // 1 = Closed
+    ]);
 
-//     return response()->json([
-//         'timezone' => $timezone,
-//         'date' => $startOfDay->toDateString(),
-//         'store_id' => $storeId,
-//         'count' => $transactions->count(),
-//         'transactions' => $transactions,
-//     ]);
-// });
-
-
-// Route::middleware('auth:sanctum')->post('/request-delete', function (Request $request) {
-//         $request->validate([
-//             'reason' => 'required|string|max:255',
-//             'transaction_id' => 'required|integer|exists:transactions,id',
-//         ]);
-
-//         $transaction = Transaction::findOrFail($request->transaction_id);
+    CashStore::where('store_id', $shift->store_id)->decrement('cash', $request->end_cash);
         
-//         if ($transaction->status !== 0) {
-//             return response()->json([
-//                 'message' => 'Transaction cannot be requested for deletion.',
-//             ], 422);
-//         }
+    ActivityLogger::log(
+        'update', 
+        'shifts', 
+        $shift->id, 
+        'Akhiri Shift. Total Kas Toko: Rp.'.$currentStoreCash.' | Jumlah Setor: Rp.'.$request->end_cash, 
+        $request->user()->id
+    );
 
-//         $posUser = $request->user();
+    return response()->json([
+        'message' => 'Shift closed successfully',
+        'shift' => $shift
+    ]);
+});
 
-//         $transaction->update([
-//             'status' => 1,
-//             'delete_requested_by' => $posUser->id,
-//             'delete_reason' => $request->reason,
-//         ]);
-        
-//         ActivityLogger::log(
-//             'login', 
-//             'stores', 
-//             $request->store_id, 
-//             'Request hapus penjualan '. $request->store_name, 
-//             $posUser->id
-//         );
+Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $request) {
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+        'shift_id' => 'required|integer|exists:shifts,id',
+    ]);
 
-//         return response()->json([
-//             'message' => 'Delete request submitted successfully.',
-//             'transaction_id' => $transaction->id,
-//             'status' => $transaction->status,
-//         ]);
-//     }
-// );
+    $timezone = 'Asia/Jakarta';
+    $shift = Shift::findOrFail($request->shift_id);
+    $storeId = $request->store_id;
 
-// Route::middleware('auth:sanctum')->get('/get-expenses', function (Request $request) {
+    $start = Carbon::parse($shift->start_at)->timezone($timezone)->toDateTimeString();
+    $end   = Carbon::now($timezone)->toDateTimeString(); 
 
-//     $request->validate([
-//         'store_id' => 'required|integer|exists:stores,id'
-//     ]);
+    // Aggregates for Sales, Topup, Withdrawal
+    $summary = DB::table('transaction_details')
+        ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
+        ->where('transactions.store_id', $storeId)
+        ->where('transactions.status', 0) // Explicit table prefix
+        ->whereBetween('transactions.transaction_at', [$start, $end])
+        ->select(
+            DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
+            DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
+            DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
+        )
+        ->first();
 
-//     $storeId = $request->store_id;
-//     $timezone = 'Asia/Jakarta';
+    // Expenses
+    $totalExpenses = ExpenseTransaction::where('store_id', $storeId)
+        ->where('status', 0) // Explicit table prefix
+        ->whereBetween('transaction_at', [$start, $end])
+        ->sum('amount');
 
-//     $startDate = Carbon::now($timezone)->subDay()->startOfDay(); // yesterday 00:00
-//     $endDate   = Carbon::now($timezone)->endOfDay();             // today 23:59
+    $sales = (float)($summary->total_sales ?? 0);
+    $topup = (float)($summary->total_topup ?? 0);
+    $withdrawal = (float)($summary->total_withdrawal ?? 0);
+    $expenses = (float)($totalExpenses ?? 0);
 
-//     $expenses = DB::table('expense_transactions')
-//         ->leftJoin('pos_users', 'expense_transactions.pos_user_id', '=', 'pos_users.id')
-//         ->where('expense_transactions.store_id', $storeId)
-//         ->where('expense_transactions.status', 0)
-//         ->whereBetween('expense_transactions.transaction_at', [$startDate, $endDate])
-//         ->orderBy('expense_transactions.transaction_at', 'desc')
-//         ->select(
-//             'expense_transactions.*',
-//             'pos_users.name as pos_user_name',
-//             'pos_users.username as pos_user_username'
-//         )
-//         ->get();
-
-//     return response()->json([
-//         'expenses'  => $expenses,
-//     ]);
-// });
-
-// Route::middleware('auth:sanctum')->post('/expenses', function (Request $request) {
-
-//     $request->validate([
-//         'store_id'       => 'required|integer|exists:stores,id',
-//         'amount'         => 'required|numeric|min:1',
-//         'description'    => 'required|string',
-//         'image'          => 'nullable|string',
-//     ]);
-
-//     $posUser = $request->user();
-
-//     DB::beginTransaction();
-
-//     try {
-//         $expenseId = DB::table('expense_transactions')->insertGetId([
-//             'store_id'       => $request->store_id,
-//             'pos_user_id'    => $posUser->id,
-//             'amount'         => $request->amount,
-//             'description'    => $request->description,
-//             'image'          => $request->image,
-//             'transaction_at' => now(),
-//             'status'         => 0,
-//             'created_by'     => $posUser->id,
-//             'created_at'     => now(),
-//             'updated_at'     => now(),
-//         ]);
-
-//         // Decrease physical store cash
-//         CashStore::where('store_id', $request->store_id)
-//             ->decrement('cash', $request->amount);
-
-//         // Insert into cash_flow
-//         DB::table('cash_flow')->insert([
-//             'store_id'        => $request->store_id,
-//             'created_by'      => $posUser->id,
-//             'amount'           => -1 * $request->amount, // money out
-//             'transaction_type'=> 'expense',
-//             'reference_id'    => $expenseId,
-//             'reference_type'  => 'expense_transactions',
-//             'created_at'      => now(),
-//         ]);
-        
-//         ActivityLogger::log(
-//             'create', 
-//             'expense_transactions', 
-//             $expenseId, 
-//             'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $request->description . ' sejumlah Rp.' . $request->amount, 
-//             $posUser->id
-//         );
-
-//         DB::commit();
-
-//         return response()->json([
-//             'message'    => 'Expense created successfully',
-//             'expense_id' => $expenseId,
-//         ], 201);
-
-//     } catch (\Throwable $e) {
-
-//         DB::rollBack();
-
-//         return response()->json([
-//             'message' => 'Failed to create expense',
-//             'error'   => $e->getMessage()
-//         ], 500);
-//     }
-// });
+    return response()->json([
+        'range' => [
+            'start' => Carbon::parse($shift->start_at)->timezone($timezone)->toDateTimeString(),
+            'end'   => Carbon::now($timezone)->toDateTimeString(),
+        ],
+        'data' => [
+            'sales'      => $sales,
+            'topup'      => $topup,
+            'withdrawal' => $withdrawal,
+            'expenses'   => $expenses,
+            'net_flow'   => ($sales + $topup) - ($withdrawal + $expenses)
+        ]
+    ]);
+});
