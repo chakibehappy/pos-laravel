@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, reactive } from 'vue'; // Tambahkan reactive
 import { useForm, Head, usePage, router } from '@inertiajs/vue3'; 
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -7,6 +7,8 @@ import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 // IMPORT VIEW DETAIL
 import TransactionDetailView from '@/Pages/TransactionsDetails/Index.vue';
+
+import debounce from 'lodash/debounce'; // Tambahkan ini
 
 const props = defineProps({ 
     transactions: Object,
@@ -333,6 +335,23 @@ const confirmDelete = (row) => {
 };
 
 const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+// --- STATE FILTER DINAMIS ---
+const filterState = reactive({
+    search: props.filters?.search || '',
+    store_id: props.filters?.store_id || '',
+    start_date: props.filters?.start_date || '',
+    end_date: props.filters?.end_date || '',
+});
+
+// Otomatis reload data saat filter berubah
+watch(filterState, debounce(() => {
+    router.get(route('transactions.index'), filterState, {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true
+    });
+}, 500));
 </script>
 
 <template>
@@ -452,7 +471,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                 </div>
             </div>
 
-            <DataTable 
+           <DataTable 
                 title="Riwayat Transaksi" 
                 :resource="transactions" 
                 :columns="columns" 
@@ -462,6 +481,30 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                 :initial-search="filters?.search || ''"
                 @on-add="openCreate"
             >
+
+            <template #extra-filters>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="w-48">
+                        <SearchableSelect 
+                            v-model="filterState.store_id"
+                            :options="stores"
+                            label="Lokasi Toko"
+                            placeholder="Semua Toko"
+                        />
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mulai</label>
+                        <input type="date" v-model="filterState.start_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sampai</label>
+                        <input type="date" v-model="filterState.end_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                    </div>
+                </div>
+            </template>
+            
                 <template #transaction_at="{ value }"> 
                     <span class="text-gray-500 font-medium">{{ formatDate(value) }}</span> 
                 </template>
