@@ -185,15 +185,39 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         // --- START ACTUAL PROCESSING ---
         DB::beginTransaction();
 
+        // Fix for bugs that delete withdrawal cash not adding cash store, due diferent subotal logic and data store
+        // now we follow dashboard, any changes
+        $mainTotal = $request->total;
+        $mainSubTotal = $request->subtotal;
+
+        foreach ($request->items as $item) {
+            if (!empty($item['cash_withdrawal'])) {
+                $wdData = $item['cash_withdrawal'];
+                $feeRule = WithdrawalFeeRule::where('min_limit', '<=', $amount)
+                    ->where(function ($q) use ($amount) {
+                        $q->where('max_limit', '>=', $amount)
+                        ->orWhere('max_limit', '<', 0); // unlimited
+                    })
+                    ->orderBy('min_limit', 'desc')
+                    ->first();
+
+                $adminFee = $feeRule?->fee ?? 0;
+                $amount = $wdData['withdrawal_count'] - adminFee;
+
+                $mainTotal -= $amount;
+                $mainSubTotal -= $amount;
+            }
+        }
+
         // Create Transaction Header
         $transaction = Transaction::create([
             'store_id'       => $request->store_id,
             'payment_id'     => $paymentId,
             'pos_user_id'    => $posUser->id,
             'transaction_at' => $request->transaction_at,
-            'subtotal'       => $request->subtotal,
+            'subtotal'       => $mainSubTotal,
             'tax'            => $request->tax,
-            'total'          => $request->total,
+            'total'          => $mainTotal,
         ]);
 
         

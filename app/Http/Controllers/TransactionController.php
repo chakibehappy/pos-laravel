@@ -113,7 +113,7 @@ class TransactionController extends Controller
                 // 1. Simpan data LENGKAP sebagai OLD (dalam bentuk array)
                 $oldData = $transaction->toArray();
 
-                // 2. Rollback Logic // todo
+                // 2. Rollback Logic (rest product, reset saldo, reset cash from withdawals)
                 $this->rollbackAssets($transaction);
 
                 // Rollback saldo kas utama toko
