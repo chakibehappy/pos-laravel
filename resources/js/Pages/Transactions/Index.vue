@@ -206,19 +206,33 @@ const addToBatch = () => {
                 topup_trans_type_id: s.id 
             }
         });
-    } else if (singleEntry.value.type === 'tarik_tunai') {
-        const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
-        if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
-            errorMessage.value = "Lengkapi data Tarik Tunai!"; return;
+    // --- CARI BAGIAN INI ---
+        } else if (singleEntry.value.type === 'tarik_tunai') {
+            const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
+            if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
+                errorMessage.value = "Lengkapi data Tarik Tunai!"; return;
+            }
+            
+            // CombinedPrice adalah nominal yang ditransfer customer ke kita (200rb)
+            const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
+            
+            form.details.push({
+                type: 'tarik_tunai', 
+                product_id: null, 
+                name: `TARIK TUNAI [${wType.name}]`,
+                note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
+                price: combinedPrice, 
+                quantity: 1, 
+                // UBAH DISINI: subtotal jadi 0 agar tidak menambah Grand Total di bawah
+                subtotal: 0, 
+                meta: { 
+                    customer_name: singleEntry.value.customer_name, 
+                    amount: singleEntry.value.withdrawal_amount, 
+                    fee: singleEntry.value.admin_fee, 
+                    withdrawal_source_id: wType.id 
+                }
+            });
         }
-        const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
-        form.details.push({
-            type: 'tarik_tunai', product_id: null, name: `TARIK TUNAI [${wType.name}]`,
-            note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
-            price: combinedPrice, quantity: 1, subtotal: combinedPrice, 
-            meta: { customer_name: singleEntry.value.customer_name, amount: singleEntry.value.withdrawal_amount, fee: singleEntry.value.admin_fee, withdrawal_source_id: wType.id }
-        });
-    }
     
     calculateAll();
 

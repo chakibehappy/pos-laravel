@@ -251,6 +251,13 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->first();
 
                 $adminFee = $feeRule?->fee ?? 0;
+
+                $cashRecord = CashStore::where('store_id', $request->store_id)->lockForUpdate()->first();
+                $nominalKeluar = $amount - $adminFee; 
+
+                if (!$cashRecord || $cashRecord->cash < $nominalKeluar) {
+                    throw new \Exception("Saldo kas toko tidak mencukupi untuk tarik tunai. Sisa: " . ($cashRecord->cash ?? 0));
+                }
                 
                 $withdrawal = CashWithdrawal::create([
                     'store_id'             => $request->store_id,
@@ -268,7 +275,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->decrement('cash', $nominal);
             }
 
-            $lineSubtotal = $item['quantity'] * $item['price'];
+            $lineSubtotal = (!empty($item['cash_withdrawal'])) ? 0 : ($item['quantity'] * $item['price']);
 
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
