@@ -326,15 +326,15 @@ class TransactionController extends Controller
             }
 
             if ($detail->cash_withdrawal_id) {
-                // $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
-                // if ($withdraw) {
-                //     // Ambil dari withdrawal_count (yang nilainya 197k)
-                //     // NOW
-                //     DB::table('cash_store')->where('store_id', $transaction->store_id)
-                //         ->increment('cash', $withdraw->withdrawal_count - $withdraw->admin_fee);
+                $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
+                if ($withdraw) {
+                    // Ambil dari withdrawal_count (yang nilainya 197k)
+                    // NOW
+                    DB::table('cash_store')->where('store_id', $transaction->store_id)
+                        ->increment('cash', $withdraw->withdrawal_count - $withdraw->admin_fee);
                     
-                //     DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
-                // }
+                    DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
+                }
             }
         }
     }
