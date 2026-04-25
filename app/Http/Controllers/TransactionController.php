@@ -254,7 +254,7 @@ class TransactionController extends Controller
                             'store_id'             => $storeId,
                             'customer_name'        => $item['meta']['customer_name'],
                             'withdrawal_source_id' => $item['meta']['withdrawal_source_id'],
-                            'withdrawal_count'     => $uangKeluar, // SIMPAN 197.000 (Uang Fisik)
+                            'withdrawal_count'     => $nominalKotor, // SIMPAN 197.000 (Uang Fisik)
                             'admin_fee'            => $feeAdmin,
                             'created_by'           => $automatedCreatedBy,
                             'created_at'           => $request->transaction_at,
@@ -330,7 +330,7 @@ class TransactionController extends Controller
                 if ($withdraw) {
                     // Ambil dari withdrawal_count (yang nilainya 197k)
                     DB::table('cash_store')->where('store_id', $transaction->store_id)
-                        ->increment('cash', $withdraw->withdrawal_count);
+                        ->increment('cash', $withdraw->withdrawal_count - $withdraw->admin_fee);
                     
                     DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
                 }
