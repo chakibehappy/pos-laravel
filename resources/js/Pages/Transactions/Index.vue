@@ -207,23 +207,24 @@ const addToBatch = () => {
             }
         });
     // --- CARI BAGIAN INI ---
+        // --- BAGIAN YANG DIUBAH ---
         } else if (singleEntry.value.type === 'tarik_tunai') {
             const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
             if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
                 errorMessage.value = "Lengkapi data Tarik Tunai!"; return;
             }
             
-            // CombinedPrice adalah nominal yang ditransfer customer ke kita (200rb)
-            const combinedPrice = Number(singleEntry.value.withdrawal_amount) + Number(singleEntry.value.admin_fee);
-            
             form.details.push({
                 type: 'tarik_tunai', 
                 product_id: null, 
                 name: `TARIK TUNAI [${wType.name}]`,
                 note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
-                price: combinedPrice, 
+                
+                // UBAH DISINI: price diisi dengan admin_fee agar muncul di kolom Harga
+                price: singleEntry.value.admin_fee, 
+                
                 quantity: 1, 
-                // UBAH DISINI: subtotal jadi 0 agar tidak menambah Grand Total di bawah
+                // Subtotal tetap 0 agar tidak menambah Grand Total (sesuai logika Anda sebelumnya)
                 subtotal: 0, 
                 meta: { 
                     customer_name: singleEntry.value.customer_name, 
@@ -299,7 +300,7 @@ const openEdit = (row) => {
         product_id: d.product_id,
         name: d.product?.name || (d.topup_transaction_id ? 'TOPUP' : (d.cash_withdrawal_id ? 'TARIK TUNAI' : 'PRODUK')),
         note: d.topup_transaction_id ? `${Number(d.topup_transaction.nominal_request).toLocaleString('id-ID')} - ${d.topup_transaction.cust_account_number}` : (d.cash_withdrawal_id ? `${Number(d.cash_withdrawal.withdrawal_count).toLocaleString('id-ID')} - ${d.cash_withdrawal.customer_name}` : '-'),
-        price: d.selling_prices,
+        price: d.cash_withdrawal_id ? (d.cash_withdrawal?.admin_fee || 0) : d.selling_prices,
         quantity: d.quantity,
         subtotal: d.subtotal,
         meta: d.topup_transaction_id ? { 
@@ -409,7 +410,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                                     <th class="p-3 text-left w-20">Jenis</th>
                                     <th class="p-3 text-left">Item / Detail</th>
                                     <th class="p-3 text-left">Keterangan</th>
-                                    <th class="p-3 text-right">Harga</th>
+                                    <th class="p-3 text-right">Harga / Fee</th>
                                     <th class="p-3 text-center">Qty</th>
                                     <th class="p-3 text-right">Total</th>
                                     <th class="p-3 w-10"></th>
@@ -422,7 +423,10 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
                                     </td>
                                     <td class="p-3 font-bold uppercase">{{ item.name }}/{{ item.wallet_name }}</td>
                                     <td class="p-3 text-gray-500 italic">{{ item.note }}</td>
-                                    <td class="p-3 text-right">{{ Number(item.price).toLocaleString('id-ID') }}</td>
+                                    <td class="p-3 text-right">
+                                        <span v-if="item.type === 'tarik_tunai'" class="text-[9px] text-blue-500 font-bold mr-1">FEE:</span>
+                                        {{ Number(item.price).toLocaleString('id-ID') }}
+                                    </td>
                                     <td class="p-3 text-center">{{ item.quantity }}</td>
                                     <td class="p-3 text-right font-bold text-gray-800">{{ Number(item.subtotal).toLocaleString('id-ID') }}</td>
                                     <td class="p-3 text-center">
