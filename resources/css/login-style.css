@@ -99,13 +99,18 @@
     padding-left: 15px;
     text-transform: uppercase;
 }
+/* --- BAGIAN YANG PERLU DIPERBAIKI --- */
 
 .login-button {
-    width: 350px;
+    /* width: 350px; <--- HAPUS INI */
+    width: 100%;    /* <--- UBAH JADI INI */
+    
     background-color: #ffc107;
     color: #1e293b;
     font-weight: 900;
-    margin-left: -25px;
+    
+    /* margin-left: -25px; <--- HAPUS INI agar tombol rata di dalam card */
+    
     border-radius: 1rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -113,8 +118,11 @@
     border: none;
     cursor: pointer;
     box-shadow: 0 10px 15px -3px rgba(255, 249, 196, 0.5);
-    padding: 16px 32px
+    padding: 16px 32px;
+    box-sizing: border-box; /* Pastikan padding tidak menambah lebar */
 }
+
+
 .login-button:hover { background-color: #e6af06; }
 
 .forgot-password {
@@ -153,8 +161,9 @@
     .last-input {
         margin-bottom: 32px; 
     }
-    .login-button {
-        width:400px;
+     .login-button {
+        width: 100%; /* Tombol akan otomatis mengikuti lebar card (450px) */
+        margin-left: 0; /* Reset margin negatif */
     }
     .footer-text {
     margin-top: 200px;

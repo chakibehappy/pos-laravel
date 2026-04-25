@@ -30,8 +30,26 @@ class TransactionController extends Controller
                 'payment_methods.name as payment_name'
             );
 
+        // Default status (Aktif)
         $query->where('transactions.status', 0);
 
+        // --- LOGIKA FILTER ---
+
+        // Filter berdasarkan Toko
+        if ($request->filled('store_id')) {
+            $query->where('transactions.store_id', $request->store_id);
+        }
+
+        // Filter berdasarkan Rentang Tanggal
+        if ($request->filled('start_date')) {
+            $query->whereDate('transactions.transaction_at', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('transactions.transaction_at', '<=', $request->end_date);
+        }
+
+        // Filter Pencarian Universal (Search)
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('stores.name', 'LIKE', "%{$request->search}%")
@@ -41,7 +59,7 @@ class TransactionController extends Controller
             });
         }
 
-        // Perbaikan pada bagian sorting
+        // --- LOGIKA SORTING ---
         $sortField = $request->filled('sort') ? $request->sort : 'transaction_at'; 
         $sortDirection = $request->get('direction', 'desc'); 
         
@@ -58,7 +76,8 @@ class TransactionController extends Controller
 
         return Inertia::render('Transactions/Index', [
             'transactions' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search', 'sort', 'direction']),
+            // Kirim balik state filter agar input di Vue tetap terisi (UI Konsisten)
+            'filters' => $request->only(['search', 'sort', 'direction', 'store_id', 'start_date', 'end_date']),
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
             'products' => Product::all(['id', 'name', 'selling_price as price']),
