@@ -204,7 +204,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->first();
 
                 $adminFee = $feeRule?->fee ?? 0;
-                $x = $wdData['withdrawal_count'] - adminFee;
+                $x = $wdData['withdrawal_count'] - $adminFee;
 
                 $mainTotal -= $x;
                 $mainSubTotal -= $x;
