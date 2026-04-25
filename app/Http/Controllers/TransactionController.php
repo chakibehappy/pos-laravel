@@ -226,17 +226,24 @@ class TransactionController extends Controller
                     }
 
                     if ($item['type'] === 'tarik_tunai') {
+                        // 1. Hitung uang fisik yang sebenarnya keluar dari laci
+                        $nominalKotor = $item['meta']['amount']; // misal 200000
+                        $feeAdmin     = $item['meta']['fee'];    // misal 3000
+                        $uangKeluar   = $nominalKotor - $feeAdmin; // Hasil: 197000
+
                         $cashWithId = DB::table('cash_withdrawals')->insertGetId([
                             'store_id'             => $storeId,
                             'customer_name'        => $item['meta']['customer_name'],
                             'withdrawal_source_id' => $item['meta']['withdrawal_source_id'],
-                            'withdrawal_count'     => $item['meta']['amount'],
-                            'admin_fee'            => $item['meta']['fee'],
+                            'withdrawal_count'     => $uangKeluar, // SIMPAN 197.000 (Uang Fisik)
+                            'admin_fee'            => $feeAdmin,
                             'created_by'           => $automatedCreatedBy,
                             'created_at'           => $request->transaction_at,
                             'updated_at'           => now(),
                         ]);
-                        DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $item['meta']['amount']);
+
+                        // 2. Kurangi kas toko sejumlah uang fisik yang keluar saja
+                        DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $uangKeluar);
                     }
 
                     $transaction->details()->create([
@@ -244,9 +251,10 @@ class TransactionController extends Controller
                         'topup_transaction_id' => $topupTransId,
                         'cash_withdrawal_id'   => $cashWithId,
                         'buying_prices'        => $buyingPrice,
-                        'selling_prices'       => $item['price'],
+                        // 3. Selling Price tetap catat 200.000 agar Admin tahu nilai transaksinya
+                        'selling_prices'       => ($item['type'] === 'tarik_tunai') ? $item['meta']['amount'] : $item['price'],
                         'quantity'             => ($item['type'] === 'produk') ? $item['quantity'] : 1,
-                        'subtotal'             => $itemSubtotal,
+                        'subtotal'             => $itemSubtotal, // Tetap 0
                         'created_by'           => $automatedCreatedBy
                     ]);
                 }
@@ -301,8 +309,10 @@ class TransactionController extends Controller
             if ($detail->cash_withdrawal_id) {
                 $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
                 if ($withdraw) {
+                    // Ambil dari withdrawal_count (yang nilainya 197k)
                     DB::table('cash_store')->where('store_id', $transaction->store_id)
                         ->increment('cash', $withdraw->withdrawal_count);
+                    
                     DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
                 }
             }

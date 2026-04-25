@@ -84,30 +84,29 @@ class CashWithdrawalController extends Controller
         try {
             DB::beginTransaction();
 
-            // 1. Cek ketersediaan kas di toko tersebut
+            // HITUNG NOMINAL BERSIH (Uang yang keluar dari laci)
+            $netAmount = $request->withdrawal_count - $request->admin_fee;
+
             $cashStore = CashStore::where('store_id', $request->store_id)->lockForUpdate()->first();
 
-            if (!$cashStore || $cashStore->cash < $request->withdrawal_count) {
-                return back()->withErrors(['error' => 'Gagal! Saldo kas tunai di toko ini tidak mencukupi.']);
+            // Cek menggunakan netAmount
+            if (!$cashStore || $cashStore->cash < $netAmount) {
+                return back()->withErrors(['error' => 'Gagal! Saldo kas tidak mencukupi untuk uang keluar bersih Rp ' . number_format($netAmount)]);
             }
 
-            // 2. Buat record transaksi
             CashWithdrawal::create([
-                'store_id'             => $request->store_id,
-                'customer_name'        => $request->customer_name,
-                'withdrawal_source_id' => $request->withdrawal_source_id,
-                'withdrawal_count'     => $request->withdrawal_count,
-                'admin_fee'            => $request->admin_fee,
-                'created_by'           => Auth::id(),
-                'status'               => 0, // 0 = Active
+                // ... field lain tetap sama ...
+                'withdrawal_count' => $request->withdrawal_count,
+                'admin_fee'        => $request->admin_fee,
+                'created_by'       => Auth::id(),
+                'status'           => 0,
             ]);
 
-            // 3. Potong saldo kas fisik di toko
-            $cashStore->decrement('cash', $request->withdrawal_count);
+            // POTONG SEJUMLAH NET AMOUNT
+            $cashStore->decrement('cash', $netAmount);
 
             DB::commit();
-            return back()->with('message', 'Transaksi tarik tunai berhasil dicatat.');
-
+            return back()->with('message', 'Transaksi berhasil.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()]);
@@ -132,19 +131,20 @@ class CashWithdrawalController extends Controller
 
             $withdrawal = CashWithdrawal::findOrFail($id);
             
-            // 1. KEMBALIKAN saldo lama ke toko asal (Revert balance)
+            // 1. KEMBALIKAN saldo lama (Net Lama)
+            $oldNet = $withdrawal->withdrawal_count - $withdrawal->admin_fee;
             $oldCashStore = CashStore::where('store_id', $withdrawal->store_id)->lockForUpdate()->first();
             if ($oldCashStore) {
-                $oldCashStore->increment('cash', $withdrawal->withdrawal_count);
+                $oldCashStore->increment('cash', $oldNet);
             }
 
-            // 2. CEK ketersediaan kas di toko yang dituju (bisa toko yang sama atau berbeda)
+            // 2. CEK saldo baru (Net Baru)
+            $newNet = $request->withdrawal_count - $request->admin_fee;
             $newCashStore = CashStore::where('store_id', $request->store_id)->lockForUpdate()->first();
 
-            if (!$newCashStore || $newCashStore->cash < $request->withdrawal_count) {
-                // Jika tidak cukup, kita harus rollback increment tadi lewat DB rollback
+            if (!$newCashStore || $newCashStore->cash < $newNet) {
                 DB::rollBack();
-                return back()->withErrors(['error' => 'Gagal! Saldo kas tidak mencukupi untuk penyesuaian nominal baru ini.']);
+                return back()->withErrors(['error' => 'Saldo tidak mencukupi untuk nominal baru.']);
             }
 
             // 3. UPDATE record transaksi
@@ -157,7 +157,7 @@ class CashWithdrawalController extends Controller
             ]);
 
             // 4. POTONG saldo kas di toko yang baru sesuai nominal baru
-            $newCashStore->decrement('cash', $request->withdrawal_count);
+            $newCashStore->decrement('cash', $newNet);
 
             DB::commit();
             return back()->with('message', 'Data transaksi berhasil diperbarui.');
@@ -177,12 +177,11 @@ class CashWithdrawalController extends Controller
             DB::beginTransaction();
 
             $withdrawal = CashWithdrawal::findOrFail($id);
-            
+            $netAmount = $withdrawal->withdrawal_count - $withdrawal->admin_fee;
+
             $cashStore = CashStore::where('store_id', $withdrawal->store_id)->lockForUpdate()->first();
-            
-            // Kembalikan uang ke kas fisik toko sebelum hapus data
             if ($cashStore) {
-                $cashStore->increment('cash', $withdrawal->withdrawal_count);
+                $cashStore->increment('cash', $netAmount); // Kembalikan uang bersihnya
             }
 
             $withdrawal->delete();
