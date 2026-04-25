@@ -185,10 +185,10 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         // --- START ACTUAL PROCESSING ---
         DB::beginTransaction();
 
-        // // Fix for bugs that delete withdrawal cash not adding cash store, due diferent subotal logic and data store
-        // // now we follow dashboard, any changes
-        // $mainTotal = $request->total;
-        // $mainSubTotal = $request->subtotal;
+        // Fix for bugs that delete withdrawal cash not adding cash store, due diferent subotal logic and data store
+        // now we follow dashboard, any changes
+        $mainTotal = $request->total;
+        $mainSubTotal = $request->subtotal;
 
         // foreach ($request->items as $item) {
         //     if (!empty($item['cash_withdrawal'])) {
