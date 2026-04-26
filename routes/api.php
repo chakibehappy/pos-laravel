@@ -689,7 +689,18 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
         ->select(
             DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
             DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
-            DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
+            // DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
+            // 🔥 FIXED PART
+            DB::raw("SUM(CASE 
+                WHEN transaction_details.cash_withdrawal_id IS NOT NULL 
+                THEN 
+                    CASE 
+                        WHEN transaction_details.subtotal > 0 
+                            THEN transaction_details.subtotal
+                        ELSE (cash_withdrawals.withdrawal_count - cash_withdrawals.admin_fee)
+                    END
+                ELSE 0 
+            END) as total_withdrawal")
         )
         ->first();
 
