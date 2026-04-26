@@ -85,9 +85,7 @@ Route::post('/pos-user-login', function (Request $request) {
         'stores', 
         $request->store_id, 
         'Login Aplikasi POS '. $request->store_name, 
-        $request->pos_user_id,
-         ['device' => $request->device_name, 'ip' => $request->ip()], 
-        $request->store_id 
+        $request->pos_user_id
     );
     $token = $user->createToken($request->device_name)->plainTextToken;
 
@@ -185,45 +183,25 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         // --- START ACTUAL PROCESSING ---
         DB::beginTransaction();
 
-        // Fix for bugs that delete withdrawal cash not adding cash store, due diferent subotal logic and data store
-        // now we follow dashboard, any changes
-        $mainTotal = $request->total;
-        $mainSubTotal = $request->subtotal;
-
-        // foreach ($request->items as $item) {
-        //     if (!empty($item['cash_withdrawal'])) {
-        //         $wdData = $item['cash_withdrawal'];
-        //         $amount = $wdData['withdrawal_count'];
-
-        //         $feeRule = WithdrawalFeeRule::where('min_limit', '<=', $amount)
-        //             ->where(function ($q) use ($amount) {
-        //                 $q->where('max_limit', '>=', $amount)
-        //                 ->orWhere('max_limit', '<', 0); // unlimited
-        //             })
-        //             ->orderBy('min_limit', 'desc')
-        //             ->first();
-
-        //         $adminFee = $feeRule?->fee ?? 0;
-        //         $x = $wdData['withdrawal_count'] - $adminFee;
-
-        //         $mainTotal -= $x;
-        //         $mainSubTotal -= $x;
-        //     }
-        // }
-
         // Create Transaction Header
         $transaction = Transaction::create([
             'store_id'       => $request->store_id,
             'payment_id'     => $paymentId,
             'pos_user_id'    => $posUser->id,
             'transaction_at' => $request->transaction_at,
-            'subtotal'       => $mainSubTotal,
+            'subtotal'       => $request->subtotal,
             'tax'            => $request->tax,
-            'total'          => $mainTotal,
+            'total'          => $request->total,
         ]);
 
         
-        
+        ActivityLogger::log(
+            'create', 
+            'transactions', 
+            $transaction->id, 
+            'Menambah transaksi penjualan sejumlah Rp.' . $request->total, 
+            $posUser->id
+        );
 
         // Create Transaction Items
         foreach ($request->items as $item) {
@@ -277,13 +255,6 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->first();
 
                 $adminFee = $feeRule?->fee ?? 0;
-
-                $cashRecord = CashStore::where('store_id', $request->store_id)->lockForUpdate()->first();
-                $nominalKeluar = $amount - $adminFee; 
-
-                if (!$cashRecord || $cashRecord->cash < $nominalKeluar) {
-                    throw new \Exception("Saldo kas toko tidak mencukupi untuk tarik tunai. Sisa: " . ($cashRecord->cash ?? 0));
-                }
                 
                 $withdrawal = CashWithdrawal::create([
                     'store_id'             => $request->store_id,
@@ -301,7 +272,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->decrement('cash', $nominal);
             }
 
-            $lineSubtotal = (!empty($item['cash_withdrawal'])) ? 0 : ($item['quantity'] * $item['price']);
+            $lineSubtotal = $item['quantity'] * $item['price'];
 
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
@@ -323,19 +294,6 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                     ->increment('cash', $lineSubtotal);
             }
         }
-
-        $transaction->refresh();
-        $transaction->load(['details.product', 'details.topupTransaction', 'details.cashWithdrawal']);
-
-        ActivityLogger::log(
-            'create', 
-            'transactions', 
-            $transaction->id, 
-            'Menambah transaksi penjualan sejumlah Rp.' . number_format($request->total, 0, ',', '.'), 
-            $posUser->id,
-            ['new' => $transaction->toArray()], 
-            $request->store_id
-        );
 
 
         DB::commit();
@@ -463,14 +421,12 @@ Route::middleware('auth:sanctum')->post('/request-delete', function (Request $re
             'delete_reason' => $request->reason,
         ]);
         
-       ActivityLogger::log(
-            'update', // Gunakan 'update' karena status berubah
-            'transactions', 
-            $transaction->id, 
-            'Request hapus penjualan ID: '. $transaction->id, 
-            $posUser->id,
-            ['reason' => $request->reason, 'old_status' => 0, 'new_status' => 1],
-            $transaction->store_id
+        ActivityLogger::log(
+            'login', 
+            'stores', 
+            $request->store_id, 
+            'Request hapus penjualan '. $request->store_name, 
+            $posUser->id
         );
 
         return response()->json([
@@ -553,14 +509,12 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
             'created_at'      => now(),
         ]);
         
-         ActivityLogger::log(
+        ActivityLogger::log(
             'create', 
             'expense_transactions', 
             $expenseId, 
-            'Menambah pengeluaran: '. $request->description, 
-            $posUser->id,
-            ['amount' => $request->amount, 'description' => $request->description],
-            $request->store_id
+            'Menambah transaksi pengeluaran '. $request->store_name . ' ' . $request->description . ' sejumlah Rp.' . $request->amount, 
+            $posUser->id
         );
 
         DB::commit();
@@ -681,50 +635,17 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $end   = Carbon::now($timezone)->toDateTimeString(); 
 
     // Aggregates for Sales, Topup, Withdrawal
-    // $summary = DB::table('transaction_details')
-    //     ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
-    //     ->where('transactions.store_id', $storeId)
-    //     ->where('transactions.status', 0) // Explicit table prefix
-    //     ->whereBetween('transactions.transaction_at', [$start, $end])
-    //     ->select(
-    //         DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
-    //         DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
-    //         DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
-    //     )
-    //     ->first();
-
     $summary = DB::table('transaction_details')
-    ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
-    ->leftJoin('cash_withdrawals', 'transaction_details.cash_withdrawal_id', '=', 'cash_withdrawals.id') // 👈 ADD THIS
-    ->where('transactions.store_id', $storeId)
-    ->where('transactions.status', 0)
-    ->whereBetween('transactions.transaction_at', [$start, $end])
-    ->select(
-        DB::raw("SUM(CASE 
-            WHEN transaction_details.product_id IS NOT NULL 
-            THEN transaction_details.subtotal 
-            ELSE 0 
-        END) as total_sales"),
-
-        DB::raw("SUM(CASE 
-            WHEN transaction_details.topup_transaction_id IS NOT NULL 
-            THEN transaction_details.subtotal 
-            ELSE 0 
-        END) as total_topup"),
-
-        // 🔥 FIXED PART
-        DB::raw("SUM(CASE 
-            WHEN transaction_details.cash_withdrawal_id IS NOT NULL 
-            THEN 
-                CASE 
-                    WHEN transaction_details.subtotal > 0 
-                        THEN transaction_details.subtotal
-                    ELSE (cash_withdrawals.withdrawal_count - cash_withdrawals.admin_fee)
-                END
-            ELSE 0 
-        END) as total_withdrawal")
-    )
-    ->first();
+        ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
+        ->where('transactions.store_id', $storeId)
+        ->where('transactions.status', 0) // Explicit table prefix
+        ->whereBetween('transactions.transaction_at', [$start, $end])
+        ->select(
+            DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
+            DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
+            DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
+        )
+        ->first();
 
     // Expenses
     $totalExpenses = ExpenseTransaction::where('store_id', $storeId)
