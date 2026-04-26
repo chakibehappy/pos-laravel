@@ -187,7 +187,7 @@ class TransactionController extends Controller
                     $oldData = $old->toArray(); 
                     
                     $this->rollbackAssets($old);
-                    DB::table('cash_store')->where('store_id', $old->store_id)->decrement('cash', $old->subtotal);
+                    // DB::table('cash_store')->where('store_id', $old->store_id)->decrement('cash', $old->subtotal);
                     $old->details()->delete();
                 }
 
