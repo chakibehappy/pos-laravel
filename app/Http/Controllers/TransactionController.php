@@ -116,11 +116,6 @@ class TransactionController extends Controller
                 // 2. Rollback Logic (rest product, reset saldo, reset cash from withdawals)
                 $this->rollbackAssets($transaction);
 
-                // Rollback saldo kas utama toko
-                DB::table('cash_store')
-                    ->where('store_id', $transaction->store_id)
-                    ->decrement('cash', $transaction->subtotal);
-
                 // 3. Identifikasi Admin Pos User
                 $adminEmail = auth()->user()->email;
                 $matchPosUser = PosUser::where('username', $adminEmail)->first();
@@ -314,6 +309,10 @@ class TransactionController extends Controller
                 StoreProduct::where('store_id', $transaction->store_id)
                     ->where('product_id', $detail->product_id)
                     ->increment('stock', $detail->quantity);
+
+                // Rollback saldo kas utama toko
+                DB::table('cash_store')->where('store_id', $transaction->store_id)
+                    ->decrement('cash', $detail->subtotal);
             }
 
             if ($detail->topup_transaction_id) {
