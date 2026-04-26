@@ -681,28 +681,50 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
     $end   = Carbon::now($timezone)->toDateTimeString(); 
 
     // Aggregates for Sales, Topup, Withdrawal
+    // $summary = DB::table('transaction_details')
+    //     ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
+    //     ->where('transactions.store_id', $storeId)
+    //     ->where('transactions.status', 0) // Explicit table prefix
+    //     ->whereBetween('transactions.transaction_at', [$start, $end])
+    //     ->select(
+    //         DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
+    //         DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
+    //         DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
+    //     )
+    //     ->first();
+
     $summary = DB::table('transaction_details')
-        ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
-        ->where('transactions.store_id', $storeId)
-        ->where('transactions.status', 0) // Explicit table prefix
-        ->whereBetween('transactions.transaction_at', [$start, $end])
-        ->select(
-            DB::raw("SUM(CASE WHEN transaction_details.product_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_sales"),
-            DB::raw("SUM(CASE WHEN transaction_details.topup_transaction_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_topup"),
-            // DB::raw("SUM(CASE WHEN transaction_details.cash_withdrawal_id IS NOT NULL THEN transaction_details.subtotal ELSE 0 END) as total_withdrawal")
-            // 🔥 FIXED PART
-            DB::raw("SUM(CASE 
-                WHEN transaction_details.cash_withdrawal_id IS NOT NULL 
-                THEN 
-                    CASE 
-                        WHEN transaction_details.subtotal > 0 
-                            THEN transaction_details.subtotal
-                        ELSE (cash_withdrawals.withdrawal_count - cash_withdrawals.admin_fee)
-                    END
-                ELSE 0 
-            END) as total_withdrawal")
-        )
-        ->first();
+    ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
+    ->leftJoin('cash_withdrawals', 'transaction_details.cash_withdrawal_id', '=', 'cash_withdrawals.id') // 👈 ADD THIS
+    ->where('transactions.store_id', $storeId)
+    ->where('transactions.status', 0)
+    ->whereBetween('transactions.transaction_at', [$start, $end])
+    ->select(
+        DB::raw("SUM(CASE 
+            WHEN transaction_details.product_id IS NOT NULL 
+            THEN transaction_details.subtotal 
+            ELSE 0 
+        END) as total_sales"),
+
+        DB::raw("SUM(CASE 
+            WHEN transaction_details.topup_transaction_id IS NOT NULL 
+            THEN transaction_details.subtotal 
+            ELSE 0 
+        END) as total_topup"),
+
+        // 🔥 FIXED PART
+        DB::raw("SUM(CASE 
+            WHEN transaction_details.cash_withdrawal_id IS NOT NULL 
+            THEN 
+                CASE 
+                    WHEN transaction_details.subtotal > 0 
+                        THEN transaction_details.subtotal
+                    ELSE (cash_withdrawals.withdrawal_count - cash_withdrawals.admin_fee)
+                END
+            ELSE 0 
+        END) as total_withdrawal")
+    )
+    ->first();
 
     // Expenses
     $totalExpenses = ExpenseTransaction::where('store_id', $storeId)
