@@ -190,26 +190,26 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
         $mainTotal = $request->total;
         $mainSubTotal = $request->subtotal;
 
-        foreach ($request->items as $item) {
-            if (!empty($item['cash_withdrawal'])) {
-                $wdData = $item['cash_withdrawal'];
-                $amount = $wdData['withdrawal_count'];
+        // foreach ($request->items as $item) {
+        //     if (!empty($item['cash_withdrawal'])) {
+        //         $wdData = $item['cash_withdrawal'];
+        //         $amount = $wdData['withdrawal_count'];
 
-                $feeRule = WithdrawalFeeRule::where('min_limit', '<=', $amount)
-                    ->where(function ($q) use ($amount) {
-                        $q->where('max_limit', '>=', $amount)
-                        ->orWhere('max_limit', '<', 0); // unlimited
-                    })
-                    ->orderBy('min_limit', 'desc')
-                    ->first();
+        //         $feeRule = WithdrawalFeeRule::where('min_limit', '<=', $amount)
+        //             ->where(function ($q) use ($amount) {
+        //                 $q->where('max_limit', '>=', $amount)
+        //                 ->orWhere('max_limit', '<', 0); // unlimited
+        //             })
+        //             ->orderBy('min_limit', 'desc')
+        //             ->first();
 
-                $adminFee = $feeRule?->fee ?? 0;
-                $x = $wdData['withdrawal_count'] - $adminFee;
+        //         $adminFee = $feeRule?->fee ?? 0;
+        //         $x = $wdData['withdrawal_count'] - $adminFee;
 
-                $mainTotal -= $x;
-                $mainSubTotal -= $x;
-            }
-        }
+        //         $mainTotal -= $x;
+        //         $mainSubTotal -= $x;
+        //     }
+        // }
 
         // Create Transaction Header
         $transaction = Transaction::create([
