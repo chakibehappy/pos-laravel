@@ -309,8 +309,6 @@ class TransactionController extends Controller
                 StoreProduct::where('store_id', $transaction->store_id)
                     ->where('product_id', $detail->product_id)
                     ->increment('stock', $detail->quantity);
-
-                // Rollback saldo kas utama toko
                 DB::table('cash_store')->where('store_id', $transaction->store_id)
                     ->decrement('cash', $detail->subtotal);
             }
