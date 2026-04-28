@@ -313,14 +313,7 @@ class TransactionController extends Controller
                     ->decrement('cash', $detail->subtotal);
             }
 
-            // if ($detail->topup_transaction_id) {
-            //     $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
-            //     if ($topup) {
-            //         DigitalWalletStore::where('id', $topup->digital_wallet_store_id)
-            //             ->increment('balance', $topup->nominal_request);
-            //         DB::table('topup_transactions')->where('id', $topup->id)->delete();
-            //     }
-            // }
+            
             if ($detail->topup_transaction_id) {
                 $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
                 if ($topup) {
