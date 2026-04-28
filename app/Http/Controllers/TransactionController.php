@@ -313,15 +313,28 @@ class TransactionController extends Controller
                     ->decrement('cash', $detail->subtotal);
             }
 
+            // if ($detail->topup_transaction_id) {
+            //     $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
+            //     if ($topup) {
+            //         DigitalWalletStore::where('id', $topup->digital_wallet_store_id)
+            //             ->increment('balance', $topup->nominal_request);
+            //         DB::table('topup_transactions')->where('id', $topup->id)->delete();
+            //     }
+            // }
             if ($detail->topup_transaction_id) {
                 $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
                 if ($topup) {
+                    // 1. Kembalikan saldo Wallet
                     DigitalWalletStore::where('id', $topup->digital_wallet_store_id)
                         ->increment('balance', $topup->nominal_request);
+                    
+                    // 2. Kurangi kas toko karena uang pembayaran topup ditarik kembali/dibatalkan
+                    DB::table('cash_store')->where('store_id', $transaction->store_id)->decrement('cash', $topup->nominal_pay);
+
+                    // 3. Hapus transaksi topup
                     DB::table('topup_transactions')->where('id', $topup->id)->delete();
                 }
             }
-
             if ($detail->cash_withdrawal_id) {
                 $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
                 if ($withdraw) {
