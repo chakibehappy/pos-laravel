@@ -34,6 +34,7 @@ use App\Http\Controllers\ReportStoreController;
 use App\Http\Controllers\ReportBuyingController;
 use App\Http\Controllers\ReportExpenseController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Imports\ProductImportController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -229,4 +230,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/report-expense/export', [ReportExpenseController::class, 'export'])->name('report-expense.export');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/products/import', [ProductImportController::class, 'index'])->name('products.import-page');
+Route::post('/products/import-process', [ProductImportController::class, 'store'])->name('products.import-process');
 });
