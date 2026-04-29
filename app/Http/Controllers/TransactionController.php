@@ -10,6 +10,7 @@ use App\Models\StoreProduct;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\DigitalWalletStore;
+use App\Models\WithdrawalFeeRule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -86,6 +87,7 @@ class TransactionController extends Controller
             'topup_trans_types' => DB::table('topup_trans_type')->select('id', 'name')->get(),
             'digital_wallet_stores' => DigitalWalletStore::with('wallet:id,name')->get(),
             'withdrawal_source_type' => DB::table('withdrawal_source_type')->select('id', 'name')->get(),
+            'withdrawal_rules' => WithdrawalFeeRule::all(['min_limit', 'max_limit', 'fee']),
         ]);
     }
 
@@ -167,14 +169,19 @@ class TransactionController extends Controller
         $matchPosUser = PosUser::where('username', $adminEmail)->first();
         $automatedCreatedBy = $matchPosUser ? $matchPosUser->id : $request->pos_user_id;
 
-        $calcSubtotal = 0;
+       $calcSubtotal = 0;
         foreach ($request->details as $item) {
-            if ($item['type'] !== 'tarik_tunai') {
-                $calcSubtotal += $item['subtotal'];
+            if ($item['type'] === 'tarik_tunai') {
+                $nominalKotor = $item['meta']['amount'] ?? 0;
+                $feeAdmin     = $item['meta']['fee'] ?? 0;
+                $nominalBersih = $nominalKotor - $feeAdmin;
+                
+                $calcSubtotal += $nominalBersih;
+            } else {
+                $calcSubtotal += $item['subtotal'] ?? 0;
             }
         }
         $calcTotal = $calcSubtotal + ($request->tax ?? 0);
-
         try {
             $oldData = null;
 
@@ -206,14 +213,16 @@ class TransactionController extends Controller
                     ]
                 );
 
-                DB::table('cash_store')->where('store_id', $storeId)->increment('cash', $calcSubtotal);
+                // DB::table('cash_store')->where('store_id', $storeId)->increment('cash', $calcSubtotal);
 
                 foreach ($request->details as $item) {
                     $topupTransId = null;
                     $cashWithId = null;
                     $productId = ($item['type'] === 'produk') ? $item['product_id'] : null;
                     $buyingPrice = 0;
-                    $itemSubtotal = ($item['type'] === 'tarik_tunai') ? 0 : $item['subtotal'];
+                    $itemSubtotal = ($item['type'] === 'tarik_tunai') 
+                     ? (($item['meta']['amount'] ?? 0) - ($item['meta']['fee'] ?? 0))  
+                    : ($item['subtotal'] ?? 0);
 
                     if ($item['type'] === 'produk') {
                         $productMaster = Product::find($item['product_id']);
@@ -222,6 +231,7 @@ class TransactionController extends Controller
                         $sp = StoreProduct::where('store_id', $storeId)->where('product_id', $item['product_id'])->first();
                         if (!$sp || $sp->stock < $item['quantity']) throw new \Exception("Stok {$item['name']} tidak cukup!");
                         $sp->decrement('stock', $item['quantity']);
+                        DB::table('cash_store')->where('store_id', $storeId)->increment('cash', $itemSubtotal);
                     }
 
                     if ($item['type'] === 'topup') {
@@ -237,14 +247,24 @@ class TransactionController extends Controller
                             'updated_at'              => now(),
                         ]);
                         DigitalWalletStore::where('id', $item['meta']['digital_wallet_store_id'])->decrement('balance', $item['meta']['nominal_topup']);
+                        DB::table('cash_store')->where('store_id', $storeId)->increment('cash', $itemSubtotal);
                     }
 
                     if ($item['type'] === 'tarik_tunai') {
                         // 1. Hitung uang fisik yang sebenarnya keluar dari laci
                         $nominalKotor = $item['meta']['amount']; // misal 200000
-                        $feeAdmin     = $item['meta']['fee'];    // misal 3000
-                        $uangKeluar   = $nominalKotor - $feeAdmin; // Hasil: 197000
+                        $rule = WithdrawalFeeRule::where('min_limit', '<=', $nominalKotor)
+                            ->where(function ($q) use ($nominalKotor) {
+                                $q->where('max_limit', '>=', $nominalKotor)
+                                ->orWhere('max_limit', '<', 0); // Untuk limit tak terhingga
+                            })
+                            ->orderBy('min_limit', 'desc')
+                            ->first();
 
+                        // Jika aturan ditemukan, gunakan fee dari database. Jika tidak, gunakan input manual.
+                        $feeAdmin = $rule ? $rule->fee : ($item['meta']['fee'] ?? 0);
+                        $uangKeluar   = $nominalKotor - $feeAdmin;
+                        
                         $cashWithId = DB::table('cash_withdrawals')->insertGetId([
                             'store_id'             => $storeId,
                             'customer_name'        => $item['meta']['customer_name'],
@@ -257,7 +277,7 @@ class TransactionController extends Controller
                         ]);
 
                         // 2. Kurangi kas toko sejumlah uang fisik yang keluar saja
-                        DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $uangKeluar);
+                         DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $uangKeluar);
                     }
 
                     $transaction->details()->create([
@@ -268,8 +288,8 @@ class TransactionController extends Controller
                         // 3. Selling Price tetap catat 200.000 agar Admin tahu nilai transaksinya
                         'selling_prices'       => ($item['type'] === 'tarik_tunai') ? $item['meta']['amount'] : $item['price'],
                         'quantity'             => ($item['type'] === 'produk') ? $item['quantity'] : 1,
-                        'subtotal'             => $itemSubtotal, // Tetap 0
-                        'created_by'           => $automatedCreatedBy
+                        'subtotal' => $itemSubtotal,
+                        'created_by' => $automatedCreatedBy
                     ]);
                 }
                 return $transaction;
@@ -313,7 +333,7 @@ class TransactionController extends Controller
                     ->decrement('cash', $detail->subtotal);
             }
 
-            
+            // 
             if ($detail->topup_transaction_id) {
                 $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
                 if ($topup) {
@@ -331,10 +351,11 @@ class TransactionController extends Controller
             if ($detail->cash_withdrawal_id) {
                 $withdraw = DB::table('cash_withdrawals')->where('id', $detail->cash_withdrawal_id)->first();
                 if ($withdraw) {
-                    // Ambil dari withdrawal_count (yang nilainya 197k)
-                    // NOW
+                    $uangFisikDahulu = $withdraw->withdrawal_count - $withdraw->admin_fee;
+                    
+                    // Benar: Kembalikan uang ke laci karena tarik tunai dibatalkan
                     DB::table('cash_store')->where('store_id', $transaction->store_id)
-                        ->increment('cash', $withdraw->withdrawal_count - $withdraw->admin_fee);
+                        ->increment('cash', $uangFisikDahulu);
                     
                     DB::table('cash_withdrawals')->where('id', $withdraw->id)->delete();
                 }

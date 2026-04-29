@@ -31,8 +31,18 @@ const toggleDropdown = (label) => {
 const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { 
+        label: 'DEV menu', icon: '🧠', isDropdown: true, roles: ['developer'],
+        activeOn: ['accounts.*','store-types.*','services.*'],
+        children: [
+            { label: 'Akun',  name: 'accounts.index', route: route('accounts.index') },
+            { label: 'Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
+            { label: 'Jenis Layanan',  name: 'services.index', route: route('services.index') }
+            
+        ]
+    },
+    { 
         label: 'Pengguna', icon: '👤', isDropdown: true,
-        activeOn: ['users.*', 'pos_users.*', 'accounts.*'],
+        activeOn: ['users.*', 'pos_users.*'],
         children: [
             { label: 'Daftar Pengguna', name: 'users.index', route: route('users.index') },
             { label: 'Daftar Staff', name: 'pos_users.index', route: route('pos_users.index') },
@@ -60,7 +70,7 @@ const menuItems = [
     },
     { 
         label: 'Master Kategori', icon: '🗂️', isDropdown: true,
-        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*', 'expense-types.*' ],
+        activeOn: ['stock-flow.*','digital-wallets.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*', 'expense-types.*' ],
         children: [
             { label: 'Mutasi Stok', name: 'stock-flow.index', route: route('stock-flow.index') },
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
@@ -68,7 +78,7 @@ const menuItems = [
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
             { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') },
             { label: 'Tipe Pengeluaran', name: 'expense-types.index', route: route('expense-types.index') },
-        // { label: 'Jenis Layanan',  name: 'services.index', route: route('services.index') },
+        
         ]
     },
     { 
@@ -83,8 +93,10 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
+     
     { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index'), roles: ['owner', 'developer'] },
     { label: 'Riwayat Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
+    
      // { label: 'Laporan Pembelian', icon: '📦', name: 'report-buying.index', route: route('report-buying.index') },
     // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },
 ];

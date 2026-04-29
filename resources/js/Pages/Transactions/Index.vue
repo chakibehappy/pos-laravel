@@ -20,6 +20,7 @@ const props = defineProps({
     paymentMethods: Array,
     digital_wallet_stores: Array, 
     withdrawal_source_type: Array, 
+    withdrawal_rules: Array,
     filters: Object 
 });
 
@@ -158,12 +159,27 @@ watch(() => singleEntry.value.type, (newType) => {
     singleEntry.value.type = newType;
     refreshProductList();
 });
-
+watch(() => singleEntry.value.withdrawal_amount, (newAmount) => {
+    if (singleEntry.value.type === 'tarik_tunai') {
+        singleEntry.value.admin_fee = autoCalculateWithdrawalFee(newAmount);
+    }
+});
 const calculateAll = () => {
     form.subtotal = form.details.reduce((acc, item) => acc + Number(item.subtotal), 0);
     form.total = form.subtotal + Number(form.tax);
 };
+const autoCalculateWithdrawalFee = (amount) => {
+    if (!amount || amount <= 0 || !props.withdrawal_rules) return 0;
 
+    const rule = props.withdrawal_rules.find(r => {
+        const min = parseFloat(r.min_limit);
+        const max = parseFloat(r.max_limit);
+        // Jika max_limit bernilai negatif (misal -1), artinya tidak terbatas
+        return amount >= min && (max < 0 || amount <= max);
+    });
+
+    return rule ? parseFloat(rule.fee) : 0;
+};
 const addToBatch = () => {
     errorMessage.value = '';
     if (!form.store_id) { errorMessage.value = "Pilih toko terlebih dahulu!"; return; }
@@ -410,11 +426,22 @@ watch(filterState, debounce(() => {
                             <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Harga Jual</label><input v-model.number="singleEntry.price" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
                         </template>
 
-                        <template v-if="singleEntry.type === 'tarik_tunai'">
-                            <div class="md:col-span-3"><label class="text-[10px] font-bold text-gray-400 uppercase">Nama Pelanggan</label><input v-model="singleEntry.customer_name" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
-                            <div class="md:col-span-3"><SearchableSelect label="Jenis Tarik" v-model="singleEntry.withdrawal_source_id" :options="withdrawalTypeOptions" /></div>
-                            <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Nominal</label><input v-model.number="singleEntry.withdrawal_amount" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
-                            <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Biaya Admin</label><input v-model.number="singleEntry.admin_fee" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
+                            <template v-if="singleEntry.type === 'tarik_tunai'">
+                            <div class="md:col-span-3">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Pelanggan</label>
+                                <input v-model="singleEntry.customer_name" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" />
+                            </div>
+                            <div class="md:col-span-3">
+                                <SearchableSelect label="Jenis Tarik" v-model="singleEntry.withdrawal_source_id" :options="withdrawalTypeOptions" />
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Nominal</label>
+                                <input v-model.number="singleEntry.withdrawal_amount" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" />
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="text-[10px] font-bold text-blue-600 uppercase">Biaya Admin (Otomatis)</label>
+                                <input v-model.number="singleEntry.admin_fee" type="number" class="w-full border-2 border-blue-100 bg-blue-50 p-2 rounded-lg h-[38px] text-sm font-bold text-blue-700" />
+                            </div>
                         </template>
 
                         <div v-if="singleEntry.type" class="md:col-span-2">
