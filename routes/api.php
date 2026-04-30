@@ -371,8 +371,9 @@ Route::middleware('auth:sanctum')->get('/get-latest-transactions', function (Req
 
     $timezone = 'Asia/Jakarta';
 
+    $daySpan = $storeId == 14 ? 2 : 7;
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    $startDate = Carbon::now($timezone)->subDays(7)->startOfDay();
+    $startDate = Carbon::now($timezone)->subDays($daySpan)->startOfDay();
     $endDate   = Carbon::now($timezone)->endOfDay();
 
     $transactions = Transaction::with([
