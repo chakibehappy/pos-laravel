@@ -8,16 +8,17 @@ use App\Models\ProductCategory;
 use App\Models\UnitType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Inertia\Inertia;
 
 class ProductImportController extends Controller
 {
     /**
-     * Menampilkan halaman import di Vue
+     * Menampilkan halaman upload awal
      */
     public function index()
     {
@@ -28,23 +29,24 @@ class ProductImportController extends Controller
     }
 
     /**
-     * Memproses file Excel dengan logika Smart Identifier
+     * TAHAP 1: Membaca file Excel, memetakan kolom secara cerdas, 
+     * dan menampilkan preview menggunakan DataTable.
      */
-    public function store(Request $request)
+    public function preview(Request $request)
     {
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv|max:2048'
         ]);
 
         try {
-            $finalMap = [];
+            $importData = [];
 
-            Excel::import(new class($finalMap) implements ToCollection, WithHeadingRow {
-                private $columnMap;
-
-                /**
-                 * DICTIONARY ALIAS (Mendukung urutan kolom acak)
-                 */
+            // Proses pembacaan file
+            Excel::import(new class($importData, $this) implements ToCollection, WithHeadingRow {
+                private $data;
+                private $parent;
+                
+                // Kamus alias untuk mendukung berbagai variasi header Excel
                 private $dictionary = [
                     'name'          => ['nama', 'nama_produk', 'item', 'produk', 'product_name', 'item_name'],
                     'sku'           => ['sku', 'kode', 'barcode', 'kode_barang', 'sn', 'article_no'],
@@ -54,72 +56,46 @@ class ProductImportController extends Controller
                     'selling_price' => ['harga_jual', 'jual', 'selling_price', 'price', 'harga'],
                 ];
 
-                public function __construct(&$finalMap) {
-                    $this->columnMap = &$finalMap;
+                public function __construct(&$importData, $parent) {
+                    $this->data = &$importData;
+                    $this->parent = $parent;
                 }
 
-                public function collection(Collection $rows)
-                {
+                public function collection(Collection $rows) {
                     if ($rows->isEmpty()) return;
 
-                    // 1. IDENTIFIKASI HEADER (Apapun urutannya)
+                    // Ambil header asli dari baris pertama
                     $actualHeaders = array_keys($rows->first()->toArray());
-                    $this->columnMap = $this->buildColumnMap($actualHeaders);
+                    $map = $this->buildColumnMap($actualHeaders);
 
-                    // 2. VALIDASI WAJIB
-                    if (!isset($this->columnMap['name'])) {
-                        throw new \Exception("Kolom 'Nama Produk' tidak ditemukan.");
-                    }
-                    if (!isset($this->columnMap['id_kategori'])) {
-                        throw new \Exception("Kolom 'Kategori' wajib ada di file Excel.");
+                    // Validasi minimal: Nama Produk harus ada
+                    if (!isset($map['name'])) {
+                        throw new \Exception("Kolom 'Nama Produk' tidak dapat diidentifikasi.");
                     }
 
-                    // 3. EKSEKUSI DATA
                     foreach ($rows as $row) {
-                        $nameValue = $row[$this->columnMap['name']] ?? null;
+                        $nameValue = $row[$map['name'] ?? ''] ?? null;
                         if (empty($nameValue)) continue;
 
-                        $catRaw    = $row[$this->columnMap['id_kategori']] ?? 'Umum';
-                        $unitRaw   = $row[$this->columnMap['id_satuan'] ?? ''] ?? 'pcs';
-                        
-                        // SKU diset null jika kolom tidak ada atau data kosong (tanpa random generate)
-                        $skuValue  = isset($this->columnMap['sku']) ? ($row[$this->columnMap['sku']] ?? null) : null;
-                        
-                        $bPrice    = $row[$this->columnMap['buying_price'] ?? ''] ?? 0;
-                        $sPrice    = $row[$this->columnMap['selling_price'] ?? ''] ?? 0;
-
-                        /**
-                         * Gunakan Nama sebagai identifier utama jika SKU kosong, 
-                         * agar updateOrCreate tidak menimpa baris yang salah.
-                         */
-                        $identifier = $skuValue ? ['sku' => $skuValue] : ['name' => $nameValue];
-
-                        Product::updateOrCreate(
-                            $identifier,
-                            [
-                                'name'                => $nameValue,
-                                'sku'                 => $skuValue,
-                                'product_category_id' => $this->resolveCategoryId($catRaw),
-                                'unit_type_id'        => $this->resolveUnitId($unitRaw),
-                                'buying_price'        => $this->formatPrice($bPrice),
-                                'selling_price'       => $this->formatPrice($sPrice),
-                                'stock'               => 0, 
-                                'created_by'          => Auth::id(),
-                                'status'              => 0,
-                            ]
-                        );
+                        $this->data[] = [
+                            'name'          => $nameValue,
+                            'sku'           => $row[$map['sku'] ?? ''] ?? null,
+                            'category_raw'  => $row[$map['id_kategori'] ?? ''] ?? 'Umum',
+                            'unit_raw'      => $row[$map['id_satuan'] ?? ''] ?? 'pcs',
+                            'buying_price'  => $this->parent->formatPrice($row[$map['buying_price'] ?? ''] ?? 0),
+                            'selling_price' => $this->parent->formatPrice($row[$map['selling_price'] ?? ''] ?? 0),
+                        ];
                     }
                 }
 
-                private function buildColumnMap($headers)
-                {
+                private function buildColumnMap($headers) {
                     $map = [];
                     foreach ($this->dictionary as $dbField => $aliases) {
                         foreach ($headers as $header) {
-                            $cleanHeader = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $header));
+                            // Bersihkan header dari karakter non-alfanumerik untuk perbandingan
+                            $cleanH = strtolower(preg_replace('/[^a-z0-9]/', '', $header));
                             foreach ($aliases as $alias) {
-                                $cleanAlias = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $alias));
-                                if ($cleanHeader === $cleanAlias) {
+                                if ($cleanH === strtolower(preg_replace('/[^a-z0-9]/', '', $alias))) {
                                     $map[$dbField] = $header;
                                     break 2;
                                 }
@@ -128,45 +104,115 @@ class ProductImportController extends Controller
                     }
                     return $map;
                 }
-
-                private function resolveCategoryId($input)
-                {
-                    $input = trim($input);
-                    if (is_numeric($input)) return (int)$input;
-
-                    $category = ProductCategory::firstOrCreate(
-                        ['name' => $input],
-                        ['created_by' => Auth::id(), 'status' => 0]
-                    );
-
-                    return $category->id;
-                }
-
-                private function resolveUnitId($input)
-                {
-                    $input = trim($input);
-                    if (is_numeric($input)) return (int)$input;
-
-                    $unit = UnitType::firstOrCreate(
-                        ['name' => $input],
-                        ['created_by' => Auth::id(), 'status' => 0]
-                    );
-
-                    return $unit->id;
-                }
-
-                private function formatPrice($value)
-                {
-                    if (empty($value)) return 0;
-                    if (is_string($value)) $value = str_replace(['.', ','], ['', '.'], $value);
-                    return (float)$value;
-                }
             }, $request->file('file'));
 
-            return redirect()->route('products.index')->with('success', 'Import Berhasil! Produk telah diperbarui.');
+            // Simpan data mentah ke session agar bisa diproses saat store()
+            session(['pending_import_products' => $importData]);
+
+            /**
+             * PENTING: Membungkus array ke Paginator.
+             * Ini mencegah error 'reading data' di DataTable.vue karena sistem tersebut 
+             * mengharapkan objek dengan struktur { data: [], meta: {}, links: {} }.
+             */
+            $total = count($importData);
+            $paginatedData = new LengthAwarePaginator(
+                $importData, 
+                $total, 
+                $total > 0 ? $total : 15, 
+                1,
+                ['path' => route('products.import.preview')]
+            );
+
+            return inertia('Import/PreviewProduct', [
+                'importData' => $paginatedData
+            ]);
 
         } catch (\Exception $e) {
-            return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
+            return back()->withErrors(['file' => 'Gagal membaca file: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * TAHAP 2: Eksekusi penyimpanan final ke Database
+     */
+    public function store(Request $request)
+    {
+        $data = session('pending_import_products');
+        
+        if (!$data || empty($data)) {
+            return redirect()->route('products.import.index')
+                ->withErrors(['file' => 'Data tidak ditemukan atau sesi telah berakhir.']);
+        }
+
+        try {
+            foreach ($data as $item) {
+                // Gunakan SKU jika tersedia, jika tidak gunakan Nama sebagai pembanding unik
+                $identifier = !empty($item['sku']) ? ['sku' => $item['sku']] : ['name' => $item['name']];
+
+                Product::updateOrCreate(
+                    $identifier,
+                    [
+                        'name'                => $item['name'],
+                        'sku'                 => $item['sku'],
+                        'product_category_id' => $this->resolveCategoryId($item['category_raw']),
+                        'unit_type_id'        => $this->resolveUnitId($item['unit_raw']),
+                        'buying_price'        => $item['buying_price'],
+                        'selling_price'       => $item['selling_price'],
+                        'stock'               => 0,
+                        'created_by'          => Auth::id(),
+                        'status'              => 0,
+                    ]
+                );
+            }
+
+            session()->forget('pending_import_products');
+
+            return redirect()->route('products.index')
+                ->with('success', 'Import Berhasil! Data produk telah diperbarui.');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['file' => 'Gagal menyimpan data: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Mencari ID Kategori berdasarkan nama, atau membuat baru jika belum ada.
+     */
+    public function resolveCategoryId($input) 
+    {
+        $input = trim($input);
+        if (is_numeric($input)) return (int)$input;
+
+        return ProductCategory::firstOrCreate(
+            ['name' => $input],
+            ['created_by' => Auth::id(), 'status' => 0]
+        )->id;
+    }
+
+    /**
+     * Mencari ID Satuan berdasarkan nama, atau membuat baru jika belum ada.
+     */
+    public function resolveUnitId($input) 
+    {
+        $input = trim($input);
+        if (is_numeric($input)) return (int)$input;
+
+        return UnitType::firstOrCreate(
+            ['name' => $input],
+            ['created_by' => Auth::id(), 'status' => 0]
+        )->id;
+    }
+
+    /**
+     * Menghapus karakter pemisah ribuan dan mengonversi string harga ke float.
+     */
+    public function formatPrice($value) 
+    {
+        if (empty($value)) return 0;
+        if (is_string($value)) {
+            // Menghapus titik (ribuan) dan mengganti koma dengan titik (desimal) jika ada
+            $value = str_replace(['.', ','], ['', '.'], $value);
+        }
+        return (float)$value;
     }
 }

@@ -25,13 +25,10 @@ const handleFileChange = (e) => {
 const submit = () => {
     if (!form.file) return alert('Silakan pilih file Excel terlebih dahulu');
 
-    form.post(route('products.import-process'), {
+    form.post(route('products.import.preview'), { // Mengarah ke rute preview
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => {
-            form.reset();
-            filePreview.value = null;
-        },
+        // onSuccess tidak reset form agar user tidak bingung jika ingin kembali
     });
 };
 </script>
@@ -91,8 +88,8 @@ const submit = () => {
                         :disabled="form.processing || !form.file"
                         class="w-full bg-gray-900 text-white py-4 rounded-xl text-xs font-black uppercase tracking-[0.2em] shadow-xl disabled:opacity-20 active:scale-95 transition-all"
                     >
-                        <span v-if="form.processing">Memproses Data...</span>
-                        <span v-else>🚀 Jalankan Impor Data</span>
+                        <span v-if="form.processing">Menganalisis File...</span>
+                        <span v-else>👁️ Pratinjau Data</span>
                     </button>
                     
                     <p v-if="form.errors.file" class="text-red-500 text-[10px] font-black uppercase text-center italic">{{ form.errors.file }}</p>

@@ -231,6 +231,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('/products/import', [ProductImportController::class, 'index'])->name('products.import-page');
-Route::post('/products/import-process', [ProductImportController::class, 'store'])->name('products.import-process');
+    Route::get('/products/import', [ProductImportController::class, 'index'])->name('products.import.index');
+
+// 2. Tahap Preview: Membaca file dan menampilkan tabel (POST)
+Route::post('/products/import/preview', [ProductImportController::class, 'preview'])->name('products.import.preview');
+
+// 3. Tahap Final: Menyimpan data dari tabel ke Database (POST)
+Route::post('/products/import/store', [ProductImportController::class, 'store'])->name('products.import.store');
 });

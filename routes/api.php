@@ -271,7 +271,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 CashStore::where('store_id', $request->store_id)
                     ->decrement('cash', $nominal);
             }
-
+// Bagian yang Menyimpan ke Riwayat (Tabel Detail)
             $lineSubtotal = $item['quantity'] * $item['price'];
 
             TransactionDetail::create([
@@ -283,7 +283,7 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
                 'price'          => $item['price'],
                 'subtotal'       => $lineSubtotal,
             ]);
-
+// end
             // Reduce stock (if product exists)
             if (!empty($productId)) {
                 StoreProduct::where('store_id', $request->store_id)
