@@ -235,8 +235,7 @@ class ProductImportController extends Controller
         // }
         } catch (\Exception $e) {
             // Ganti 'back()' menjadi redirect ke route yang pasti mendukung GET (misal halaman index import)
-            return redirect()->route('products.import.index')
-                ->withErrors(['file' => 'Gagal menyimpan: ' . $e->getMessage()]);
+            dd($e->getMessage(), $e->getTraceAsString());
         }
             // return redirect()->route('products.index')
             //     ->with('success', 'Import Berhasil!');
