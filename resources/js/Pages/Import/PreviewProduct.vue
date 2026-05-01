@@ -31,44 +31,25 @@ const toggleSimilarRow = (index) => {
         expandedSimilarRows.value.push(index);
     }
 };
+
 const form = useForm({
-    // Tambahkan field untuk menampung data dari props
-    new_data: props.importData.new_data,
-    similar_data: props.importData.similar,
     excluded_indices: [],
 });
 
 const confirmImport = () => {
-    if (confirm('Simpan data ini ke database?')) {
-        // Update index yang dikecualikan sebelum kirim
+    if (confirm('Simpan data ini ke database? (Data baru akan dibuat, data mirip akan diperbarui kecuali yang Anda abaikan)')) {
+        
+        // Isi form dengan daftar index yang disilang
         form.excluded_indices = excludedSimilar.value;
 
         form.post(route('products.import.store'), {
             preserveScroll: true,
             onSuccess: () => {
-                // Opsional: Hapus data di local jika ada
+                // Berhasil
             }
         });
     }
 };
-// const form = useForm({
-//     excluded_indices: [],
-// });
-
-// const confirmImport = () => {
-//     if (confirm('Simpan data ini ke database? (Data baru akan dibuat, data mirip akan diperbarui kecuali yang Anda abaikan)')) {
-        
-//         // Isi form dengan daftar index yang disilang
-//         form.excluded_indices = excludedSimilar.value;
-
-//         form.post(route('products.import.store'), {
-//             preserveScroll: true,
-//             onSuccess: () => {
-//                 // Berhasil
-//             }
-//         });
-//     }
-// };
 </script>
 
 <template>

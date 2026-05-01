@@ -173,10 +173,10 @@ class ProductImportController extends Controller
                 }
             }
 
-            // session([
-            //     'pending_new_data' => $newData,
-            //     'pending_similar_data' => $similarData
-            // ]);
+            session([
+                'pending_new_data' => $newData,
+                'pending_similar_data' => $similarData
+            ]);
 
             return inertia('Import/PreviewProduct', [
                 'importData' => [
@@ -209,8 +209,8 @@ class ProductImportController extends Controller
      */
     public function store(Request $request)
     {
-        $newData = $request->input('new_data', []);
-        $similarData = $request->input('similar_data', []);
+        $newData = session('pending_new_data', []);
+        $similarData = session('pending_similar_data', []);
         $excludedIndices = $request->input('excluded_indices', []);
 
         try {
@@ -225,23 +225,16 @@ class ProductImportController extends Controller
                 $this->saveProduct($item['excel']);
             }
 
-            // session()->forget(['pending_new_data', 'pending_similar_data']);
+            session()->forget(['pending_new_data', 'pending_similar_data']);
 
             return redirect()->route('products.index')
                 ->with('success', 'Import Berhasil!');
 
-        // } catch (\Exception $e) {
-        //     return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
-        // }
-        } catch (\Exception $e) {
+         } catch (\Exception $e) {
             // Ganti 'back()' menjadi redirect ke route yang pasti mendukung GET (misal halaman index import)
-            dd([
-                'Pesan Error' => $e->getMessage(), // Lihat nama CONSTRAINT di ujung pesan ini
-                'Data Produk Terakhir' => $item ?? 'Tidak ada data'
-            ]);
+            return redirect()->route('products.import.index')
+                ->withErrors(['file' => 'Gagal menyimpan: ' . $e->getMessage()]);
         }
-            // return redirect()->route('products.index')
-            //     ->with('success', 'Import Berhasil!');
     }
 
     private function saveProduct($item) {
@@ -254,7 +247,7 @@ class ProductImportController extends Controller
                 'buying_price'        => $item['buying_price'],
                 'selling_price'       => $item['selling_price'],
                 'stock'               => 0,
-                'created_by'          => Auth::id(),
+                'created_by'          => 66,
                 'status'              => 0, 
             ]
         );
@@ -271,7 +264,7 @@ class ProductImportController extends Controller
         // Perbaikan Minor: Mengembalikan Object secara konsisten
         return ProductCategory::firstOrCreate(
             ['name' => $input],
-            ['created_by' => Auth::id(), 'status' => 0]
+            ['created_by' => 66, 'status' => 0]
         );
     }
 
@@ -286,7 +279,7 @@ class ProductImportController extends Controller
         // Perbaikan Minor: Mengembalikan Object secara konsisten
         return UnitType::firstOrCreate(
             ['name' => $input],
-            ['created_by' => Auth::id(), 'status' => 0]
+            ['created_by' => 66, 'status' => 0]
         );
     }
 
