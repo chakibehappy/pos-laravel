@@ -225,7 +225,7 @@ class ProductImportController extends Controller
                 $this->saveProduct($item['excel']);
             }
 
-            session()->forget(['pending_new_data', 'pending_similar_data']);
+            // session()->forget(['pending_new_data', 'pending_similar_data']);
 
             return redirect()->route('products.index')
                 ->with('success', 'Import Berhasil!');
