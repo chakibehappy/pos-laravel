@@ -12,7 +12,6 @@ use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Collection;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 
 class ProductImportController extends Controller
@@ -29,8 +28,7 @@ class ProductImportController extends Controller
     }
 
     /**
-     * TAHAP 1: Membaca file Excel, memetakan kolom secara cerdas, 
-     * dan menampilkan preview menggunakan DataTable.
+     * TAHAP 1: Membaca file Excel dan menampilkan preview.
      */
     public function preview(Request $request)
     {
@@ -41,12 +39,11 @@ class ProductImportController extends Controller
         try {
             $importData = [];
 
-            // Proses pembacaan file
+            // Proses pembacaan file dengan Anonymous Class
             Excel::import(new class($importData, $this) implements ToCollection, WithHeadingRow {
                 private $data;
                 private $parent;
                 
-                // Kamus alias untuk mendukung berbagai variasi header Excel
                 private $dictionary = [
                     'name'          => ['nama', 'nama_produk', 'item', 'produk', 'product_name', 'item_name'],
                     'sku'           => ['sku', 'kode', 'barcode', 'kode_barang', 'sn', 'article_no'],
@@ -64,11 +61,9 @@ class ProductImportController extends Controller
                 public function collection(Collection $rows) {
                     if ($rows->isEmpty()) return;
 
-                    // Ambil header asli dari baris pertama
                     $actualHeaders = array_keys($rows->first()->toArray());
                     $map = $this->buildColumnMap($actualHeaders);
 
-                    // Validasi minimal: Nama Produk harus ada
                     if (!isset($map['name'])) {
                         throw new \Exception("Kolom 'Nama Produk' tidak dapat diidentifikasi.");
                     }
@@ -92,7 +87,6 @@ class ProductImportController extends Controller
                     $map = [];
                     foreach ($this->dictionary as $dbField => $aliases) {
                         foreach ($headers as $header) {
-                            // Bersihkan header dari karakter non-alfanumerik untuk perbandingan
                             $cleanH = strtolower(preg_replace('/[^a-z0-9]/', '', $header));
                             foreach ($aliases as $alias) {
                                 if ($cleanH === strtolower(preg_replace('/[^a-z0-9]/', '', $alias))) {
@@ -106,25 +100,103 @@ class ProductImportController extends Controller
                 }
             }, $request->file('file'));
 
-            // Simpan data mentah ke session agar bisa diproses saat store()
-            session(['pending_import_products' => $importData]);
+            $newData = [];
+            $identicalData = [];
+            $similarData = []; 
+            
+            // Eager load relasi agar pengecekan efisien
+            $existingProducts = Product::with(['category', 'unitType'])
+            ->where('status', '!=', 2)
+            ->get();
 
-            /**
-             * PENTING: Membungkus array ke Paginator.
-             * Ini mencegah error 'reading data' di DataTable.vue karena sistem tersebut 
-             * mengharapkan objek dengan struktur { data: [], meta: {}, links: {} }.
-             */
-            $total = count($importData);
-            $paginatedData = new LengthAwarePaginator(
-                $importData, 
-                $total, 
-                $total > 0 ? $total : 15, 
-                1,
-                ['path' => route('products.import.preview')]
-            );
+            foreach ($importData as $item) {
+                // 1. Konversi kategori/satuan (Mengembalikan Object hasil perbaikan minor)
+                $categoryObj = $this->resolveCategoryId($item['category_raw']);
+                $unitObj = $this->resolveUnitId($item['unit_raw']);
+
+                $excelCategoryId = $categoryObj->id;
+                $excelUnitId = $unitObj->id;
+
+                // Ambil nama langsung dari object (Tanpa query tambahan)
+                $item['category_name'] = $categoryObj->name;
+                $item['unit_name'] = $unitObj->name;
+
+                // 2. Cek apakah ada Nama yang Sama Persis (Exact Match)
+                $exactMatch = $existingProducts->firstWhere('name', $item['name']);
+                
+                if ($exactMatch) {
+                    // CEK IDENTIK
+                    $isIdentical = 
+                        $exactMatch->name === $item['name'] &&
+                        $exactMatch->sku === $item['sku'] &&
+                        $exactMatch->product_category_id === $excelCategoryId &&
+                        $exactMatch->unit_type_id === $excelUnitId &&
+                        (float)$exactMatch->buying_price === (float)$item['buying_price'] &&
+                        (float)$exactMatch->selling_price === (float)$item['selling_price'];
+
+                    if ($isIdentical) {
+                        $identicalData[] = $item;
+                        continue; 
+                    }
+                }
+
+                // 3. Jika tidak identik, cari Nominasi Kemiripan (Similar)
+                $matches = collect();
+
+                foreach ($existingProducts as $dbProduct) {
+                    similar_text(strtolower($item['name']), strtolower($dbProduct->name), $percent);
+                    
+                    if ($percent >= 50) {
+                        $matches->push([
+                            'name'          => $dbProduct->name,
+                            'sku'           => $dbProduct->sku,
+                            'category_name' => $dbProduct->category->name ?? 'Umum',
+                            'unit_name'     => $dbProduct->unitType->name ?? '-',
+                            'buying_price'  => $dbProduct->buying_price,
+                            'selling_price' => $dbProduct->selling_price,
+                            'similarity'    => round($percent, 2)
+                        ]);
+                    }
+                }
+
+                $topMatches = $matches->sortByDesc('similarity')->take(3)->values();
+
+                // 4. Tentukan masuk kategori Similar atau New Data
+                if ($topMatches->isNotEmpty() && $topMatches->first()['similarity'] >= 80) {
+                    $similarData[] = [
+                        'excel'      => $item,
+                        'databases'  => $topMatches,
+                        'similarity' => $topMatches->first()['similarity'] 
+                    ];
+                } else {
+                    $newData[] = $item;
+                }
+            }
+
+            session([
+                'pending_new_data' => $newData,
+                'pending_similar_data' => $similarData
+            ]);
 
             return inertia('Import/PreviewProduct', [
-                'importData' => $paginatedData
+                'importData' => [
+                    'headers' => [
+                        ['label' => 'Nama Produk', 'key' => 'name'],
+                        ['label' => 'SKU', 'key' => 'sku'],
+                        ['label' => 'Kategori', 'key' => 'category_name'],
+                        ['label' => 'Satuan', 'key' => 'unit_name'],
+                        ['label' => 'Harga Beli', 'key' => 'buying_price', 'align' => 'right'],
+                        ['label' => 'Harga Jual', 'key' => 'selling_price', 'align' => 'right'],
+                    ],
+                    'new_data'  => $newData,
+                    'similar'   => $similarData,
+                    'identical' => $identicalData,
+                    'meta' => [
+                        'total_new'       => count($newData),
+                        'total_similar'   => count($similarData),
+                        'total_identical' => count($identicalData)
+                    ]
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -137,81 +209,86 @@ class ProductImportController extends Controller
      */
     public function store(Request $request)
     {
-        $data = session('pending_import_products');
-        
-        if (!$data || empty($data)) {
-            return redirect()->route('products.import.index')
-                ->withErrors(['file' => 'Data tidak ditemukan atau sesi telah berakhir.']);
-        }
+        $newData = session('pending_new_data', []);
+        $similarData = session('pending_similar_data', []);
+        $excludedIndices = $request->input('excluded_indices', []);
 
         try {
-            foreach ($data as $item) {
-                // Gunakan SKU jika tersedia, jika tidak gunakan Nama sebagai pembanding unik
-                $identifier = !empty($item['sku']) ? ['sku' => $item['sku']] : ['name' => $item['name']];
-
-                Product::updateOrCreate(
-                    $identifier,
-                    [
-                        'name'                => $item['name'],
-                        'sku'                 => $item['sku'],
-                        'product_category_id' => $this->resolveCategoryId($item['category_raw']),
-                        'unit_type_id'        => $this->resolveUnitId($item['unit_raw']),
-                        'buying_price'        => $item['buying_price'],
-                        'selling_price'       => $item['selling_price'],
-                        'stock'               => 0,
-                        'created_by'          => Auth::id(),
-                        'status'              => 0,
-                    ]
-                );
+            foreach ($newData as $item) {
+                $this->saveProduct($item);
             }
 
-            session()->forget('pending_import_products');
+            foreach ($similarData as $index => $item) {
+                if (in_array($index, $excludedIndices)) {
+                    continue;
+                }
+                $this->saveProduct($item['excel']);
+            }
+
+            session()->forget(['pending_new_data', 'pending_similar_data']);
 
             return redirect()->route('products.index')
-                ->with('success', 'Import Berhasil! Data produk telah diperbarui.');
+                ->with('success', 'Import Berhasil!');
 
         } catch (\Exception $e) {
-            return back()->withErrors(['file' => 'Gagal menyimpan data: ' . $e->getMessage()]);
+            return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
         }
     }
 
+    private function saveProduct($item) {
+        Product::updateOrCreate(
+            ['name' => $item['name']],
+            [
+                'sku'                 => $item['sku'],
+                'product_category_id' => $this->resolveCategoryId($item['category_raw'])->id,
+                'unit_type_id'        => $this->resolveUnitId($item['unit_raw'])->id,
+                'buying_price'        => $item['buying_price'],
+                'selling_price'       => $item['selling_price'],
+                'stock'               => 0,
+                'created_by'          => Auth::id(),
+                'status'              => 0, 
+            ]
+        );
+    }
+
     /**
-     * Mencari ID Kategori berdasarkan nama, atau membuat baru jika belum ada.
+     * Helper: Mencari Object Kategori atau membuat baru jika tidak ada
      */
     public function resolveCategoryId($input) 
     {
         $input = trim($input);
-        if (is_numeric($input)) return (int)$input;
-
+        if (empty($input)) $input = 'Umum';
+        
+        // Perbaikan Minor: Mengembalikan Object secara konsisten
         return ProductCategory::firstOrCreate(
             ['name' => $input],
             ['created_by' => Auth::id(), 'status' => 0]
-        )->id;
+        );
     }
 
     /**
-     * Mencari ID Satuan berdasarkan nama, atau membuat baru jika belum ada.
+     * Helper: Mencari Object Satuan atau membuat baru jika tidak ada
      */
     public function resolveUnitId($input) 
     {
         $input = trim($input);
-        if (is_numeric($input)) return (int)$input;
+        if (empty($input)) $input = 'pcs';
 
+        // Perbaikan Minor: Mengembalikan Object secara konsisten
         return UnitType::firstOrCreate(
             ['name' => $input],
             ['created_by' => Auth::id(), 'status' => 0]
-        )->id;
+        );
     }
 
     /**
-     * Menghapus karakter pemisah ribuan dan mengonversi string harga ke float.
+     * Helper: Membersihkan format harga
      */
     public function formatPrice($value) 
     {
         if (empty($value)) return 0;
-        if (is_string($value)) {
-            // Menghapus titik (ribuan) dan mengganti koma dengan titik (desimal) jika ada
-            $value = str_replace(['.', ','], ['', '.'], $value);
+        if (is_string($value) && str_contains($value, '.')) {
+            $value = preg_replace('/[^0-9]/', '', $value);
         }
         return (float)$value;
     }
