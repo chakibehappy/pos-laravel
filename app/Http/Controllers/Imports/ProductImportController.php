@@ -225,17 +225,17 @@ class ProductImportController extends Controller
                 $this->saveProduct($item['excel']);
             }
 
-            // session()->forget(['pending_new_data', 'pending_similar_data']);
+            session()->forget(['pending_new_data', 'pending_similar_data']);
 
-            return redirect()->route('products.index')
-                ->with('success', 'Import Berhasil!');
+            // return redirect()->route('products.index')
+            //     ->with('success', 'Import Berhasil!');
 
         } catch (\Exception $e) {
             return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
         }
         
-            // return redirect()->route('products.index')
-            //     ->with('success', 'Import Berhasil!');
+            return redirect()->route('products.index')
+                ->with('success', 'Import Berhasil!');
     }
 
     private function saveProduct($item) {
