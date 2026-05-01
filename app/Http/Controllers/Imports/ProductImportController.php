@@ -218,12 +218,12 @@ class ProductImportController extends Controller
                 $this->saveProduct($item);
             }
 
-            foreach ($similarData as $index => $item) {
-                if (in_array($index, $excludedIndices)) {
-                    continue;
-                }
-                $this->saveProduct($item['excel']);
-            }
+            // foreach ($similarData as $index => $item) {
+            //     if (in_array($index, $excludedIndices)) {
+            //         continue;
+            //     }
+            //     $this->saveProduct($item['excel']);
+            // }
 
             session()->forget(['pending_new_data', 'pending_similar_data']);
 
