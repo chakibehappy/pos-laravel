@@ -230,10 +230,14 @@ class ProductImportController extends Controller
             return redirect()->route('products.index')
                 ->with('success', 'Import Berhasil!');
 
+        // } catch (\Exception $e) {
+        //     return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
+        // }
         } catch (\Exception $e) {
-            return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
+            // Ganti 'back()' menjadi redirect ke route yang pasti mendukung GET (misal halaman index import)
+            return redirect()->route('products.import.index')
+                ->withErrors(['file' => 'Gagal menyimpan: ' . $e->getMessage()]);
         }
-        
             // return redirect()->route('products.index')
             //     ->with('success', 'Import Berhasil!');
     }

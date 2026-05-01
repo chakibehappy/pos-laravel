@@ -233,6 +233,8 @@ Route::middleware(['auth'])->group(function () {
 
     
     Route::get('/products/import', [ProductImportController::class, 'index'])->name('products.import.index');
-    Route::post('/products/import/preview', [ProductImportController::class, 'preview'])->name('products.import.preview');
+    Route::match(['get', 'post'], 'products/import/preview', [ProductImportController::class, 'preview'])
+    ->name('products.import.preview');
+    // Route::post('/products/import/preview', [ProductImportController::class, 'preview'])->name('products.import.preview');
     Route::post('/products/import/store', [ProductImportController::class, 'store'])->name('products.import.store');
 });
