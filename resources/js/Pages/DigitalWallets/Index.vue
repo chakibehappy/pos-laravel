@@ -66,7 +66,7 @@ const columns = [
 <template>
     <Head title="Master Wallet" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Master Wallet" page-subtitle="Maar Company">
         <div class="p-8">
             
             <div v-if="showCreateForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">

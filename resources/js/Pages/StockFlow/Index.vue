@@ -59,7 +59,7 @@ const formatNumber = (value) => new Intl.NumberFormat('id-ID').format(value);
 <template>
     <Head title="Laporan Mutasi Stok" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Laporan Mutasi Stok" page-subtitle="Percabang">
         <div class="p-8">
             <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                 <div class="flex flex-col gap-2">

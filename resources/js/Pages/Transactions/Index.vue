@@ -372,7 +372,7 @@ watch(filterState, debounce(() => {
 
 <template>
     <Head title="Master Transaksi" />
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Master Transaksi" page-subtitle="Maar Company">
         <div class="p-8">
             <div v-if="showForm" :class="isEditMode ? 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4' : ''">
                 <div class="p-6 bg-white rounded-xl border border-gray-200 shadow-md relative" :class="isEditMode ? 'w-full max-w-6xl max-h-[90vh] overflow-y-auto' : 'mb-8'">

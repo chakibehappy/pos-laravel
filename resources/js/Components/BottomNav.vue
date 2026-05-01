@@ -6,7 +6,7 @@ const page = usePage();
 
 const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
-     { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
+    { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index') },
     { 
         label: 'Pengguna', icon: '👤', isDropdown: true,
         activeOn: ['users.*', 'pos_users.*', 'accounts.*'],
@@ -37,14 +37,13 @@ const menuItems = [
     },
     { 
         label: 'Master Kategori', icon: '🗂️', isDropdown: true,
-        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*' , 'services.*'],//'expense-types.*'
+        activeOn: ['stock-flow.*','digital-wallets.*','store-types.*', 'topup-trans-types.*', 'withdrawal-source-types.*', 'payment-methods.*' , 'services.*'],
         children: [
             { label: 'Mutasi Stok', name: 'stock-flow.index', route: route('stock-flow.index') },
             { label: 'Jenis Wallet', name: 'digital-wallets.index', route: route('digital-wallets.index') },
             { label: 'Jenis Topup', name: 'topup-trans-types.index', route: route('topup-trans-types.index') },
             { label: 'Jenis Tarik Tunai', name: 'withdrawal-source-types.index', route: route('withdrawal-source-types.index') },
             { label: 'Metode Pembayaran', name: 'payment-methods.index', route: route('payment-methods.index') },
-            // { label: 'Tipe Pengeluaran', name: 'expense-types.index', route: route('expense-types.index') }
             { label: 'Jenis Layanan',  name: 'services.index', route: route('services.index') }
         ]
     },
@@ -60,11 +59,6 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
-   
-    // { label: 'Laporan Pembelian', icon: '📦', name: 'report-buying.index', route: route('report-buying.index') },
-    // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },
-    // { label: 'Jenis Layanan', icon: '📋', name: 'services.index', route: route('services.index') },
-    
 ];
 
 const isItemActive = (item) => {
@@ -79,6 +73,32 @@ const toggleSheet = (label) => {
 };
 
 watch(() => page.url, () => { openSheet.value = null; });
+
+/**
+ * Logika Mouse Drag-to-Scroll
+ */
+const navRef = ref(null);
+const isDown = ref(false);
+const startX = ref(0);
+const scrollLeft = ref(0);
+
+const startDragging = (e) => {
+    isDown.value = true;
+    startX.value = e.pageX - navRef.value.offsetLeft;
+    scrollLeft.value = navRef.value.scrollLeft;
+};
+
+const stopDragging = () => {
+    isDown.value = false;
+};
+
+const moveDragging = (e) => {
+    if (!isDown.value) return;
+    e.preventDefault();
+    const x = e.pageX - navRef.value.offsetLeft;
+    const walk = (x - startX.value) * 2; // Multiplier 2 untuk kecepatan scroll
+    navRef.value.scrollLeft = scrollLeft.value - walk;
+};
 </script>
 
 <template>
@@ -110,7 +130,15 @@ watch(() => page.url, () => { openSheet.value = null; });
         </Transition>
 
         <nav class="fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-white/10 z-[130] px-2 pb-safe-area shadow-lg">
-            <div class="flex items-center h-16 overflow-x-auto no-scrollbar py-2 px-2 gap-1">
+            <!-- Event listeners ditambahkan di div kontainer ini -->
+            <div 
+                ref="navRef"
+                class="flex items-center h-16 overflow-x-auto no-scrollbar py-2 px-2 gap-1 cursor-grab active:cursor-grabbing select-none"
+                @mousedown="startDragging"
+                @mouseleave="stopDragging"
+                @mouseup="stopDragging"
+                @mousemove="moveDragging"
+            >
                 <template v-for="item in menuItems" :key="item.label">
                     <component 
                         :is="item.isDropdown ? 'button' : Link"
@@ -149,4 +177,8 @@ watch(() => page.url, () => { openSheet.value = null; });
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Menambahkan smooth dragging */
+.cursor-grab { cursor: grab; }
+.cursor-grabbing { cursor: grabbing; }
 </style>

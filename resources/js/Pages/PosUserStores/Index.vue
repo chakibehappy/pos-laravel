@@ -96,7 +96,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
 <template>
     <Head title="Pegawai Toko" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Daftar Pegawai" page-subtitle="Maar Company">
         <div class="p-8">
             
             <div v-if="showForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">

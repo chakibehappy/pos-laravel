@@ -65,7 +65,7 @@ const deleteUnit = (id) => {
 <template>
     <Head title="Satuan Produk" />
 
-    <AuthenticatedLayout>
+     <AuthenticatedLayout page-title="Satuan Produk" page-subtitle="Maar Company">
         <div class="p-8">
             
             <div v-if="showInlineForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">

@@ -131,7 +131,7 @@ const handleExport = () => {
 <template>
     <Head title="Manajemen Stok Cabang" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Manajemen Stok Cabang" page-subtitle="Maar Company">
         <div class="p-8">
             <div v-if="showInlineForm" class="mb-8 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">

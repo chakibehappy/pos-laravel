@@ -65,7 +65,7 @@ const deleteCategory = (id) => {
 <template>
     <Head title="Kategori Produk" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Kategori Produk" page-subtitle="Maar Company">
         <div class="p-8">
             
             <div v-if="showInlineForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">

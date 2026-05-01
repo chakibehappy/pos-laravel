@@ -82,7 +82,7 @@ const openActivityDetail = (row) => {
 <template>
     <Head title="Riwayat Aktivitas" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Riwayat Aktivitas" page-subtitle="Maar Company">
         <div class="p-8">
             <DataTable 
                 title="Riwayat Aktivitas"

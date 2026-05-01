@@ -132,15 +132,16 @@ const exportExcel = () => {
 </script>
 
 <template>
+ 
     <Head title="Laporan Penjualan " />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Laporan Penjualan" page-subtitle="Percabang">
         <div class="p-8">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 
                 <div class="p-8 border-b border-gray-100">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                        <div>
+                        <div class="hidden md:block pointer-events-auto">
                             <h2 class="text-xl font-black text-gray-800 uppercase tracking-tight">Laporan Penjualan Percabang</h2>
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Arus Jual-Beli Terintegrasi (Real-time)</p>
                         </div>

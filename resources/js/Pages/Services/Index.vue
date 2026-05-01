@@ -94,7 +94,7 @@ const submitDelete = () => {
 <template>
     <Head title="Manajemen Layanan" />
 
-    <AuthenticatedLayout>
+      <AuthenticatedLayout page-title="Manajemen Layanan" page-subtitle="Percabang">
         <div class="p-8">
             <!-- MODAL FORM (CREATE/EDIT) -->
             <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">

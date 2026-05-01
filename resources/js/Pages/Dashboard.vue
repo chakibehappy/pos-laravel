@@ -148,7 +148,7 @@ onMounted(() => {
 
 <template>
     <Head title="Dashboard" />
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Dashboard" page-subtitle="Maar Company">
         <div class="p-8 space-y-8">
             <div class="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>

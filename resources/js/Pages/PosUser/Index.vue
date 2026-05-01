@@ -132,7 +132,7 @@ const destroy = (id) => {
 
 <template>
     <Head title="Manajemen User POS" />
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Manajemen User POS" page-subtitle="Maar Company">
         <div class="p-8">
             
             <div v-if="showForm" class="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">

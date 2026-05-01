@@ -114,7 +114,7 @@ const getSourceName = (id) => {
 <template>
     <Head title="Riwayat Tarik Tunai" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Riwayat Tarik Tunai" page-subtitle="Maar Company">
         <div class="p-8">
             
             <div v-if="errorMessage" class="mb-6 bg-red-50 border border-red-200 p-4 rounded-lg flex items-center gap-3">

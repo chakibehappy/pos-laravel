@@ -105,7 +105,7 @@ const destroy = (id) => {
 <template>
     <Head title="Produk" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Daftar Produk" page-subtitle="Maar Company">
         <div class="p-8">
             <div v-if="showInlineForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b px-6 py-4 flex justify-between items-center text-sm font-bold uppercase tracking-widest text-gray-700">

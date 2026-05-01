@@ -40,7 +40,7 @@ const resetForm = () => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Akun" page-subtitle="Maar Company">
         <div class="p-6">
             <h1 class="text-2xl font-black uppercase mb-6 italic tracking-tighter">Daftar Akun</h1>
 

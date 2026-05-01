@@ -87,7 +87,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
 <template>
     <Head title="Aturan Biaya Tarik Tunai" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Aturan Biaya Tarik Tunai" page-subtitle="Maar Company">
         <div class="p-8">
             
             <div v-if="showForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">

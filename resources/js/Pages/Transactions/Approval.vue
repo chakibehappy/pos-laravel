@@ -56,7 +56,7 @@ const columns = [
 <template>
     <Head title="Persetujuan Hapus" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Persetujuan Hapus" page-subtitle="Maar Company">
         <div class="p-4">
             <DataTable 
                 title="Permintaan Penghapusan"

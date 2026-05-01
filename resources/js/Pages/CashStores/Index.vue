@@ -62,7 +62,7 @@ const columns = [
 <template>
     <Head title="Kas Toko" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Kas Toko" page-subtitle="Maar Company">
         <div class="p-8 text-left text-black">
             <DataTable
                 title="Kas Toko"

@@ -66,7 +66,7 @@ const columns = [
 <template>
     <Head title="Monitoring Saldo Toko" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Monitoring Saldo Toko" page-subtitle="Maar Company">
         <div class="p-8 text-left">
             <DataTable
                 title="Saldo Toko"

@@ -147,7 +147,7 @@ const formatCurrency = (value) => {
 <template>
     <Head title="Transaksi Keluar" />
 
-    <AuthenticatedLayout>
+    <AuthenticatedLayout page-title="Transaksi Keluar" page-subtitle="Maar Company">
         <div class="py-12 bg-gray-50 min-h-screen">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
