@@ -209,30 +209,30 @@ class ProductImportController extends Controller
      */
     public function store(Request $request)
     {
-        // $newData = session('pending_new_data', []);
-        // $similarData = session('pending_similar_data', []);
-        // $excludedIndices = $request->input('excluded_indices', []);
+        $newData = session('pending_new_data', []);
+        $similarData = session('pending_similar_data', []);
+        $excludedIndices = $request->input('excluded_indices', []);
 
-        // try {
-        //     foreach ($newData as $item) {
-        //         $this->saveProduct($item);
-        //     }
+        try {
+            foreach ($newData as $item) {
+                $this->saveProduct($item);
+            }
 
-        //     foreach ($similarData as $index => $item) {
-        //         if (in_array($index, $excludedIndices)) {
-        //             continue;
-        //         }
-        //         $this->saveProduct($item['excel']);
-        //     }
+            // foreach ($similarData as $index => $item) {
+            //     if (in_array($index, $excludedIndices)) {
+            //         continue;
+            //     }
+            //     $this->saveProduct($item['excel']);
+            // }
 
-        //     session()->forget(['pending_new_data', 'pending_similar_data']);
+            // session()->forget(['pending_new_data', 'pending_similar_data']);
 
-        //     return redirect()->route('products.index')
-        //         ->with('success', 'Import Berhasil!');
+            // return redirect()->route('products.index')
+            //     ->with('success', 'Import Berhasil!');
 
-        // } catch (\Exception $e) {
-        //     return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
-        // }
+        } catch (\Exception $e) {
+            return back()->withErrors(['file' => 'Gagal: ' . $e->getMessage()]);
+        }
         
             return redirect()->route('products.index')
                 ->with('success', 'Import Berhasil!');
