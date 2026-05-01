@@ -235,7 +235,10 @@ class ProductImportController extends Controller
         // }
         } catch (\Exception $e) {
             // Ganti 'back()' menjadi redirect ke route yang pasti mendukung GET (misal halaman index import)
-            dd($e->getMessage(), $e->getTraceAsString());
+            dd([
+                'Pesan Error' => $e->getMessage(), // Lihat nama CONSTRAINT di ujung pesan ini
+                'Data Produk Terakhir' => $item ?? 'Tidak ada data'
+            ]);
         }
             // return redirect()->route('products.index')
             //     ->with('success', 'Import Berhasil!');
