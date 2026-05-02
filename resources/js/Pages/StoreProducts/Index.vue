@@ -34,6 +34,7 @@ const currentStockInfo = computed(() => {
     return existingData ? existingData.stock : 0;
 });
 
+
 // --- FILTER STATE ---
 const selectedStore = ref(props.filters?.store_id || '');
 const selectedStoreType = ref(props.filters?.store_type_id || '');
@@ -75,12 +76,18 @@ const columns = [
 
 const showInlineForm = ref(false);
 const showModalForm = ref(false);
+
 const searchQuery = ref(''); 
 const showDropdown = ref(false); 
 const storeSearchQuery = ref('');
 const showStoreDropdown = ref(false);
 
+const QueryProductSearch = ref('');
+const QueryStoreSearch = ref('');
+
+// Form utama dan keranjang
 const form = useForm({ id: null, store_id: '', product_id: '', stock: 0 });
+const cart = ref([]);
 
 const filteredProducts = computed(() => {
     if (!searchQuery.value) return props.products;
@@ -94,25 +101,110 @@ const filteredStores = computed(() => {
 });
 
 const openCreate = () => {
-    form.reset(); form.id = null; searchQuery.value = ''; storeSearchQuery.value = '';
-    showModalForm.value = false; showInlineForm.value = true;
+    form.reset(); 
+    form.id = null; 
+    searchQuery.value = ''; 
+    storeSearchQuery.value = '';
+    QueryProductSearch.value = '';
+    QueryStoreSearch.value = '';
+    cart.value = [];
+    showModalForm.value = false; 
+    showInlineForm.value = true;
 };
 
 const openEdit = (row) => {
-    form.clearErrors(); form.id = row.id; form.store_id = row.store_id; form.product_id = row.product_id; form.stock = row.stock;
-    searchQuery.value = row.product_name; storeSearchQuery.value = row.store_name; 
-    showInlineForm.value = false; showModalForm.value = true;
+    form.clearErrors(); 
+    form.id = row.id; 
+    form.store_id = row.store_id; 
+    form.product_id = row.product_id; 
+    form.stock = row.stock;
+    
+    // Perbaikan variabel yang digunakan
+    searchQuery.value = row.product_name; 
+    storeSearchQuery.value = row.store_name;
+    
+    showInlineForm.value = false; 
+    showModalForm.value = true;
 };
 
-const selectProduct = (p) => { form.product_id = p.id; searchQuery.value = p.name; showDropdown.value = false; };
-const selectStore = (s) => { form.store_id = s.id; storeSearchQuery.value = s.name; showStoreDropdown.value = false; };
+const selectProduct = (p) => { 
+    form.product_id = p.id; 
+    searchQuery.value = p.name; 
+    QueryProductSearch.value = p.name;
+    showDropdown.value = false; 
+};
+
+const selectStore = (s) => { 
+    form.store_id = s.id; 
+    storeSearchQuery.value = s.name;
+    QueryStoreSearch.value = s.name; 
+    showStoreDropdown.value = false; 
+};
+
+// Menambahkan item ke dalam keranjang lokal
+const addToCart = () => {
+    if (!form.store_id || !form.product_id) {
+        alert('Mohon pilih cabang dan produk terlebih dahulu.');
+        return;
+    }
+
+    // Cek apakah item sudah ada di dalam cart
+    const index = cart.value.findIndex(item => item.store_id === form.store_id && item.product_id === form.product_id);
+
+    const productObj = props.products.find(p => p.id === form.product_id);
+    const storeObj = props.stores.find(s => s.id === form.store_id);
+
+    if (index !== -1) {
+        cart.value[index].stock = form.stock;
+    } else {
+        cart.value.push({
+            store_id: form.store_id,
+            product_id: form.product_id,
+            stock: form.stock,
+            store_name: storeObj ? storeObj.name : 'Unknown',
+            product_name: productObj ? productObj.name : 'Unknown'
+        });
+    }
+
+    // Reset input produk di form setelah dimasukkan ke keranjang
+    form.product_id = '';
+    searchQueryProductSearch.value = '';
+    searchQuery.value = '';
+    form.stock = 0;
+};
+
+// Menghapus item dari keranjang
+const removeFromCart = (index) => {
+    cart.value.splice(index, 1);
+};
 
 const submit = () => {
-    // FIX: Selalu gunakan route 'store-products.store' karena Anda tidak punya route PUT/Update
-    // Controller Anda sudah menggunakan updateOrCreate, jadi ini akan otomatis mengupdate jika ID/kombinasi produk ada.
-    form.post(route('store-products.store'), {
-        onSuccess: () => { showInlineForm.value = false; showModalForm.value = false; form.reset(); },
-    });
+    // Jika tidak ada batch di dalam cart untuk form create, gunakan form konvensional
+    if (showModalForm.value) {
+        form.post(route('store-products.store'), {
+            onSuccess: () => { 
+                showInlineForm.value = false; 
+                showModalForm.value = false; 
+                form.reset(); 
+            },
+        });
+    } else {
+        if (cart.value.length === 0) {
+            alert('Keranjang Anda kosong.');
+            return;
+        }
+        
+        // Kirim array melalui batch
+        router.post(route('store-products.store'), { batch: cart.value }, {
+            preserveState: false,
+            preserveScroll: false,
+            onSuccess: () => {
+                showInlineForm.value = false;
+                cart.value = [];
+                form.reset();
+            }
+        });
+    }
 };
 
 const destroy = (id) => {
@@ -165,8 +257,41 @@ const handleExport = () => {
                             <input v-model="form.stock" type="number" class="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2.5 text-sm font-bold text-blue-700" />
                         </div>
                     </div>
+                    
+                    <div class="mt-6 flex justify-end">
+                        <button @click="addToCart" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-700 shadow-sm flex items-center gap-2">
+                            + Tambah ke Keranjang
+                        </button>
+                    </div>
+
+                    <div v-if="cart.length > 0" class="mt-6">
+                        <h4 class="text-xs font-black text-gray-600 uppercase tracking-wider mb-3">📦 Item Dalam Keranjang</h4>
+                        <div class="border border-gray-200 rounded-lg overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200 text-left text-xs text-gray-700 uppercase">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 font-black text-gray-500">Cabang</th>
+                                        <th class="px-6 py-3 font-black text-gray-500">Produk</th>
+                                        <th class="px-6 py-3 font-black text-gray-500 text-right">Stok</th>
+                                        <th class="px-6 py-3 font-black text-gray-500 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr v-for="(item, index) in cart" :key="index">
+                                        <td class="px-6 py-4 font-bold">{{ item.store_name }}</td>
+                                        <td class="px-6 py-4 font-bold">{{ item.product_name }}</td>
+                                        <td class="px-6 py-4 font-bold text-right">{{ item.stock }}</td>
+                                        <td class="px-6 py-4 text-center">
+                                            <button @click="removeFromCart(index)" class="text-red-600 hover:text-red-800 font-bold">X</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="mt-8 flex gap-3 border-t border-gray-100 pt-6">
-                        <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-sm disabled:opacity-50">Simpan Alokasi</button>
+                        <button @click="submit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-sm disabled:opacity-50">Simpan Keranjang</button>
                         <button @click="showInlineForm = false" class="bg-white border border-gray-300 text-gray-600 px-8 py-2.5 rounded-lg text-xs font-bold uppercase hover:bg-gray-50 transition-all">Batal</button>
                     </div>
                 </div>

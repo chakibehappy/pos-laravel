@@ -65,9 +65,9 @@ class StoreProductController extends Controller
         $direction = $request->input('direction', 'desc');
 
         $allowedSorts = [
-            'store_name'           => 'stores.name',
-            'product_name'         => 'products.name',
-            'product_sku'          => 'products.sku',
+            'store_name'          => 'stores.name',
+            'product_name'        => 'products.name',
+            'product_sku'         => 'products.sku',
             'product_buying_price' => 'products.buying_price',
             'product_selling_price' => 'products.selling_price',
             'stock'                => 'store_products.stock',
@@ -91,24 +91,44 @@ class StoreProductController extends Controller
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'store_id'   => 'required|exists:stores,id',
-        'product_id' => 'required|exists:products,id',
-        'stock'      => 'required|integer|min:0',
-    ]);
+    {
+        if ($request->has('batch') && is_array($request->batch)) {
+            $request->validate([
+                'batch.*.store_id'   => 'required|exists:stores,id',
+                'batch.*.product_id' => 'required|exists:products,id',
+                'batch.*.stock'      => 'required|integer|min:0',
+            ]);
+        } else {
+            $request->validate([
+                'store_id'   => 'required|exists:stores,id',
+                'product_id' => 'required|exists:products,id',
+                'stock'      => 'required|integer|min:0',
+            ]);
+        }
 
-    return DB::transaction(function () use ($request) {
-        $adminEmail = auth()->user()->email;
-        $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
-        $createdBy = $posUser ? $posUser->id : null;
+        return DB::transaction(function () use ($request) {
+            $adminEmail = auth()->user()->email;
+            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+            $createdBy = $posUser ? $posUser->id : null;
 
-        // 1. Ambil data lama SEBELUM diupdate
-        $existing = StoreProduct::where('store_id', $request->store_id)
-            ->where('product_id', $request->product_id)
+            if ($request->has('batch')) {
+                foreach ($request->batch as $batchItem) {
+                    $this->processItem($batchItem, $createdBy);
+                }
+            } else {
+                $this->processItem($request->all(), $createdBy);
+            }
+
+            return back()->with('message', 'Data stok cabang berhasil diperbarui!');
+        });
+    }
+
+    private function processItem(array $data, $createdBy)
+    {
+        $existing = StoreProduct::where('store_id', $data['store_id'])
+            ->where('product_id', $data['product_id'])
             ->first();
 
-        // Ambil nilai stok lama, jika tidak ada (barang baru) maka 0
         $oldStock = $existing ? $existing->stock : 0;
         $oldData = $existing ? $existing->getRawOriginal() : null;
         $isRestoring = ($existing && $existing->status == 2);
@@ -116,25 +136,23 @@ class StoreProductController extends Controller
         $logType = ($existing && !$isRestoring) ? "update" : "create";
         $actionLabel = ($existing && !$isRestoring) ? "Memperbarui" : "Menambah";
 
-        // 2. Tentukan keterangan perubahan stok secara dinamis
         $stockChangeInfo = ($existing && !$isRestoring) 
-            ? "dari {$oldStock} menjadi {$request->stock}" 
-            : "menjadi {$request->stock}";
+            ? "dari {$oldStock} menjadi {$data['stock']}" 
+            : "menjadi {$data['stock']}";
 
         $sp = StoreProduct::updateOrCreate(
-            ['store_id' => $request->store_id, 'product_id' => $request->product_id],
+            ['store_id' => $data['store_id'], 'product_id' => $data['product_id']],
             [
-                'stock' => $request->stock, 
+                'stock' => $data['stock'], 
                 'created_by' => $createdBy,
                 'status' => 0, 
                 'deleted_at' => null 
             ]
         );
 
-        $product = Product::find($request->product_id);
-        $store = Store::find($request->store_id);
+        $product = Product::find($data['product_id']);
+        $store = Store::find($data['store_id']);
 
-        // 3. LOG ACTIVITY dengan deskripsi baru
         ActivityLogger::log(
             $logType,
             'store_products',
@@ -142,12 +160,9 @@ class StoreProductController extends Controller
             "{$actionLabel} stok produk {$product->name} di {$store->name} {$stockChangeInfo}",
             $createdBy,
             ['old' => $oldData, 'new' => $sp->getAttributes()],
-            $request->store_id
+            $data['store_id']
         );
-
-        return back()->with('message', 'Data stok cabang berhasil diperbarui!');
-    });
-}
+    }
 
     public function update(Request $request, $id)
     {
