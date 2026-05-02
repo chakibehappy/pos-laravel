@@ -128,10 +128,10 @@ class ProductImportController extends Controller
                     // CEK IDENTIK
                     $isIdentical = 
                         $exactMatch->name === $item['name'] &&
-                        $exactMatch->sku === $item['sku'] &&
+                        (empty($item['sku']) || $exactMatch->sku === $item['sku']) &&
                         $exactMatch->product_category_id === $excelCategoryId &&
-                        $exactMatch->unit_type_id === $excelUnitId &&
-                        (float)$exactMatch->buying_price === (float)$item['buying_price'] &&
+                        (empty($item['unit_raw']) || $exactMatch->unit_type_id === $excelUnitId) &&
+                        (empty($item['buying_price']) || (float)$exactMatch->buying_price === (float)$item['buying_price']) &&
                         (float)$exactMatch->selling_price === (float)$item['selling_price'];
 
                     if ($isIdentical) {
@@ -140,13 +140,13 @@ class ProductImportController extends Controller
                     }
                 }
 
-                // 3. Jika tidak identik, cari Nominasi Kemiripan (Similar)
                 $matches = collect();
 
                 foreach ($existingProducts as $dbProduct) {
                     similar_text(strtolower($item['name']), strtolower($dbProduct->name), $percent);
                     
-                    if ($percent >= 50) {
+                    // Perubahan: Hanya data yang 80% - 99.9% yang masuk ke Similar
+                    if ($percent >= 80 && $percent < 100) {
                         $matches->push([
                             'name'          => $dbProduct->name,
                             'sku'           => $dbProduct->sku,
@@ -169,7 +169,10 @@ class ProductImportController extends Controller
                         'similarity' => $topMatches->first()['similarity'] 
                     ];
                 } else {
-                    $newData[] = $item;
+                    // Perubahan: Pastikan item baru ditambahkan hanya jika bukan data yang sama persis
+                    if (!$exactMatch) {
+                        $newData[] = $item;
+                    }
                 }
             }
 
