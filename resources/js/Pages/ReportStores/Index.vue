@@ -132,23 +132,24 @@ const exportExcel = () => {
 </script>
 
 <template>
- 
-    <Head title="Laporan Penjualan " />
+    <Head title="Laporan Penjualan" />
 
     <AuthenticatedLayout page-title="Laporan Penjualan" page-subtitle="Percabang">
-        <div class="p-8">
+        <div class="p-2 md:p-4 pb-20 md:pb-4">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 
-                <div class="p-8 border-b border-gray-100">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                        <div class="hidden md:block pointer-events-auto">
-                            <h2 class="text-xl font-black text-gray-800 uppercase tracking-tight">Laporan Penjualan Percabang</h2>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Arus Jual-Beli Terintegrasi (Real-time)</p>
+                <div class="p-4 border-b border-gray-100">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div class="hidden md:flex justify-between items-center gap-4 mb-6">
+                            <div>
+                                <h2 class="text-lg md:text-xl font-black text-gray-800 uppercase tracking-tight">Laporan Penjualan Percabang</h2>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Arus Jual-Beli Terintegrasi (Real-time)</p>
+                            </div>
                         </div>
                         
                         <button 
                             @click="exportExcel" 
-                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-md active:scale-95"
+                            class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -157,13 +158,13 @@ const exportExcel = () => {
                         </button>
                     </div>
 
-                    <div class="flex flex-wrap gap-6 items-end">
-                        <div class="w-64">
+                    <div class="flex flex-col md:flex-row flex-wrap gap-4 items-end">
+                        <div class="w-full md:w-64">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Usaha</label>
 
                             <select 
                                 v-model="filterState.store_type_id" 
-                                class="w-full border border-gray-200 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all uppercase appearance-none bg-white cursor-pointer"
+                                class="w-full border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all uppercase appearance-none bg-white cursor-pointer"
                                 style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem;">
                                 <option value="">SEMUA JENIS USAHA</option>
                                 <option v-for="type in storeTypes" :key="type.id" :value="type.id">
@@ -172,7 +173,7 @@ const exportExcel = () => {
                             </select>
                         </div>
 
-                        <div class="w-72">
+                        <div class="w-full md:w-72">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pilih Cabang</label>
 
                             <SearchableSelect 
@@ -182,87 +183,88 @@ const exportExcel = () => {
                             />
                         </div>
 
-                        <div class="flex flex-col gap-1">
+                        <div class="flex flex-col gap-1 w-full md:w-auto">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mulai Tanggal</label>
-                            <input type="date" v-model="filterState.start_date" class="border border-gray-200 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase" />
+                            <input type="date" v-model="filterState.start_date" class="border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase" />
                         </div>
-                        <div class="flex flex-col gap-1">
+                        <div class="flex flex-col gap-1 w-full md:w-auto">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sampai Tanggal</label>
-                            <input type="date" v-model="filterState.end_date" class="border border-gray-200 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase" />
+                            <input type="date" v-model="filterState.end_date" class="border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase" />
                         </div>
                     </div>
                 </div>
 
-                <div class="overflow-x-auto overflow-y-auto max-h-[600px] relative border-separate">
-                    <table class="w-full text-[10px] border-separate border-spacing-0">
+                <div class="overflow-x-auto overflow-y-auto max-h-[500px] relative border-separate">
+                    
+                    <table class="w-full text-[8px] md:text-[10px] border-separate border-spacing-0">
                         <thead class="bg-gray-50">
                             <tr class="header-row-1">
-                                <th rowspan="3" class="sticky-column left-0 px-6 py-4 text-left uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500 z-50">Cabang</th>
-                                <th rowspan="3" class="px-4 py-4 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Qty</th>
-                                <th :colspan="totalPenjualanColumns" class="px-4 py-3 text-center uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-100 text-gray-600">Rincian Penjualan (Omzet & Modal)</th>
-                                <th rowspan="3" class="px-4 py-4 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Total Omzet</th>
-                                <th rowspan="3" class="px-4 py-4 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Laba Kotor</th>
-                                <th rowspan="3" class="px-4 py-4 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Operasional</th>
-                                <th rowspan="3" class="px-4 py-4 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Laba Cabang</th>
+                                <th rowspan="3" class="sticky-column left-0 px-4 py-3.5 text-left uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500 z-50">Cabang</th>
+                                <th rowspan="3" class="px-3 py-3.5 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Qty</th>
+                                <th :colspan="totalPenjualanColumns" class="px-3 py-3 text-center uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-100 text-gray-600">Rincian Penjualan (Omzet & Modal)</th>
+                                <th rowspan="3" class="px-3 py-3.5 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Total Omzet</th>
+                                <th rowspan="3" class="px-3 py-3.5 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Laba Kotor</th>
+                                <th rowspan="3" class="px-3 py-3.5 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Operasional</th>
+                                <th rowspan="3" class="px-3 py-3.5 text-right uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Laba Cabang</th>
                             </tr>
 
                             <tr class="header-row-2">
-                                <th v-for="cat in productCategories" :key="'h2-cat-' + cat.id" colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-blue-400 border-b border-r border-gray-200 bg-gray-50" >
+                                <th v-for="cat in productCategories" :key="'h2-cat-' + cat.id" colspan="2" class="px-3 py-2 text-center font-black uppercase tracking-tighter text-blue-400 border-b border-r border-gray-200 bg-gray-50">
                                     {{ cat.name }}
                                 </th>
-                                <th v-for="wallet in dynamicWallets" :key="'h2-wal-' + wallet.id" colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-blue-600 border-b border-r border-gray-200 bg-gray-50">
+                                <th v-for="wallet in dynamicWallets" :key="'h2-wal-' + wallet.id" colspan="2" class="px-3 py-2 text-center font-black uppercase tracking-tighter text-blue-600 border-b border-r border-gray-200 bg-gray-50">
                                     {{ wallet.name }}
                                 </th>
-                                <th colspan="2" class="px-4 py-2 text-center font-black uppercase tracking-tighter text-blue-800 border-b border-r border-gray-200 bg-gray-50">
+                                <th colspan="2" class="px-3 py-2 text-center font-black uppercase tracking-tighter text-blue-800 border-b border-r border-gray-200 bg-gray-50">
                                     Tarik Tunai
                                 </th>
                             </tr>
 
                             <tr class="header-row-3">
                                 <template v-for="n in (productCategories.length + dynamicWallets.length + 1)" :key="'sub-label-' + n">
-                                    <th class="px-2 py-2 text-right font-bold text-gray-400 bg-gray-50 border-b border-r border-gray-200">PEMBELIAN</th>
-                                    <th class="px-2 py-2 text-right font-bold text-gray-600 bg-white border-b border-r border-gray-200">PENJUALAN</th>
+                                    <th class="px-2 py-2 text-right font-bold text-gray-400 bg-gray-50 border-b border-r border-gray-200">BELI</th>
+                                    <th class="px-2 py-2 text-right font-bold text-gray-600 bg-white border-b border-r border-gray-200">JUAL</th>
                                 </template>
                             </tr>
                         </thead>
 
                         <tbody class="divide-y divide-gray-50 text-black">
                             <tr v-for="(row, index) in reportData" :key="index" class="hover:bg-blue-50/30 transition-colors group">
-                                <td class="sticky-column left-0 z-10 px-6 py-4 border-r border-gray-200 bg-white group-hover:bg-blue-50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                    <span class="font-black uppercase tracking-tight italic">{{ row.nama_cabang }}</span>
+                                <td class="sticky-column left-0 z-10 px-4 py-3 border-r border-gray-200 bg-white group-hover:bg-blue-50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                    <span class="font-black uppercase tracking-tight italic text-[9px] md:text-[10px]">{{ row.nama_cabang }}</span>
                                 </td>
                                 
-                                <td class="px-4 py-4 text-right font-bold border-r border-gray-100">{{ formatNumber(row.qty) }}</td>
+                                <td class="px-3 py-3 text-right font-bold border-r border-gray-100">{{ formatNumber(row.qty) }}</td>
                                 
                                 <template v-for="cat in productCategories" :key="'val-cat-' + cat.id">
-                                    <td class="px-2 py-4 text-right italic bg-gray-50/10">
+                                    <td class="px-2 py-3 text-right italic bg-gray-50/10">
                                         {{ formatNumber(row[cat.name?.toLowerCase() + '_beli']) }}
                                     </td>
-                                    <td class="px-2 py-4 text-right font-bold border-r border-gray-100">
+                                    <td class="px-2 py-3 text-right font-bold border-r border-gray-100">
                                         {{ formatNumber(row[cat.name?.toLowerCase() + '_jual']) }}
                                     </td>
                                 </template>
 
                                 <template v-for="wallet in dynamicWallets" :key="'val-wal-' + wallet.id">
-                                    <td class="px-2 py-4 text-right italic bg-gray-50/10">
+                                    <td class="px-2 py-3 text-right italic bg-gray-50/10">
                                         {{ formatNumber(row[wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}
                                     </td>
-                                    <td class="px-2 py-4 text-right font-bold border-r border-gray-100">
+                                    <td class="px-2 py-3 text-right font-bold border-r border-gray-100">
                                         {{ formatNumber(row[wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}
                                     </td>
                                 </template>
 
-                                <td class="px-2 py-4 text-right italic bg-amber-50/5">{{ formatNumber(row.tar_beli || row.tarik_tunai_beli) }}</td>
-                                <td class="px-2 py-4 text-right font-bold bg-amber-50/20 border-r border-gray-200">{{ formatNumber(row.tar_jual || row.tarik_tunai_jual) }}</td>
+                                <td class="px-2 py-3 text-right italic bg-amber-50/5">{{ formatNumber(row.tar_beli || row.tarik_tunai_beli) }}</td>
+                                <td class="px-2 py-3 text-right font-bold bg-amber-50/20 border-r border-gray-200">{{ formatNumber(row.tar_jual || row.tarik_tunai_jual) }}</td>
 
-                                <td class="px-4 py-4 text-right font-black border-r border-gray-200">{{ formatNumber(row.total) }}</td>
-                                <td class="px-4 py-4 text-right font-bold border-r border-gray-200 bg-blue-50/10 italic">
+                                <td class="px-3 py-3 text-right font-black border-r border-gray-200">{{ formatNumber(row.total) }}</td>
+                                <td class="px-3 py-3 text-right font-bold border-r border-gray-200 bg-blue-50/10 italic">
                                     {{ formatNumber(row.laba_kotor) }}
                                 </td>
-                                <td class="px-4 py-4 text-right font-bold border-r border-gray-200 bg-red-50/10 italic">
+                                <td class="px-3 py-3 text-right font-bold border-r border-gray-200 bg-red-50/10 italic">
                                     {{ formatNumber(row.operasional || 0) }}
                                 </td>
-                                <td class="px-6 py-4 text-right">
+                                <td class="px-4 py-3 text-right">
                                     <span class="px-3 py-1 rounded-lg bg-emerald-50 font-black tracking-tighter">
                                         {{ formatNumber(row.laba_cabang) }}
                                     </span>
@@ -271,47 +273,45 @@ const exportExcel = () => {
                         </tbody>
 
                         <tfoot v-if="reportData.length > 0" class="sticky bottom-0 z-50">
-                            <tr class="bg-gray-100 text-black font-black uppercase tracking-widest">
-                                <td class="sticky-column left-0 px-6 py-4 border-r border-black/10 bg-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">TOTAL</td>
+                            <tr class="bg-gray-100 text-black font-black uppercase tracking-widest text-[9px] md:text-[10px]">
+                                <td class="sticky-column left-0 px-4 py-3 border-r border-black/10 bg-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">TOTAL</td>
                                 
-                                <td class="px-4 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.qty) }}</td>
+                                <td class="px-3 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.qty) }}</td>
                                 
                                 <template v-for="cat in productCategories" :key="'foot-cat-' + cat.id">
-                                    <td class="px-2 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_beli']) }}</td>
-                                    <td class="px-2 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_jual']) }}</td>
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_beli']) }}</td>
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_jual']) }}</td>
                                 </template>
 
                                 <template v-for="wallet in dynamicWallets" :key="'foot-wal-' + wallet.id">
-                                    <td class="px-2 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}</td>
-                                    <td class="px-2 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}</td>
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}</td>
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}</td>
                                 </template>
 
-                                <td class="px-2 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.tarik_tunai_beli) }}</td>
-                                <td class="px-2 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.tarik_tunai_jual) }}</td>
+                                <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.tarik_tunai_beli) }}</td>
+                                <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.tarik_tunai_jual) }}</td>
 
-                                <td class="px-4 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.total) }}</td>
-                                <td class="px-4 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.laba_kotor) }}</td>
-                                <td class="px-4 py-4 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.operasional) }}</td>
-                                <td class="px-6 py-4 text-right bg-gray-100">{{ formatNumber(totals.laba_cabang) }}</td>
-                            </tr>
-                            <tr class="bg-gray-100 text-black font-black uppercase tracking-widest border-t border-black/20 ">
-                                <td class="sticky-column left-0 px-6 py-4 border-r border-black/10 bg-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">PENGELUARAN GLOBAL</td>
-                                <td :colspan="totalPenjualanColumns + 4" class="bg-gray-100  shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]"></td>
-                                <td class="px-6 py-4 text-right bg-gray-100 font-black shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">
-                                    {{ formatNumber(globalExpense) }}
-                                </td>
+                                <td class="px-3 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.total) }}</td>
+                                <td class="px-3 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.laba_kotor) }}</td>
+                                <td class="px-3 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.operasional) }}</td>
+                                <td class="px-4 py-3 text-right bg-gray-100">{{ formatNumber(totals.laba_cabang) }}</td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
 
-                <div v-if="reportData.length > 0" class="border-t border-gray-200">
-                    <div class="flex items-center justify-between px-8 py-6 bg-[#FDC700]">
+                <div v-if="reportData.length > 0" class="border-t border-gray-200 sticky bottom-0 z-40 bg-gray-50">
+                    <div class="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-gray-100 text-[9px] md:text-[10px] text-black font-black uppercase tracking-widest">
+                        <div>PENGELUARAN GLOBAL</div>
+                        <div>{{ formatNumber(globalExpense) }}</div>
+                    </div>
+
+                    <div class="flex flex-row justify-between items-center px-6 py-5 bg-[#FDC700] gap-4">
                         <div>
                             <span class="text-[12px] font-black uppercase tracking-tighter block">Laba Bersih Akhir</span>
-                            <span class="text-[9px] font-bold opacity-60 uppercase">Dihitung dari total laba cabang - pengeluaran global</span>
+                            <span class="text-[9px] font-bold opacity-60 uppercase hidden md:inline">Dihitung dari total laba cabang - pengeluaran global</span>
                         </div>
-                        <div class="text-2xl font-black tracking-tighter">
+                        <div class="text-xl md:text-2xl font-black tracking-tighter">
                             RP {{ formatNumber(labaBersihTotal) }}
                         </div>
                     </div>

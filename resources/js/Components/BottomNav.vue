@@ -96,7 +96,7 @@ const moveDragging = (e) => {
     if (!isDown.value) return;
     e.preventDefault();
     const x = e.pageX - navRef.value.offsetLeft;
-    const walk = (x - startX.value) * 2; // Multiplier 2 untuk kecepatan scroll
+    const walk = (x - startX.value) * 2;
     navRef.value.scrollLeft = scrollLeft.value - walk;
 };
 </script>
@@ -108,18 +108,18 @@ const moveDragging = (e) => {
         </Transition>
 
         <Transition name="sheet">
-            <div v-if="openSheet" class="fixed bottom-[72px] left-4 right-4 bg-[#1a1a1a] rounded-3xl z-[120] p-5 shadow-2xl border border-white/10 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                <div class="flex items-center justify-between mb-4 px-2">
-                    <span class="text-xs font-black uppercase text-yellow-400 tracking-widest">Menu {{ openSheet }}</span>
-                    <button @click="openSheet = null" class="text-gray-500 text-xl">&times;</button>
+            <div v-if="openSheet" class="fixed bottom-[10.5vh] left-[4vw] right-[4vw] bg-[#1a1a1a] rounded-3xl z-[120] p-[4vw] shadow-2xl border border-white/10 max-h-[55vh] overflow-y-auto custom-scrollbar">
+                <div class="flex items-center justify-between mb-3 px-[1vw]">
+                    <span class="text-[3vw] font-black uppercase text-yellow-400 tracking-widest">Menu {{ openSheet }}</span>
+                    <button @click="openSheet = null" class="text-gray-500 text-[5vw] leading-none">&times;</button>
                 </div>
                 <div class="grid grid-cols-1 gap-2">
                     <template v-for="item in menuItems" :key="item.label">
                         <template v-if="item.label === openSheet">
                             <Link v-for="child in item.children" :key="child.name" :href="child.route"
-                                class="flex items-center gap-4 p-4 bg-white/5 rounded-2xl active:bg-yellow-400 active:text-black transition-all">
-                                <span class="w-2 h-2 rounded-full" :class="route().current(child.name) ? 'bg-yellow-400' : 'bg-gray-700'"></span>
-                                <span class="text-[11px] font-bold uppercase tracking-tight text-white group-active:text-black">
+                                class="flex items-center gap-[3vw] p-[3.5vw] bg-white/5 rounded-2xl active:bg-yellow-400 active:text-black transition-all">
+                                <span class="w-[2vw] h-[2vw] rounded-full" :class="route().current(child.name) ? 'bg-yellow-400' : 'bg-gray-700'"></span>
+                                <span class="text-[3vw] font-bold uppercase tracking-tight text-white group-active:text-black">
                                     {{ child.label }}
                                 </span>
                             </Link>
@@ -129,11 +129,10 @@ const moveDragging = (e) => {
             </div>
         </Transition>
 
-        <nav class="fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-white/10 z-[130] px-2 pb-safe-area shadow-lg">
-            <!-- Event listeners ditambahkan di div kontainer ini -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-white/10 z-[130] px-[1.5vw] pb-safe-area shadow-lg">
             <div 
                 ref="navRef"
-                class="flex items-center h-16 overflow-x-auto no-scrollbar py-2 px-2 gap-1 cursor-grab active:cursor-grabbing select-none"
+                class="flex items-center h-[9.5vh] min-h-[48px] max-h-[56px] overflow-x-auto no-scrollbar py-[0.6vh] px-[1vw] gap-[2vw] cursor-grab active:cursor-grabbing select-none"
                 @mousedown="startDragging"
                 @mouseleave="stopDragging"
                 @mouseup="stopDragging"
@@ -144,20 +143,21 @@ const moveDragging = (e) => {
                         :is="item.isDropdown ? 'button' : Link"
                         :href="!item.isDropdown ? item.route : undefined"
                         @click="item.isDropdown ? toggleSheet(item.label) : null"
-                        class="flex flex-col items-center justify-center min-w-[75px] h-full rounded-xl transition-all relative shrink-0"
+                        class="flex flex-col items-center justify-center min-w-[17vw] h-full rounded-xl transition-all relative shrink-0"
                         :class="isItemActive(item) ? 'text-yellow-400' : 'text-gray-500'"
                     >
-                        <span class="text-xl mb-1 transition-transform" :class="isItemActive(item) ? 'scale-110' : 'opacity-60'">
+                        <span class="text-[4.5vw] md:text-xl mb-0.5 transition-transform" :class="isItemActive(item) ? 'scale-105' : 'opacity-60'">
                             {{ item.icon }}
                         </span>
-                        <span class="text-[9px] font-black uppercase tracking-tighter whitespace-nowrap px-1">
+
+                        <span class="text-[2.6vw] md:text-[8px] font-black uppercase tracking-tighter whitespace-nowrap px-[0.5vw]">
                             {{ item.label }}
                         </span>
                         
-                        <div v-if="isItemActive(item)" class="absolute -bottom-1 w-6 h-1 bg-yellow-400 rounded-full shadow-[0_0_8px_rgba(250,204,21,0.5)]"></div>
+                        <div v-if="isItemActive(item)" class="absolute -bottom-0.5 w-[5vw] md:w-5 h-[4px] bg-yellow-400 rounded-full shadow-[0_0_6px_rgba(250,204,21,0.4)]"></div>
                     </component>
                 </template>
-                <div class="min-w-[20px] shrink-0"></div>
+                <div class="min-w-[4vw] shrink-0"></div>
             </div>
         </nav>
     </div>
@@ -171,14 +171,13 @@ const moveDragging = (e) => {
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-.sheet-enter-active, .sheet-leave-active { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.sheet-enter-from { transform: translateY(100%) scale(0.9); opacity: 0; }
-.sheet-leave-to { transform: translateY(100%) scale(0.9); opacity: 0; }
+.sheet-enter-active, .sheet-leave-active { transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.sheet-enter-from { transform: translateY(100%) scale(0.92); opacity: 0; }
+.sheet-leave-to { transform: translateY(100%) scale(0.92); opacity: 0; }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.25s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* Menambahkan smooth dragging */
 .cursor-grab { cursor: grab; }
 .cursor-grabbing { cursor: grabbing; }
 </style>

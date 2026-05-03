@@ -67,8 +67,8 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
 </script>
 
 <template>
-    <div class="flex flex-col gap-1 relative" ref="container">
-        <label v-if="label" class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+    <div class="flex flex-col gap-[0.5vh] relative" ref="container">
+        <label v-if="label" class="text-[2.2vw] md:text-[10px] font-bold text-gray-400 uppercase tracking-wider">
             {{ label }}
         </label>
         
@@ -80,10 +80,10 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
                 @input="onInput"
                 :placeholder="placeholder"
                 :disabled="disabled"
-                class="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                class="w-full border border-gray-300 rounded-lg p-[1.5vw] md:p-2 text-[2.8vw] md:text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm placeholder:text-[2.6vw] md:placeholder:text-sm"
             />
             
-            <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-[10px]">
+            <div class="absolute right-[3vw] md:right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-[2.4vw] md:text-[10px]">
                 {{ isOpen ? '▲' : '▼' }}
             </div>
         </div>
@@ -96,18 +96,18 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
             leave-from-class="transform scale-100 opacity-100"
             leave-to-class="transform scale-95 opacity-0"
         >
-            <div v-if="isOpen" class="absolute z-[100] top-full left-0 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto mt-1 py-1">
+            <div v-if="isOpen" class="absolute z-[100] top-full left-0 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-[25vh] md:max-h-56 overflow-y-auto mt-[0.5vh] py-[0.5vh]">
                 <div 
                     v-for="opt in filteredOptions" :key="opt.id"
                     @click="selectOption(opt)"
-                    class="px-4 py-2 text-sm hover:bg-blue-600 hover:text-white cursor-pointer border-b border-gray-50 last:border-0 transition-colors flex items-center justify-between"
+                    class="px-[3.5vw] md:px-4 py-[1.2vh] md:py-2 text-[2.8vw] md:text-sm hover:bg-blue-600 hover:text-white cursor-pointer border-b border-gray-50 last:border-0 transition-colors flex items-center justify-between"
                     :class="{'bg-blue-50 text-blue-700': opt.id === modelValue}"
                 >
                     <span>{{ opt.name }}</span>
-                    <span v-if="opt.id === modelValue" class="text-blue-600 font-bold">✓</span>
+                    <span v-if="opt.id === modelValue" class="text-blue-600 font-bold text-[2.8vw] md:text-sm">✓</span>
                 </div>
                 
-                <div v-if="filteredOptions.length === 0" class="px-4 py-3 text-xs text-gray-400 italic text-center font-medium">
+                <div v-if="filteredOptions.length === 0" class="px-[3.5vw] md:px-4 py-[1.5vh] md:py-3 text-[2.4vw] md:text-xs text-gray-400 italic text-center font-medium">
                     Data tidak ditemukan
                 </div>
             </div>
