@@ -39,6 +39,10 @@ const showInlineForm = ref(false);
 const showModalForm = ref(false);  
 const imagePreview = ref(null);
 
+// State untuk Inline Editing pada Tabel
+const editingCell = ref({ id: null, key: null });
+const editedValue = ref('');
+
 const form = useForm({
     id: null,
     product_category_id: '',
@@ -72,6 +76,33 @@ const openEdit = (row) => {
     imagePreview.value = row.image_url;
     showInlineForm.value = false;
     showModalForm.value = true;
+};
+
+// Fungsi untuk memulai edit pada tabel (Double Click)
+const editCell = (row, key, value) => {
+    editingCell.value = { id: row.id, key: key };
+    editedValue.value = value;
+};
+
+// Fungsi untuk menyimpan perubahan cell ke form dan mengirim data
+const saveCell = (row) => {
+    // Masukkan data baris ke dalam form agar sinkron
+    form.id = row.id;
+    form.product_category_id = row.product_category_id;
+    form.unit_type_id = row.unit_type_id;
+    form.name = row.name;
+    form.sku = row.sku;
+    form.buying_price = row.buying_price;
+    form.selling_price = row.selling_price;
+
+    // Update key yang diubah
+    form[editingCell.value.key] = editedValue.value;
+
+    // Kirim data
+    submit();
+    
+    // Reset state editing
+    editingCell.value = { id: null, key: null };
 };
 
 const handleFileChange = (e) => {
@@ -194,16 +225,70 @@ const destroy = (id) => {
                     <div v-else class="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-[8px] text-gray-400 font-bold">NO IMG</div>
                 </template>
 
+                <template #sku="{ row, value }">
+                    <div @dblclick="editCell(row, 'sku', value)" class="p-1">
+                        <input 
+                            v-if="editingCell.id === row.id && editingCell.key === 'sku'"
+                            v-model="editedValue"
+                            @blur="saveCell(row)"
+                            @keyup.enter="saveCell(row)"
+                            type="text"
+                            class="w-full text-xs font-bold border rounded p-1 border-blue-400 focus:outline-none"
+                            v-focus
+                        />
+                        <span v-else class="text-xs font-bold uppercase">{{ value }}</span>
+                    </div>
+                </template>
+
+                <template #name="{ row, value }">
+                    <div @dblclick="editCell(row, 'name', value)" class="p-1">
+                        <input 
+                            v-if="editingCell.id === row.id && editingCell.key === 'name'"
+                            v-model="editedValue"
+                            @blur="saveCell(row)"
+                            @keyup.enter="saveCell(row)"
+                            type="text"
+                            class="w-full text-xs font-bold border rounded p-1 border-blue-400 focus:outline-none"
+                            v-focus
+                        />
+                        <span v-else class="text-xs font-semibold uppercase">{{ value }}</span>
+                    </div>
+                </template>
+
                 <template #category_name="{ value }">
                     <span class="text-[9px] font-black uppercase px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100">{{ value }}</span>
                 </template>
 
-                <template #buying_price="{ value }">
-                    <span class="text-gray-400 text-[10px] mr-1">Rp</span><span class="font-medium">{{ Number(value).toLocaleString('id-ID') }}</span>
+                <template #buying_price="{ row, value }">
+                    <div @dblclick="editCell(row, 'buying_price', value)" class="p-1 flex items-center">
+                        <span class="text-gray-400 text-[10px] mr-1">Rp</span>
+                        <input 
+                            v-if="editingCell.id === row.id && editingCell.key === 'buying_price'"
+                            v-model="editedValue"
+                            @blur="saveCell(row)"
+                            @keyup.enter="saveCell(row)"
+                            type="number"
+                            class="text-xs font-medium border rounded p-1 border-blue-400 focus:outline-none w-28"
+                            v-focus
+                        />
+                        <span v-else class="font-medium">{{ Number(value).toLocaleString('id-ID') }}</span>
+                    </div>
                 </template>
 
-                <template #selling_price="{ value }">
-                    <span class="text-gray-400 text-[10px] mr-1">Rp</span><span class="font-black text-blue-700">{{ Number(value).toLocaleString('id-ID') }}</span>
+                <template #selling_price="{ row, value }">
+                    <div @dblclick="editCell(row, 'selling_price', value)" class="p-1 flex items-center">
+                        <span class="text-gray-400 text-[10px] mr-1">Rp</span>
+                        <input 
+                            v-if="editingCell.id === row.id && editingCell.key === 'selling_price'"
+                            v-model="editedValue"
+                            @blur="saveCell(row)"
+                            @keyup.enter="saveCell(row)"
+                            type="number"
+                            class="text-xs font-black border rounded p-1 border-blue-400 focus:outline-none w-28 text-blue-700"
+                            v-focus
+                        />
+                        <span v-else class="font-black text-blue-700">{{ Number(value).toLocaleString('id-ID') }}</span>
+                    </div>
                 </template>
 
                 <template #created_by="{ value }">
@@ -272,3 +357,13 @@ const destroy = (id) => {
         </div>
     </div>
 </template>
+
+<style scoped>
+select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+.animate-in-fade { animation: slide-in 0.4s ease-out; }
+
+@keyframes slide-in { 
+    from { opacity: 0; transform: translateX(10px); } 
+    to { opacity: 1; transform: translateX(0); } 
+}
+</style>

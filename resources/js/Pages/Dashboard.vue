@@ -26,7 +26,7 @@ const businessUnit = ref(props.filters?.businessUnit || '');
 const dateFilter = ref(props.filters?.dateFilter || 'minggu');
 const singleDate = ref(props.filters?.singleDate || ''); 
 const startDate = ref(props.filters?.startDate || '');  
-const endDate = ref(props.filters?.endDate || '');     
+const endDate = ref(props.filters?.endDate || '');      
 
 /**
  * Sinkronisasi State dengan Props (PENTING untuk Refresh/Back)
@@ -149,10 +149,10 @@ onMounted(() => {
 <template>
     <Head title="Dashboard" />
     <AuthenticatedLayout page-title="Dashboard" page-subtitle="Maar Company">
-        <div class="p-8 space-y-8">
-            <div class="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div class="p-4 sm:p-8 space-y-8 responsive-text-wrapper">
+            <div class="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900 tracking-tight">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                         Selamat Datang, <span class="text-yellow-500">{{ user?.name }}</span>!
                     </h1>
                     <div class="flex items-center gap-2 mt-2">
@@ -166,37 +166,37 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div class="flex flex-col gap-2 min-w-[260px]">
-                    <div class="flex items-center gap-2 ml-1">
-                        <span class="text-[10px] font-black uppercase tracking-wider text-gray-400">Filter Unit Bisnis</span>
-                        <div class="h-[1px] flex-1 bg-gray-100"></div>
-                    </div>
-                    <div class="relative group">
-                        <select 
-                            v-model="businessUnit"
-                            class="appearance-none bg-gray-50 border border-gray-200 text-gray-900 text-xs font-bold rounded-xl focus:ring-yellow-400 focus:border-yellow-400 block w-full p-3.5 pr-10 transition-all cursor-pointer hover:bg-gray-100 outline-none"
-                        >
-                            <option value="">Semua Jenis Usaha</option>
-                            <option v-for="type in props.storeTypes" :key="type.id" :value="type.id">
-                                🏢 {{ type.name }}
-                            </option>
-                        </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400 group-hover:text-yellow-500 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </div>
+               <div class="flex flex-col gap-2 w-full md:w-auto md:min-w-[260px]">
+                <div class="flex items-center gap-2 ml-1">
+                    <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-gray-400">Filter Unit Bisnis</span>
+                    <div class="h-[1px] flex-1 bg-gray-100"></div>
+                </div>
+                <div class="relative group">
+                    <select 
+                        v-model="businessUnit"
+                        class="appearance-none bg-gray-50 border border-gray-200 text-gray-900 text-[11px] sm:text-xs font-bold rounded-xl focus:ring-yellow-400 focus:border-yellow-400 block w-full p-3 sm:p-3.5 pr-10 transition-all cursor-pointer hover:bg-gray-100 outline-none"
+                    >
+                        <option value="">Semua Jenis Usaha</option>
+                        <option v-for="type in props.storeTypes" :key="type.id" :value="type.id">
+                            🏢 {{ type.name }}
+                        </option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400 group-hover:text-yellow-500 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7" />
+                        </svg>
                     </div>
                 </div>
             </div>
+            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="p-6 bg-yellow-400 rounded-2xl shadow-sm border border-yellow-500/20 group hover:shadow-md transition-shadow">
+                <div class="p-6 bg-yellow-400 rounded-2xl shadow-sm border border-yellow-500/20 group hover:shadow-md transition-shadow min-h-[140px] flex flex-col justify-between">
                     <p class="text-[10px] font-black uppercase text-yellow-900 tracking-wider">
                         {{ businessUnit ? 'Pendapatan Terfilter' : 'Pendapatan hari ini' }}
                     </p>
                     <div class="mt-2">
-                        <p class="text-3xl font-bold text-black">{{ formatRupiah(props.totalRevenue) }}</p>
+                        <p class="text-2xl sm:text-3xl font-bold text-black">{{ formatRupiah(props.totalRevenue) }}</p>
                         <div v-if="!businessUnit" class="mt-3 pt-3 border-t border-yellow-500/30 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <div v-for="item in props.revenueBreakdown" :key="item.name" class="flex items-center gap-1">
                                 <span class="text-[9px] font-bold text-yellow-900 uppercase">{{ item.name }}:</span>
@@ -209,7 +209,7 @@ onMounted(() => {
                 <div class="p-6 bg-white rounded-2xl shadow-sm border border-gray-100 group hover:shadow-md transition-shadow">
                     <p class="text-[10px] font-black uppercase text-gray-400 tracking-wider">Total Stok Produk</p>
                     <div class="mt-2">
-                        <p class="text-3xl font-bold text-gray-900">{{ props.totalProductStock }}</p>
+                        <p class="text-2xl sm:text-3xl font-bold text-gray-900">{{ props.totalProductStock }}</p>
                         <div v-if="!businessUnit" class="mt-3 pt-3 border-t border-gray-50 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <div v-for="item in props.stockBreakdown" :key="item.name" class="flex items-center gap-1">
                                 <span class="text-[9px] font-bold text-gray-400 uppercase">{{ item.name }}:</span>
@@ -229,7 +229,7 @@ onMounted(() => {
                         </span>
                     </div>
                     <div class="mt-2">
-                        <p class="text-3xl font-bold text-gray-900">{{ props.staffStats.total }}</p>
+                        <p class="text-2xl sm:text-3xl font-bold text-gray-900">{{ props.staffStats.total }}</p>
                         <div class="mt-3 pt-3 border-t border-gray-50 flex flex-wrap items-center gap-x-4 gap-y-1">
                             <div class="flex items-center gap-1">
                                 <span class="text-[9px] font-bold text-gray-400 uppercase">Kasir:</span>
@@ -292,8 +292,16 @@ onMounted(() => {
 <style scoped>
 select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
 .animate-in-fade { animation: slide-in 0.4s ease-out; }
+
 @keyframes slide-in { 
     from { opacity: 0; transform: translateX(10px); } 
     to { opacity: 1; transform: translateX(0); } 
+}
+
+/* Mengurangi skala ukuran font secara perlahan saat layar mengecil di bawah ukuran desktop */
+@media (max-width: 640px) {
+    .responsive-text-wrapper {
+        font-size: 85%;
+    }
 }
 </style>
