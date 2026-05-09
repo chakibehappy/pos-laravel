@@ -50,7 +50,7 @@ Route::post('/store-login', function (Request $request) {
 
     $operators = $store->operators()->where('is_active', 1)
         ->whereNotIn('pos_users.role', ['admin', 'developer'])
-        ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift')
+        ->select('pos_users.id', 'pos_users.name', 'pos_users.username', 'pos_users.role', 'pos_users.shift', 'pos_users.sex', 'pos_users.image')
         ->get();
 
     return response()->json([
