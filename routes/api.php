@@ -622,6 +622,27 @@ Route::middleware('auth:sanctum')->post('/end-shift', function (Request $request
     ]);
 });
 
+Route::middleware('auth:sanctum')->get('/check-session-status', function (Request $request) {
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+    ]);
+
+    $user = $request->user();
+    
+    // Check for an open shift (status 0)
+    $activeShift = Shift::where('pos_user_id', $user->id)
+        ->where('store_id', $request->store_id)
+        ->where('status', 0) 
+        ->first();
+
+    return response()->json([
+        'shift_active' => $activeShift ? true : false,
+        'active_shift_id' => $activeShift ? $activeShift->id : null,
+        'start_cash' => $activeShift ? $activeShift->start_cash : 0,
+        'server_time' => now()->toDateTimeString()
+    ]);
+});
+
 Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $request) {
     $request->validate([
         'store_id' => 'required|integer|exists:stores,id',
