@@ -697,31 +697,31 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
 
 // Needed for Celina Engine Mobile Apps
 Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $request) {
-    // $request->validate([
-    //     'store_id' => 'required|integer|exists:stores,id',
-    // ]);
+    $request->validate([
+        'store_id' => 'required|integer|exists:stores,id',
+    ]);
 
-    // $storeId = $request->store_id;
+    $storeId = $request->store_id;
 
-    // // 1. Get Physical Cash Balance
-    // $cashRecord = CashStore::where('store_id', $storeId)->first();
-    // $physicalCash = $cashRecord ? (float) $cashRecord->cash : 0.00;
+    // 1. Get Physical Cash Balance
+    $cashRecord = CashStore::where('store_id', $storeId)->first();
+    $physicalCash = $cashRecord ? (float) $cashRecord->cash : 0.00;
 
-    // // 2. Get Digital Wallet Balances
-    // // We join with the 'digital_wallets' table to get the wallet names (OVO, GoPay, etc.)
-    // $digitalWallets = DigitalWalletStore::where('store_id', $storeId)
-    //     ->join('digital_wallets', 'digital_wallet_stores.digital_wallet_id', '=', 'digital_wallets.id')
-    //     ->select(
-    //         'digital_wallet_stores.id as store_wallet_id',
-    //         'digital_wallets.name as wallet_name',
-    //         'digital_wallet_stores.balance',
-    //         'digital_wallet_stores.updated_at'
-    //     )
-    //     ->get();
+    // 2. Get Digital Wallet Balances
+    // We join with the 'digital_wallets' table to get the wallet names (OVO, GoPay, etc.)
+    $digitalWallets = DigitalWalletStore::where('store_id', $storeId)
+        ->join('digital_wallets', 'digital_wallet_stores.digital_wallet_id', '=', 'digital_wallets.id')
+        ->select(
+            'digital_wallet_stores.id as store_wallet_id',
+            'digital_wallets.name as wallet_name',
+            'digital_wallet_stores.balance',
+            'digital_wallet_stores.updated_at'
+        )
+        ->get();
 
     return response()->json([
-        'physical_cash' => "10.000",
-        // 'digital_wallets' => $digitalWallets,
-        // 'server_time' => now()->timezone('Asia/Jakarta')->locale('id')->translatedFormat('j F Y, H.i') . ' WIB'
+        'physical_cash' => $physicalCash,
+        'digital_wallets' => $digitalWallets,
+        'server_time' => now()->timezone('Asia/Jakarta')->locale('id')->translatedFormat('j F Y, H.i') . ' WIB'
     ]);
 });
