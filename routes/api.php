@@ -698,7 +698,7 @@ Route::middleware('auth:sanctum')->get('/shift-summary', function (Request $requ
 // Needed for Celina Engine Mobile Apps
 Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $request) {
     $request->validate([
-        'store_id' => 'required|integer|exists:stores,id',
+        'store_id' => 'required|exists:stores,id',
     ]);
 
     $storeId = $request->store_id;
