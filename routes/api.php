@@ -720,7 +720,7 @@ Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $
         ->get();
 
     return response()->json([
-        'physical_cash' => $physicalCash,
+        'physical_cash' => number_format($physicalCash, 0, ',', '.'),
         'digital_wallets' => $digitalWallets,
         'server_time' => now()->timezone('Asia/Jakarta')->locale('id')->translatedFormat('j F Y, H.i') . ' WIB'
     ]);
