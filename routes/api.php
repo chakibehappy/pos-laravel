@@ -706,6 +706,9 @@ Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $
     // 1. Get Physical Cash Balance
     $cashRecord = CashStore::where('store_id', $storeId)->first();
     $physicalCash = $cashRecord ? (float) $cashRecord->cash : 0.00;
+    $lastUpdated = $cashRecord && $cashRecord->updated_at 
+        ? $cashRecord->updated_at->timezone('Asia/Jakarta')
+        : now()->timezone('Asia/Jakarta');
 
     // 2. Get Digital Wallet Balances
     // We join with the 'digital_wallets' table to get the wallet names (OVO, GoPay, etc.)
@@ -722,6 +725,6 @@ Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $
     return response()->json([
         'physical_cash' => number_format($physicalCash, 0, ',', '.'),
         'digital_wallets' => $digitalWallets,
-        'server_time' => now()->timezone('Asia/Jakarta')->locale('id')->translatedFormat('j F Y, H.i') . ' WIB'
+        'server_time' => $lastUpdated->locale('id')->translatedFormat('j F Y, H.i') . ' WIB'
     ]);
 });
