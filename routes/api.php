@@ -720,7 +720,12 @@ Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $
             'digital_wallet_store.balance',
             'digital_wallet_store.updated_at'
         )
-        ->get();
+        ->get()
+        ->map(function ($wallet) {
+            // Apply the same Indonesian number format here
+            $wallet->balance = number_format((float) $wallet->balance, 0, ',', '.');
+            return $wallet;
+        });
 
     return response()->json([
         'physical_cash' => number_format($physicalCash, 0, ',', '.'),
