@@ -56,6 +56,18 @@ const formatRupiah = (value) => {
  * Fungsi untuk mengirim request ke Controller
  */
 const applyFilter = () => {
+    // Validasi: Jika filter periode dipilih, pastikan startDate dan endDate sudah ada
+    if (dateFilter.value === 'periode') {
+        if (!startDate.value || !endDate.value) {
+            return; // Berhenti di sini, jangan kirim request dulu
+        }
+    }
+
+    // Validasi: Jika filter tanggal dipilih, pastikan singleDate sudah ada
+    if (dateFilter.value === 'tanggal' && !singleDate.value) {
+        return; // Berhenti
+    }
+
     router.get(route('dashboard'), {
         businessUnit: businessUnit.value,
         dateFilter: dateFilter.value,
@@ -63,9 +75,7 @@ const applyFilter = () => {
         startDate: startDate.value,
         endDate: endDate.value,
     }, {
-        // preserveState: false memastikan state lokal Vue direset 
-        // mengikuti data terbaru (default) dari server saat navigasi.
-        preserveState: false, 
+        preserveState: true, // Ubah ke true agar inputan tidak reset saat proses loading
         preserveScroll: true,
         only: ['filters', 'staffStats', 'totalProductStock', 'stockBreakdown', 'totalRevenue', 'revenueBreakdown', 'salesChart'], 
     });
@@ -85,9 +95,21 @@ watch(businessUnit, (newVal, oldVal) => {
     }
 });
 
-watch([dateFilter, singleDate, startDate, endDate], ([newDate], [oldDate]) => {
-    // Mencegah trigger ganda saat pergantian unit bisnis
-    if (newDate === oldDate) return; 
+// 1. Watcher untuk Dropdown (Tipe Filter)
+watch(dateFilter, (newType) => {
+    // Jika pilih 'minggu' atau 'bulan', langsung eksekusi (karena tidak butuh input tanggal)
+    if (newType === 'minggu' || newType === 'bulan') {
+        singleDate.value = '';
+        startDate.value = '';
+        endDate.value = '';
+        applyFilter();
+    }
+    // Jika pilih 'periode' atau 'tanggal', biarkan saja (nunggu user isi inputan tanggal)
+});
+
+// 2. Watcher untuk Inputan Tanggal
+watch([singleDate, startDate, endDate], () => {
+    // Akan otomatis ter-filter jika syarat di applyFilter terpenuhi
     applyFilter();
 });
 
@@ -101,7 +123,15 @@ watch(() => props.salesChart, (newData) => {
         chartInstance.update();
     }
 }, { deep: true });
-
+watch(dateFilter, (newType) => {
+    // Tambahkan 'bulan_lalu' ke dalam pengecekan ini
+    if (['minggu', 'bulan', 'bulan_lalu'].includes(newType)) {
+        singleDate.value = '';
+        startDate.value = '';
+        endDate.value = '';
+        applyFilter();
+    }
+});
 onMounted(() => {
     chartInstance = new Chart(canvas.value, {
         type: 'bar',
@@ -144,6 +174,14 @@ onMounted(() => {
         }
     });
 });
+const resetFilter = () => {
+    dateFilter.value = 'minggu';
+    singleDate.value = '';
+    startDate.value = '';
+    endDate.value = '';
+    // Unit bisnis tidak perlu direset kecuali Anda ingin kembali ke "Semua Unit"
+    applyFilter();
+};
 </script>
 
 <template>
@@ -259,6 +297,7 @@ onMounted(() => {
                             >
                                 <option value="minggu">Minggu Ini</option>
                                 <option value="bulan">Bulan Ini</option>
+                                <option value="bulan_lalu">Bulan Lalu</option>
                                 <option value="tanggal">Per Tanggal</option>
                                 <option value="periode">Per Periode</option>
                             </select>
@@ -278,6 +317,15 @@ onMounted(() => {
                             <span class="text-gray-400 font-bold text-[10px]">S/D</span>
                             <input type="date" v-model="endDate" class="bg-gray-50 border-gray-200 text-[11px] font-bold rounded-lg focus:ring-yellow-400 focus:border-yellow-400 p-2 shadow-sm outline-none">
                         </div>
+                        <button 
+                        @click="resetFilter"
+                        class="p-2.5 text-gray-400 hover:text-red-500 transition-colors"
+                        title="Reset Filter"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>   
                     </div>
                 </div>
 

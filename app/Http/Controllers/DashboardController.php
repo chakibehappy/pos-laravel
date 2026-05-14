@@ -68,10 +68,15 @@ class DashboardController extends Controller
             // Tampilkan dari tanggal 1 bulan ini sampai HARI INI saja (Grafik dinamis)
             $startDateChart = Carbon::now()->startOfMonth();
             $endDateChart = Carbon::now()->endOfDay();
+        } elseif ($filters['dateFilter'] === 'bulan_lalu') {
+            // START: Tanggal 1 bulan lalu | END: Tanggal terakhir bulan lalu
+            $startDateChart = Carbon::now()->subMonth()->startOfMonth();
+            $endDateChart = Carbon::now()->subMonth()->endOfMonth();
         } elseif ($filters['dateFilter'] === 'tanggal' && $filters['singleDate']) {
             // HANYA menampilkan 1 diagram/batang pada tanggal yang dipilih
             $startDateChart = Carbon::parse($filters['singleDate'])->startOfDay();
             $endDateChart = Carbon::parse($filters['singleDate'])->endOfDay();
+            
         } elseif ($filters['dateFilter'] === 'periode' && $filters['startDate'] && $filters['endDate']) {
             $startDateChart = Carbon::parse($filters['startDate'])->startOfDay();
             $endDateChart = Carbon::parse($filters['endDate'])->endOfDay();
