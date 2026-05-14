@@ -710,12 +710,12 @@ Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $
     // 2. Get Digital Wallet Balances
     // We join with the 'digital_wallets' table to get the wallet names (OVO, GoPay, etc.)
     $digitalWallets = DigitalWalletStore::where('store_id', $storeId)
-        ->join('digital_wallet', 'digital_wallet_stores.digital_wallet_id', '=', 'digital_wallet.id')
+        ->join('digital_wallet', 'digital_wallet_store.digital_wallet_id', '=', 'digital_wallet.id')
         ->select(
-            'digital_wallet_stores.id as store_wallet_id',
-            'digital_wallets.name as wallet_name',
-            'digital_wallet_stores.balance',
-            'digital_wallet_stores.updated_at'
+            'digital_wallet_store.id as store_wallet_id',
+            'digital_wallet.name as wallet_name',
+            'digital_wallet_store.balance',
+            'digital_wallet_store.updated_at'
         )
         ->get();
 
