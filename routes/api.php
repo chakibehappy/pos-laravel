@@ -484,6 +484,7 @@ Route::middleware('auth:sanctum')->post('/expenses', function (Request $request)
     try {
         $expenseId = DB::table('expense_transactions')->insertGetId([
             'store_id'       => $request->store_id,
+            'expense_type_id'=> 1,
             'pos_user_id'    => $posUser->id,
             'amount'         => $request->amount,
             'description'    => $request->description,
