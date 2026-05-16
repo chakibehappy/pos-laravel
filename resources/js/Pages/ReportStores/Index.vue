@@ -279,7 +279,7 @@ const exportExcel = () => {
                                 
                                 <td class="px-3 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.qty) }}</td>
                                 
-                                <<template v-for="cat in productCategories" :key="'foot-cat-' + cat.id">
+                                <template v-for="cat in productCategories" :key="'foot-cat-' + cat.id">
                                     <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories['cat_' + cat.name.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}</td>
                                     <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories['cat_' + cat.name.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}</td>
                                 </template>
