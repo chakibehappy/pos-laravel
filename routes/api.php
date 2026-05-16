@@ -820,7 +820,7 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
                 'title'         => $title,
                 'desc'          => $desc,
                 'icon'          => $icon,
-                'amount'        => (int) $detail->total_price, 
+                'amount'        => $detail->subtotal, 
             ]);
         }
     }
