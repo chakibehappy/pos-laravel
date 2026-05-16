@@ -275,9 +275,9 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             $lineSubtotal = $item['quantity'] * $item['price'];
 
             $buyPrice = 0;
-            if (empty($item['cash_withdrawal']) || empty($item['topup_transaction'])){
-                $buyPrice = Product::find($productId)?->buying_price;
-            }
+            // if (empty($item['cash_withdrawal']) || empty($item['topup_transaction'])){
+            //     $buyPrice = Product::find($productId)?->buying_price;
+            // }
             
             
             TransactionDetail::create([
