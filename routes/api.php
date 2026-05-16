@@ -801,7 +801,7 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
             } elseif ($detail->topupTransaction) {
                 $walletName = $detail->topupTransaction->digitalWalletStore->wallet->name ?? 'Wallet';
                 $title = "Top Up " . $walletName;
-                $desc = ($detail->topupTransaction->transType->name ?? "Top Up") . " ke No. " . $tx->customer_phone;
+                $desc = ($detail->topupTransaction->transType->name ?? "Top Up") . " ke No. " . $tx->cust_account_number;
                 $icon = "add_box";
             } elseif ($detail->cashWithdrawal) {
                 $sourceName = $detail->cashWithdrawal->source->name ?? 'Tunai';
