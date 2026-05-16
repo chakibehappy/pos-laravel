@@ -755,8 +755,10 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
 
     $daySpan = $storeId == 14 ? 2 : 3;
     $startOfDay = Carbon::now($timezone)->startOfDay();
-    $startDate  = Carbon::now($timezone)->subDays($daySpan)->startOfDay();
-    $endDate    = Carbon::now($timezone)->endOfDay();
+    
+    // Explicitly format bounds to matching clean SQL date strings
+    $startDate  = Carbon::now($timezone)->subDays($daySpan)->startOfDay()->toDateTimeString();
+    $endDate    = Carbon::now($timezone)->endOfDay()->toDateTimeString();
 
     // Fetch transactions with your deep relationships intact
     $transactions = Transaction::with([
@@ -769,8 +771,11 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', 0)
-        ->whereBetween('transaction_at', [$startDate, $endDate])
-        ->orderBy('transaction_at', 'desc')
+        // 🔥 Explicitly qualify table to prevent join-binding confusion
+        ->whereBetween('transactions.transaction_at', [$startDate, $endDate])
+        ->orderBy('transactions.transaction_at', 'desc')
+        // 🔥 HARD LIMIT EMERGENCY BRAKE: Protects Android app rendering memory overhead
+        ->take(150) 
         ->get();
 
     // 1. Flatten down to a clean stream of individual Transaction Details
