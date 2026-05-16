@@ -274,7 +274,12 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
 // Bagian yang Menyimpan ke Riwayat (Tabel Detail)
             $lineSubtotal = $item['quantity'] * $item['price'];
 
-            $buyPrice = Product::find($productId)?->buying_price;
+            $buyPrice = 0;
+            if (empty($item['cash_withdrawal']) || empty($item['topup_transaction'])){
+                $buyPrice = Product::find($productId)?->buying_price;
+            }
+            
+            
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
                 'product_id'     => $productId,
