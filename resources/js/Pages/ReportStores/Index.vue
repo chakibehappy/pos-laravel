@@ -78,16 +78,17 @@ const totals = computed(() => {
         res.tarik_tunai_jual += parseFloat(item.tarik_tunai_jual || 0);
 
         props.productCategories.forEach(cat => {
-            const keyJual = `${cat.name.toLowerCase()}_jual`;
-            const keyBeli = `${cat.name.toLowerCase()}_beli`;
+            const cleanKey = cat.name.toLowerCase().replace(/\s+/g, '_');
+            const keyJual = `cat_${cleanKey}_jual`; // Mengikuti format backend yang baru
+            const keyBeli = `cat_${cleanKey}_beli`; // Mengikuti format backend yang baru
             res.categories[keyJual] = (res.categories[keyJual] || 0) + parseFloat(item[keyJual] || 0);
             res.categories[keyBeli] = (res.categories[keyBeli] || 0) + parseFloat(item[keyBeli] || 0);
         });
 
         props.dynamicWallets.forEach(wallet => {
             const cleanKey = wallet.name.toLowerCase().replace(/\s+/g, '_');
-            const keyJual = `${cleanKey}_jual`;
-            const keyBeli = `${cleanKey}_beli`;
+            const keyJual = `wallet_${cleanKey}_jual`; // Mengikuti format backend yang baru
+            const keyBeli = `wallet_${cleanKey}_beli`; // Mengikuti format backend yang baru
             res.wallets[keyJual] = (res.wallets[keyJual] || 0) + parseFloat(item[keyJual] || 0);
             res.wallets[keyBeli] = (res.wallets[keyBeli] || 0) + parseFloat(item[keyBeli] || 0);
         });
@@ -236,21 +237,21 @@ const exportExcel = () => {
                                 
                                 <td class="px-3 py-3 text-right font-bold border-r border-gray-100">{{ formatNumber(row.qty) }}</td>
                                 
-                                <template v-for="cat in productCategories" :key="'val-cat-' + cat.id">
+                               <template v-for="cat in productCategories" :key="'val-cat-' + cat.id">
                                     <td class="px-2 py-3 text-right italic bg-gray-50/10">
-                                        {{ formatNumber(row[cat.name?.toLowerCase() + '_beli']) }}
+                                        {{ formatNumber(row['cat_' + cat.name?.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}
                                     </td>
                                     <td class="px-2 py-3 text-right font-bold border-r border-gray-100">
-                                        {{ formatNumber(row[cat.name?.toLowerCase() + '_jual']) }}
+                                        {{ formatNumber(row['cat_' + cat.name?.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}
                                     </td>
                                 </template>
 
                                 <template v-for="wallet in dynamicWallets" :key="'val-wal-' + wallet.id">
                                     <td class="px-2 py-3 text-right italic bg-gray-50/10">
-                                        {{ formatNumber(row[wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}
+                                        {{ formatNumber(row['wallet_' + wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}
                                     </td>
                                     <td class="px-2 py-3 text-right font-bold border-r border-gray-100">
-                                        {{ formatNumber(row[wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}
+                                        {{ formatNumber(row['wallet_' + wallet.name?.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}
                                     </td>
                                 </template>
 
@@ -278,14 +279,14 @@ const exportExcel = () => {
                                 
                                 <td class="px-3 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.qty) }}</td>
                                 
-                                <template v-for="cat in productCategories" :key="'foot-cat-' + cat.id">
-                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_beli']) }}</td>
-                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories[cat.name.toLowerCase() + '_jual']) }}</td>
+                                <<template v-for="cat in productCategories" :key="'foot-cat-' + cat.id">
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories['cat_' + cat.name.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}</td>
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.categories['cat_' + cat.name.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}</td>
                                 </template>
 
                                 <template v-for="wallet in dynamicWallets" :key="'foot-wal-' + wallet.id">
-                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}</td>
-                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets[wallet.name.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}</td>
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets['wallet_' + wallet.name.toLowerCase().replace(/\s+/g, '_') + '_beli']) }}</td>
+                                    <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.wallets['wallet_' + wallet.name.toLowerCase().replace(/\s+/g, '_') + '_jual']) }}</td>
                                 </template>
 
                                 <td class="px-2 py-3 text-right border-r border-black/10 bg-gray-100">{{ formatNumber(totals.tarik_tunai_beli) }}</td>
