@@ -733,3 +733,115 @@ Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $
         'server_time' => $lastUpdated->locale('id')->translatedFormat('j F Y, H.i') . ' WIB'
     ]);
 });
+
+// Route::middleware('auth:sanctum')->get('/get-detail-transactions', function (Request $request) {
+Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
+
+    // Validate the route parameter manually since it's not part of standard $request->validate body data
+    $validator = Validator::make(['store_id' => $storeId], [
+        'store_id' => 'required|integer|exists:stores,id'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Invalid or non-existent Store ID',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    $timezone = 'Asia/Jakarta';
+    Carbon::setLocale('id'); // Ensure date strings use Indonesian naming conventions
+
+    $daySpan = $storeId == 14 ? 2 : 7;
+    $startOfDay = Carbon::now($timezone)->startOfDay();
+    $startDate  = Carbon::now($timezone)->subDays($daySpan)->startOfDay();
+    $endDate    = Carbon::now($timezone)->endOfDay();
+
+    // Fetch transactions with your deep relationships intact
+    $transactions = Transaction::with([
+            'posUser',
+            'details.product',
+            'details.topupTransaction.transType',
+            'details.topupTransaction.digitalWalletStore.wallet',
+            'details.cashWithdrawal',
+            'details.cashWithdrawal.source'
+        ])
+        ->where('store_id', $storeId)
+        ->where('transactions.status', 0)
+        ->whereBetween('transaction_at', [$startDate, $endDate])
+        ->orderBy('transaction_at', 'desc')
+        ->get();
+
+    // 1. Flatten down to a clean stream of individual Transaction Details
+    $allDetails = collect();
+
+    foreach ($transactions as $tx) {
+        $txDate = Carbon::parse($tx->transaction_at)->timezone($timezone);
+        
+        // Define dynamic user-friendly day headers from the backend
+        if ($txDate->isToday()) {
+            $dayTitle = 'Hari Ini';
+        } elseif ($txDate->isYesterday()) {
+            $dayTitle = 'Kemarin';
+        } else {
+            $dayTitle = $txDate->translatedFormat('l, d M Y'); 
+        }
+
+        foreach ($tx->details as $detail) {
+            // Determine dynamic content mapping based on detail type
+            $title = "Transaksi Umum";
+            $desc = "Detail item tidak diketahui";
+            $icon = "receipt";
+
+            if ($detail->product) {
+                $title = $detail->product->name;
+                $desc = "Pembelian produk";
+                $icon = "shopping_bag";
+            } elseif ($detail->topupTransaction) {
+                $walletName = $detail->topupTransaction->digitalWalletStore->wallet->name ?? 'Wallet';
+                $title = "Top Up " . $walletName;
+                $desc = ($detail->topupTransaction->transType->name ?? "Top Up") . " ke No. " . $tx->customer_phone;
+                $icon = "add_box";
+            } elseif ($detail->cashWithdrawal) {
+                $sourceName = $detail->cashWithdrawal->source->name ?? 'Tunai';
+                $title = "Tarik Tunai " . $sourceName;
+                $desc = "Penarikan saldo agen";
+                $icon = "money_off";
+            }
+
+            $allDetails->push([
+                'day_group_key' => $txDate->toDateString(), 
+                'day_title'     => $dayTitle,
+                'transaction_id'=> $tx->id,
+                'pos_user_id'   => $tx->posUser->id ?? null,
+                'pos_user_name' => $tx->posUser->name ?? 'System',
+                'time'          => $txDate->format('H.i A'), 
+                'title'         => $title,
+                'desc'          => $desc,
+                'icon'          => $icon,
+                'amount'        => (int) $detail->total_price, 
+            ]);
+        }
+    }
+
+    // 2. Group the flattened details stream by day
+    $groupedHistory = $allDetails->groupBy('day_group_key')
+        ->map(function ($dayItems) {
+            return [
+                'day_title'   => $dayItems->first()['day_title'],
+                'total_count' => (string) $dayItems->count(),
+                'transactions'=> $dayItems->values()->all() 
+            ];
+        })
+        ->values() 
+        ->all();
+
+    return response()->json([
+        'timezone' => $timezone,
+        'date' => $startOfDay->toDateString(),
+        'store_id' => (int)$storeId,
+        'count' => $allDetails->count(),
+        'history' => $groupedHistory, 
+    ]);
+});
