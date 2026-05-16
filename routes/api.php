@@ -820,7 +820,7 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
                 'title'         => $title,
                 'desc'          => $desc,
                 'icon'          => $icon,
-                'amount'        => number_format((float)($detail->subtotal ?? 0), 0, ',', '.'), 
+                'amount'        => "Rp ". number_format((float)($detail->subtotal ?? 0), 0, ',', '.'), 
             ]);
         }
     }
