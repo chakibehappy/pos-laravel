@@ -801,12 +801,12 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
             } elseif ($detail->topupTransaction) {
                 $walletName = $detail->topupTransaction->digitalWalletStore->wallet->name ?? 'Wallet';
                 $title = "Top Up " . $walletName;
-                $desc = ($detail->topupTransaction->transType->name ?? "Top Up") . " ke No. " . $detail->topupTransaction->cust_account_number . " sejumlah Rp " . number_format((float)($detail->topupTransaction->nominal_request ?? 0), 0, ',', '.');;
+                $desc = ($detail->topupTransaction->transType->name ?? "Top Up") . " ke No. " . $detail->topupTransaction->cust_account_number . " sejumlah Rp " . number_format((float)($detail->topupTransaction->nominal_request ?? 0), 0, ',', '.');
                 $icon = "add_box";
             } elseif ($detail->cashWithdrawal) {
                 $sourceName = $detail->cashWithdrawal->source->name ?? 'Tunai';
                 $title = "Tarik Tunai " . $sourceName;
-                $desc = "Penarikan saldo agen";
+                $desc = "nama ". $detail->cashWithdrawal->customer_name . " nominal penarikan Rp " . number_format((float)($detail->cashWithdrawal->withdrawal_count ?? 0), 0, ',', '.');
                 $icon = "money_off";
             }
 
