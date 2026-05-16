@@ -33,8 +33,7 @@ class ReportStoreController extends Controller
             ->whereNull('deleted_at')
             ->get(['id', 'name']);
 
-        // 1. HITUNG PENGELUARAN GLOBAL (Case-Insensitive)
-        // Menjumlahkan semua expense yang tipe namanya mengandung kata "global"
+        // HITUNG PENGELUARAN GLOBAL
         $globalExpense = DB::table('expense_transactions')
             ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
             ->whereRaw("LOWER(expense_types.name) LIKE ?", ['%global%'])
@@ -44,7 +43,6 @@ class ReportStoreController extends Controller
             ->when($request->end_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '<=', $request->end_date))
             ->sum('expense_transactions.amount');
 
-        // Menggunakan method privat untuk mengambil data report per cabang
         $reportData = $this->getReportData($request, $productCategories, $dynamicWallets);
 
         return Inertia::render('ReportStores/Index', [
@@ -54,13 +52,10 @@ class ReportStoreController extends Controller
             'dynamicWallets' => $dynamicWallets,
             'filters' => $request->only(['store_id', 'store_type_id', 'start_date', 'end_date']),
             'reportData' => $reportData,
-            'globalExpense' => (float)$globalExpense, // Dikirim ke Vue
+            'globalExpense' => (float)$globalExpense,
         ]);
     }
 
-    /**
-     * Fitur Eksport Excel
-     */
     public function export(Request $request)
     {
         $productCategories = DB::table('product_categories')
@@ -71,7 +66,6 @@ class ReportStoreController extends Controller
 
         $reportData = $this->getReportData($request, $productCategories, $dynamicWallets);
 
-        // --- PENAMBAHAN BAGIAN PENGELUARAN GLOBAL ---
         $globalExpense = DB::table('expense_transactions')
             ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
             ->whereRaw("LOWER(expense_types.name) LIKE ?", ['%global%'])
@@ -81,11 +75,9 @@ class ReportStoreController extends Controller
             ->when($request->end_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '<=', $request->end_date))
             ->sum('expense_transactions.amount');
 
-        // Gabungkan nilai global_expense ke dalam array params
         $params = array_merge($request->all(), [
             'global_expense' => (float)$globalExpense
         ]);
-        // --------------------------------------------
 
         $fileName = 'Rekap_Laporan_Toko_' . date('Y-m-d_His') . '.xlsx';
 
@@ -95,144 +87,131 @@ class ReportStoreController extends Controller
         );
     }
 
-    /**
-     * Method Privat: Logika pengolahan data agar konsisten antara Index & Export
-     */
     private function getReportData(Request $request, $productCategories, $dynamicWallets)
     {
-        // 1. Inisialisasi Query Utama
-        $reportQuery = Store::query()
-            ->select([
-                'stores.id',
-                'stores.name as nama_cabang',
-                DB::raw("(
-                    SELECT SUM(
-                        CASE 
-                            WHEN td.topup_transaction_id IS NOT NULL OR td.cash_withdrawal_id IS NOT NULL THEN 1
-                            ELSE td.quantity 
-                        END
-                    )
-                    FROM transactions t
-                    JOIN transaction_details td ON t.id = td.transaction_id
-                    WHERE t.store_id = stores.id
-                    AND t.status = 0
-                    AND t.deleted_at IS NULL
-                    AND td.deleted_at IS NULL
-                    " . $this->applyDateFilter($request) . "
-                ) as qty"),
-                DB::raw("(
-                    SELECT SUM(td.subtotal)
-                    FROM transactions t
-                    JOIN transaction_details td ON t.id = td.transaction_id
-                    WHERE t.store_id = stores.id
-                    AND t.status = 0
-                    AND t.deleted_at IS NULL
-                    AND td.deleted_at IS NULL
-                    " . $this->applyDateFilter($request) . "
-                ) as total"),
-                DB::raw("(
-                    SELECT SUM(td.subtotal)
-                    FROM transactions t
-                    JOIN transaction_details td ON t.id = td.transaction_id
-                    WHERE t.store_id = stores.id 
-                    AND td.cash_withdrawal_id IS NOT NULL
-                    AND t.status = 0 
-                    AND t.deleted_at IS NULL 
-                    AND td.deleted_at IS NULL
-                    " . $this->applyDateFilter($request) . "
-                ) as tarik_tunai_jual"),
-                DB::raw("(
-                    SELECT SUM(td.buying_prices)
-                    FROM transactions t
-                    JOIN transaction_details td ON t.id = td.transaction_id
-                    WHERE t.store_id = stores.id 
-                    AND td.cash_withdrawal_id IS NOT NULL
-                    AND t.status = 0 
-                    AND t.deleted_at IS NULL 
-                    AND td.deleted_at IS NULL
-                    " . $this->applyDateFilter($request) . "
-                ) as tarik_tunai_beli")
-            ]);
+        // 1. Ambil Dasar Toko
+        $stores = Store::where('status', '!=', 2)
+            ->whereNull('deleted_at')
+            ->when($request->store_type_id, fn($q, $id) => $q->where('store_type_id', $id))
+            ->when($request->store_id, fn($q, $id) => $q->where('id', $id))
+            ->get(['id', 'name as nama_cabang']);
 
-        // 2. Subquery Kategori Produk
-        foreach ($productCategories as $cat) {
-            $catId = $cat->id;
-            $key = strtolower(str_replace(' ', '_', $cat->name)); 
-            $reportQuery->addSelect(DB::raw("(SELECT SUM(td.subtotal) FROM transactions t JOIN transaction_details td ON t.id = td.transaction_id JOIN products p ON td.product_id = p.id WHERE t.store_id = stores.id AND p.product_category_id = {$catId} AND t.status = 0 AND t.deleted_at IS NULL AND td.deleted_at IS NULL " . $this->applyDateFilter($request) . ") as {$key}_jual"));
-            $reportQuery->addSelect(DB::raw("(SELECT SUM(td.buying_prices * td.quantity) FROM transactions t JOIN transaction_details td ON t.id = td.transaction_id JOIN products p ON td.product_id = p.id WHERE t.store_id = stores.id AND p.product_category_id = {$catId} AND t.status = 0 AND t.deleted_at IS NULL AND td.deleted_at IS NULL " . $this->applyDateFilter($request) . ") as {$key}_beli"));
-        }
+        $storeIds = $stores->pluck('id');
 
-        // 2.5 Subquery Digital Wallet
-        foreach ($dynamicWallets as $wallet) {
-            $walletId = $wallet->id;
-            $key = strtolower(str_replace(' ', '_', $wallet->name));
-            $reportQuery->addSelect(DB::raw("(SELECT SUM(td.subtotal) FROM transactions t JOIN transaction_details td ON t.id = td.transaction_id JOIN topup_transactions tt ON td.topup_transaction_id = tt.id JOIN digital_wallet_store dws ON tt.digital_wallet_store_id = dws.id WHERE t.store_id = stores.id AND dws.digital_wallet_id = {$walletId} AND t.status = 0 AND t.deleted_at IS NULL AND td.deleted_at IS NULL " . $this->applyDateFilter($request) . ") as {$key}_jual"));
-            $reportQuery->addSelect(DB::raw("(SELECT SUM(td.buying_prices) FROM transactions t JOIN transaction_details td ON t.id = td.transaction_id JOIN topup_transactions tt ON td.topup_transaction_id = tt.id JOIN digital_wallet_store dws ON tt.digital_wallet_store_id = dws.id WHERE t.store_id = stores.id AND dws.digital_wallet_id = {$walletId} AND t.status = 0 AND t.deleted_at IS NULL AND td.deleted_at IS NULL " . $this->applyDateFilter($request) . ") as {$key}_beli"));
-        }
+        // 2. Eager Aggregation: Operasional (Satu query untuk semua toko)
+        $operasionalData = DB::table('expense_transactions')
+            ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
+            ->select('store_id', DB::raw('SUM(amount) as total_operasional'))
+            ->whereIn('store_id', $storeIds)
+            ->where('expense_types.name', 'PENGELUARAN TOKO')
+            ->where('expense_transactions.status', 0)
+            ->whereNull('expense_transactions.deleted_at')
+            ->when($request->start_date, fn($q) => $q->whereDate('transaction_at', '>=', $request->start_date))
+            ->when($request->end_date, fn($q) => $q->whereDate('transaction_at', '<=', $request->end_date))
+            ->groupBy('store_id')
+            ->pluck('total_operasional', 'store_id');
 
-        // 3. Eksekusi Query
-        $reportData = $reportQuery->where('stores.status', '!=', 2)
-            ->whereNull('stores.deleted_at')
-            ->when($request->store_type_id, fn($q, $id) => $q->where('stores.store_type_id', $id))
-            ->when($request->store_id, fn($q, $id) => $q->where('stores.id', $id))
-            ->get();
-
-        // 4. Transformasi & Perhitungan Akhir
-        $reportData->transform(function ($item) use ($productCategories, $dynamicWallets, $request) {
-            $item->qty = (float) ($item->qty ?? 0);
-            $item->total = (float) ($item->total ?? 0);
-            $item->tarik_tunai_jual = (float) ($item->tarik_tunai_jual ?? 0);
-            $item->tarik_tunai_beli = (float) ($item->tarik_tunai_beli ?? 0);
-
-            $operasional = DB::table('expense_transactions')
-                ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
-                ->where('expense_transactions.store_id', $item->id)
-                ->where('expense_types.name', 'PENGELUARAN TOKO') 
-                ->where('expense_transactions.status', 0)
-                ->whereNull('expense_transactions.deleted_at')
-                ->when($request->start_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '>=', $request->start_date))
-                ->when($request->end_date, fn($q) => $q->whereDate('expense_transactions.transaction_at', '<=', $request->end_date))
-                ->sum('expense_transactions.amount');
+        // 3. Eager Aggregation: Transaksi Produk, Tarik Tunai, & Qty (Satu query besar)
+       // 3. Eager Aggregation: Transaksi Produk, Tarik Tunai, & Qty
+        $transactionData = DB::table('transaction_details as td')
+        ->join('transactions as t', 'td.transaction_id', '=', 't.id')
+        ->leftJoin('products as p', 'td.product_id', '=', 'p.id')
+        ->leftJoin('cash_withdrawals as cw', 'td.cash_withdrawal_id', '=', 'cw.id') 
+        ->select([
+            't.store_id',
+            'p.product_category_id',
+            'td.cash_withdrawal_id',
+            DB::raw('SUM(td.subtotal) as total_jual'),
+            DB::raw('SUM(td.buying_prices * td.quantity) as total_beli'),
+            DB::raw('SUM(CASE WHEN td.topup_transaction_id IS NOT NULL OR td.cash_withdrawal_id IS NOT NULL THEN 1 ELSE td.quantity END) as total_qty'),
             
-            $totalModal = 0;
+            // JUAL: Tetap dari withdrawal_count (Misal: 26.000)
+            DB::raw('SUM(CASE WHEN td.cash_withdrawal_id IS NOT NULL THEN cw.withdrawal_count ELSE 0 END) as total_tarik_jual'),
+            
+            // BELI: SEKARANG mengambil dari td.subtotal (Angka 20.000 tadi)
+            DB::raw('SUM(CASE WHEN td.cash_withdrawal_id IS NOT NULL THEN td.subtotal ELSE 0 END) as total_tarik_beli')
+        ])
+        ->whereIn('t.store_id', $storeIds)
+        ->where('t.status', 0)
+        ->whereNull('t.deleted_at')
+        ->whereNull('td.deleted_at')
+        ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
+        ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
+        // Tambahkan td.cash_withdrawal_id di groupBy agar data tidak melebur jadi satu
+        ->groupBy('t.store_id', 'p.product_category_id', 'td.cash_withdrawal_id') 
+        ->get()
+        ->groupBy('store_id');
+        // 4. Eager Aggregation: Digital Wallet (Satu query)
+        $walletData = DB::table('transaction_details as td')
+            ->join('transactions as t', 'td.transaction_id', '=', 't.id')
+            ->join('topup_transactions as tt', 'td.topup_transaction_id', '=', 'tt.id')
+            ->join('digital_wallet_store as dws', 'tt.digital_wallet_store_id', '=', 'dws.id')
+            ->select([
+                't.store_id',
+                'dws.digital_wallet_id',
+                DB::raw('SUM(td.subtotal) as total_jual'),
+                DB::raw('SUM(td.buying_prices) as total_beli')
+            ])
+            ->whereIn('t.store_id', $storeIds)
+            ->where('t.status', 0)
+            ->whereNull('t.deleted_at')
+            ->whereNull('td.deleted_at')
+            ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
+            ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
+            ->groupBy('t.store_id', 'dws.digital_wallet_id')
+            ->get()
+            ->groupBy('store_id');
+
+        // 5. Mapping Data ke Model Toko
+        $stores->transform(function ($item) use ($transactionData, $walletData, $operasionalData, $productCategories, $dynamicWallets) {
+            $storeTx = $transactionData->get($item->id) ?? collect();
+            $storeWall = $walletData->get($item->id) ?? collect();
+
+            $item->qty = (float) $storeTx->sum('total_qty');
+
+            // 1. Ambil nilai Tarik Tunai Jual yang benar (withdrawal_count)
+            $item->tarik_tunai_jual = (float) $storeTx->sum('total_tarik_jual'); // Ini 26.000
+            $item->tarik_tunai_beli = (float) $storeTx->sum('total_tarik_beli');
+
+            // 2. Hitung Jual Produk lain (Non-Tarik Tunai) agar tidak double count
+            $totalJualProdukLain = (float) $storeTx->whereNull('cash_withdrawal_id')->sum('total_jual');
+
+            // 3. SEKARANG TOTAL OMZET SINKRON:
+            // Produk Lain + Nilai Tarik Tunai yang benar + Wallet
+            $item->total = $totalJualProdukLain + $item->tarik_tunai_jual + (float) $storeWall->sum('total_jual');
+
+            $item->operasional = (float) ($operasionalData[$item->id] ?? 0);
+            $totalModal = $item->tarik_tunai_beli;
+
+            $totalModal = $item->tarik_tunai_beli;
+
+            // Mapping kategori produk secara dinamis
             foreach ($productCategories as $cat) {
-                $keyBeli = strtolower($cat->name) . '_beli';
-                $keyJual = strtolower($cat->name) . '_jual';
-                $item->$keyJual = (float) ($item->$keyJual ?? 0);
-                $item->$keyBeli = (float) ($item->$keyBeli ?? 0);
-                $totalModal += $item->$keyBeli;
+                $key = strtolower(str_replace(' ', '_', $cat->name));
+                $catRow = $storeTx->firstWhere('product_category_id', $cat->id);
+                
+                $item->{$key . '_jual'} = (float) ($catRow->total_jual ?? 0);
+                $item->{$key . '_beli'} = (float) ($catRow->total_beli ?? 0);
+                $totalModal += $item->{$key . '_beli'};
             }
 
+            // Mapping digital wallet secara dinamis
             foreach ($dynamicWallets as $wallet) {
-                $cleanKey = strtolower(str_replace(' ', '_', $wallet->name));
-                $keyJual = $cleanKey . '_jual';
-                $keyBeli = $cleanKey . '_beli';
-                $item->$keyJual = (float) ($item->$keyJual ?? 0);
-                $item->$keyBeli = (float) ($item->$keyBeli ?? 0);
-                $totalModal += $item->$keyBeli;
+                $key = strtolower(str_replace(' ', '_', $wallet->name));
+                $wallRow = $storeWall->firstWhere('digital_wallet_id', $wallet->id);
+                
+                $item->{$key . '_jual'} = (float) ($wallRow->total_jual ?? 0);
+                $item->{$key . '_beli'} = (float) ($wallRow->total_beli ?? 0);
+                $totalModal += $item->{$key . '_beli'};
             }
 
-            $totalModal += $item->tarik_tunai_beli;
             $item->pembelian = $totalModal; 
-            $item->operasional = (float) $operasional; 
             $item->laba_kotor = $item->total - $totalModal;
             $item->laba_cabang = $item->laba_kotor - $item->operasional;
 
             return $item;
         });
 
-        return $reportData;
-    }
-
-    private function applyDateFilter($request)
-    {
-        $sql = "";
-        if ($request->start_date) {
-            $sql .= " AND t.transaction_at >= '{$request->start_date} 00:00:00'";
-        }
-        if ($request->end_date) {
-            $sql .= " AND t.transaction_at <= '{$request->end_date} 23:59:59'";
-        }
-        return $sql;
+        return $stores;
     }
 }
