@@ -753,7 +753,7 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
     $timezone = 'Asia/Jakarta';
     Carbon::setLocale('id'); // Ensure date strings use Indonesian naming conventions
 
-    $daySpan = $storeId == 14 ? 2 : 7;
+    $daySpan = $storeId == 14 ? 2 : 3;
     $startOfDay = Carbon::now($timezone)->startOfDay();
     $startDate  = Carbon::now($timezone)->subDays($daySpan)->startOfDay();
     $endDate    = Carbon::now($timezone)->endOfDay();
