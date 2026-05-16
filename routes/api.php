@@ -806,7 +806,7 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
             } elseif ($detail->cashWithdrawal) {
                 $sourceName = $detail->cashWithdrawal->source->name ?? 'Tunai';
                 $title = "Tarik Tunai " . $sourceName;
-                $desc = "nama ". $detail->cashWithdrawal->customer_name . " nominal penarikan Rp " . number_format((float)($detail->cashWithdrawal->withdrawal_count ?? 0), 0, ',', '.');
+                $desc = "Nama pelanggan ". $detail->cashWithdrawal->customer_name . " nominal penarikan Rp " . number_format((float)($detail->cashWithdrawal->withdrawal_count ?? 0), 0, ',', '.');
                 $icon = "money_off";
             }
 
