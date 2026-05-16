@@ -209,8 +209,11 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             $withdrawalId = null;
             $productId = null;
             
+            $buyPrice = 0;
+            
             if($item['product_id'] > 0){
                 $productId = $item['product_id'];
+                $buyPrice = Product::find($productId)?->buying_price;
             }
 
             // Handle Topup Transaction logic
@@ -273,12 +276,6 @@ Route::middleware('auth:sanctum')->post('/transactions', function (Request $requ
             }
 // Bagian yang Menyimpan ke Riwayat (Tabel Detail)
             $lineSubtotal = $item['quantity'] * $item['price'];
-
-            $buyPrice = 0;
-            // if (empty($item['cash_withdrawal']) || empty($item['topup_transaction'])){
-            //     $buyPrice = Product::find($productId)?->buying_price;
-            // }
-            
             
             TransactionDetail::create([
                 'transaction_id' => $transaction->id,
