@@ -111,7 +111,6 @@ class ReportStoreController extends Controller
             ->groupBy('store_id')
             ->pluck('total_operasional', 'store_id');
 
-        // 3. Eager Aggregation: Transaksi Produk, Tarik Tunai, & Qty (Satu query besar)
        // 3. Eager Aggregation: Transaksi Produk, Tarik Tunai, & Qty
         $transactionData = DB::table('transaction_details as td')
         ->join('transactions as t', 'td.transaction_id', '=', 't.id')
@@ -122,7 +121,13 @@ class ReportStoreController extends Controller
             'p.product_category_id',
             'td.cash_withdrawal_id',
             DB::raw('SUM(td.subtotal) as total_jual'),
-            DB::raw('SUM(td.buying_prices * td.quantity) as total_beli'),
+            
+            // PERUBAHAN DISINI: Jika td.buying_prices kosong atau 0, ambil otomatis dari p.buying_price master produk
+            DB::raw('SUM(CASE 
+                WHEN td.buying_prices IS NULL OR td.buying_prices = 0 THEN COALESCE(p.buying_price, 0) * td.quantity 
+                ELSE td.buying_prices * td.quantity 
+            END) as total_beli'),
+            
             DB::raw('SUM(CASE WHEN td.topup_transaction_id IS NOT NULL OR td.cash_withdrawal_id IS NOT NULL THEN 1 ELSE td.quantity END) as total_qty'),
             
             // JUAL: Tetap dari withdrawal_count (Misal: 26.000)
@@ -141,7 +146,8 @@ class ReportStoreController extends Controller
         ->groupBy('t.store_id', 'p.product_category_id', 'td.cash_withdrawal_id') 
         ->get()
         ->groupBy('store_id');
-        // 4. Eager Aggregation: Digital Wallet (Satu query)
+ 
+           // 4. Eager Aggregation: Digital Wallet (Satu query)
         $walletData = DB::table('transaction_details as td')
             ->join('transactions as t', 'td.transaction_id', '=', 't.id')
             ->join('topup_transactions as tt', 'td.topup_transaction_id', '=', 'tt.id')
@@ -149,8 +155,10 @@ class ReportStoreController extends Controller
             ->select([
                 't.store_id',
                 'dws.digital_wallet_id',
-                DB::raw('SUM(td.subtotal) as total_jual'),
-                DB::raw('SUM(td.buying_prices) as total_beli')
+                DB::raw('SUM(tt.nominal_pay) as total_jual'),
+                
+                // BELI SEKARANG: nominal_request + provider_fee
+                DB::raw('SUM(tt.nominal_request + tt.provider_fee) as total_beli')
             ])
             ->whereIn('t.store_id', $storeIds)
             ->where('t.status', 0)
@@ -170,7 +178,7 @@ class ReportStoreController extends Controller
             $item->qty = (float) $storeTx->sum('total_qty');
 
             // 1. Ambil nilai Tarik Tunai Jual yang benar (withdrawal_count)
-            $item->tarik_tunai_jual = (float) $storeTx->sum('total_tarik_jual'); // Ini 26.000
+            $item->tarik_tunai_jual = (float) $storeTx->sum('total_tarik_jual');
             $item->tarik_tunai_beli = (float) $storeTx->sum('total_tarik_beli');
 
             // 2. Hitung Jual Produk lain (Non-Tarik Tunai) agar tidak double count
@@ -186,24 +194,27 @@ class ReportStoreController extends Controller
             $totalModal = $item->tarik_tunai_beli;
 
             // Mapping kategori produk secara dinamis
-            foreach ($productCategories as $cat) {
-                $key = strtolower(str_replace(' ', '_', $cat->name));
-                $catRow = $storeTx->firstWhere('product_category_id', $cat->id);
-                
-                $item->{$key . '_jual'} = (float) ($catRow->total_jual ?? 0);
-                $item->{$key . '_beli'} = (float) ($catRow->total_beli ?? 0);
-                $totalModal += $item->{$key . '_beli'};
-            }
+           // Mapping kategori produk secara dinamis
+foreach ($productCategories as $cat) {
+    $key = strtolower(str_replace(' ', '_', $cat->name));
+    $catRow = $storeTx->firstWhere('product_category_id', $cat->id);
+    
+    // PERUBAHAN: Menambahkan 'cat_' agar unik
+    $item->{'cat_' . $key . '_jual'} = (float) ($catRow->total_jual ?? 0);
+    $item->{'cat_' . $key . '_beli'} = (float) ($catRow->total_beli ?? 0);
+    $totalModal += $item->{'cat_' . $key . '_beli'};
+}
 
-            // Mapping digital wallet secara dinamis
-            foreach ($dynamicWallets as $wallet) {
-                $key = strtolower(str_replace(' ', '_', $wallet->name));
-                $wallRow = $storeWall->firstWhere('digital_wallet_id', $wallet->id);
-                
-                $item->{$key . '_jual'} = (float) ($wallRow->total_jual ?? 0);
-                $item->{$key . '_beli'} = (float) ($wallRow->total_beli ?? 0);
-                $totalModal += $item->{$key . '_beli'};
-            }
+// Mapping digital wallet secara dinamis
+foreach ($dynamicWallets as $wallet) {
+    $key = strtolower(str_replace(' ', '_', $wallet->name));
+    $wallRow = $storeWall->firstWhere('digital_wallet_id', $wallet->id);
+    
+    // PERUBAHAN: Menambahkan 'wallet_' agar unik
+    $item->{'wallet_' . $key . '_jual'} = (float) ($wallRow->total_jual ?? 0);
+    $item->{'wallet_' . $key . '_beli'} = (float) ($wallRow->total_beli ?? 0);
+    $totalModal += $item->{'wallet_' . $key . '_beli'};
+}
 
             $item->pembelian = $totalModal; 
             $item->laba_kotor = $item->total - $totalModal;
