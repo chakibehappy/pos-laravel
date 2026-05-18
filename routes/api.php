@@ -739,9 +739,9 @@ Route::middleware('auth:sanctum')->get('/get-store-balance', function (Request $
 });
 
 // Route::middleware('auth:sanctum')->get('/get-detail-transactions', function (Request $request) {
-Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
+Route::get('/get-detail-transactions/{store_id}', function (Request $request, $storeId) {
 
-    // Validate the route parameter manually since it's not part of standard $request->validate body data
+    // 1. Validate the route parameter manually
     $validator = Validator::make(['store_id' => $storeId], [
         'store_id' => 'required|integer|exists:stores,id'
     ]);
@@ -754,17 +754,33 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
         ], 422);
     }
 
+    // 2. Validate query input variables if provided
+    $request->validate([
+        'start_date' => 'nullable|date_format:Y-m-y,Y-m-d', // Accepts common formats safely
+        'end_date'   => 'nullable|date_format:Y-m-y,Y-m-d|after_or_equal:start_date'
+    ]);
+
     $timezone = 'Asia/Jakarta';
     Carbon::setLocale('id'); // Ensure date strings use Indonesian naming conventions
 
-    $daySpan = $storeId == 14 ? 2 : 3;
-    $startOfDay = Carbon::now($timezone)->startOfDay();
-    
-    // Explicitly format bounds to matching clean SQL date strings
-    $startDate  = Carbon::now($timezone)->subDays($daySpan)->startOfDay()->toDateTimeString();
-    $endDate    = Carbon::now($timezone)->endOfDay()->toDateTimeString();
+    // 3. PARSE DYNAMIC DATE PARAMETERS OR USE 7-DAY DEFAULT FALLBACKS
+    if ($request->filled('start_date')) {
+        $startDate = Carbon::parse($request->query('start_date'), $timezone)->startOfDay()->toDateTimeString();
+    } else {
+        // Fallback value is start date last week (7 days ago)
+        $startDate = Carbon::now($timezone)->subDays(7)->startOfDay()->toDateTimeString();
+    }
 
-    // Fetch transactions with your deep relationships intact
+    if ($request->filled('end_date')) {
+        $endDate = Carbon::parse($request->query('end_date'), $timezone)->endOfDay()->toDateTimeString();
+    } else {
+        // Fallback value for end date is now
+        $endDate = Carbon::now($timezone)->endOfDay()->toDateTimeString();
+    }
+
+    $startOfDay = Carbon::now($timezone)->startOfDay();
+
+    // Fetch transactions with your deep relationships intact using dynamic bounds
     $transactions = Transaction::with([
             'posUser',
             'details.product',
@@ -775,7 +791,7 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
         ])
         ->where('store_id', $storeId)
         ->where('transactions.status', 0)
-        ->whereBetween('transactions.transaction_at', [$startDate, $endDate])
+        ->whereBetween('transactions.transaction_at', [$startDate, $endDate]) // 🔥 Bounds are now dynamic!
         ->orderBy('transactions.transaction_at', 'desc')
         ->get();
 
@@ -845,6 +861,8 @@ Route::get('/get-detail-transactions/{store_id}', function ($storeId) {
 
     return response()->json([
         'timezone' => $timezone,
+        'filter_start_date' => Carbon::parse($startDate)->toDateString(), // Echo back for client confirmation
+        'filter_end_date' => Carbon::parse($endDate)->toDateString(),
         'date' => $startOfDay->toDateString(),
         'store_id' => (int)$storeId,
         'count' => $allDetails->count(),
