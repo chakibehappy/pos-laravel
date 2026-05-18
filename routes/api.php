@@ -815,6 +815,7 @@ Route::get('/get-detail-transactions/{store_id}', function (Request $request, $s
             $title = "Transaksi Umum";
             $desc = "Detail item tidak diketahui";
             $icon = "receipt";
+            $detailID = $detail->id;
 
             if ($detail->product) {
                 $title = $detail->product->name;
@@ -834,6 +835,7 @@ Route::get('/get-detail-transactions/{store_id}', function (Request $request, $s
 
             $allDetails->push([
                 'day_group_key' => $txDate->toDateString(), 
+                'id' => $detailID, 
                 'day_title'     => $dayTitle,
                 'transaction_id'=> $tx->id,
                 'pos_user_id'   => $tx->posUser->id ?? null,
