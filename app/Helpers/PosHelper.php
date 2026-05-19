@@ -53,7 +53,7 @@ class PosHelper
             ->get();
 
         $store = Store::where('id', $storeId)->first();
-        $store->store_cash = $cashStore;
+        $store->store_cash = $cashStore->cash;
 
         return [
             'products' => $products,
