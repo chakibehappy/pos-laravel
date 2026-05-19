@@ -51,6 +51,9 @@ class PosHelper
             ->orderBy('id')
             ->get();
 
+        $store = Store::where('id', $storeId)->first();
+        $store->store_cash = $cashStore;
+
         return [
             'products' => $products,
             'store_wallets' => $storeWallets,
@@ -61,6 +64,7 @@ class PosHelper
             'wd_fee_rules' => $withdrawalFeeRules,
             // New Addition:
             'payment_methods' => $paymentMethods,
+            'store' => $store
         ];
     }
 }
