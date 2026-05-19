@@ -41,6 +41,13 @@ const menuItems = [
         ]
     },
     { 
+        label: 'Test menu', icon: '🧪', isDropdown: true,
+        activeOn: ['product-tests.*'],
+        children: [
+            { label: 'Test Produk', name: 'product-tests.index', route: route('product-tests.index') }
+        ]
+    },
+    { 
         label: 'Pengguna', icon: '👤', isDropdown: true,
         activeOn: ['users.*', 'pos_users.*'],
         children: [

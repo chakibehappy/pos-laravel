@@ -35,6 +35,7 @@ use App\Http\Controllers\ReportBuyingController;
 use App\Http\Controllers\ReportExpenseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Imports\ProductImportController;
+use App\Http\Controllers\ProductTestController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -237,4 +238,9 @@ Route::middleware(['auth'])->group(function () {
     ->name('products.import.preview');
     // Route::post('/products/import/preview', [ProductImportController::class, 'preview'])->name('products.import.preview');
     Route::post('/products/import/store', [ProductImportController::class, 'store'])->name('products.import.store');
+
+    Route::get('/product-tests', [ProductTestController::class, 'index'])->name('product-tests.index');
+    Route::post('/product-tests', [ProductTestController::class, 'store'])->name('product-tests.store');
+    Route::delete('/product-tests/{id}', [ProductTestController::class, 'destroy'])->name('product-tests.destroy');
+    Route::get('/product-tests/get-stock', [ProductTestController::class, 'getStock'])->name('product-tests.get-stock');
 });
