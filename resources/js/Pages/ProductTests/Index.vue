@@ -17,7 +17,6 @@ const columns = [
 ];
 
 const showInlineForm = ref(false), showModalForm = ref(false), imagePreview = ref(null), searchQuery = ref(''), showDropdown = ref(false), activeTab = ref('belum_terdaftar'), batchItems = ref([]);
-const editingCell = ref({ id: null, key: null }), editedValue = ref('');
 
 const closeProductDropdown = () => setTimeout(() => showDropdown.value = false, 200);
 const filteredProductsReference = computed(() => {
@@ -73,7 +72,7 @@ const formFields = computed(() => [
     { name: 'unit_type_id', label: 'Satuan Barang', type: 'select', options: props.unitTypes }
 ]);
 
-const openCreate = () => { form.reset(); form.clearErrors(); form.id = null; form.store_id = props.filters?.store_id || ''; batchItems.value = []; resetInputForm(); showModalForm.value = false; showInlineForm.value = true; };
+const openCreate = () => { form.reset(); form.clearErrors(); form.id = null; form.store_id = props.filters?.store_id || ''; batchItems.value = []; resetInputForm(true); showModalForm.value = false; showInlineForm.value = true; };
 const openEdit = (row) => {
     form.clearErrors(); form.id = row.id; form.store_id = row.store_id || props.filters?.store_id || '';
     ['product_category_id', 'unit_type_id', 'name', 'sku', 'buying_price', 'selling_price', 'stock'].forEach(k => form[k] = row[k]);
@@ -95,9 +94,14 @@ const selectProduct = async (p) => {
     }
 };
 
-const resetInputForm = () => {
+const resetInputForm = (forceClearSearch = false) => {
     inputForm.value = { product_reference_id: '', product_category_id: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null };
-    searchQuery.value = ''; imagePreview.value = null;
+    imagePreview.value = null;
+    
+    // Jika forceClearSearch true atau tab yang aktif bukan tab 'terdaftar', kosongkan kolom pencarian
+    if (forceClearSearch || activeTab.value !== 'terdaftar') {
+        searchQuery.value = '';
+    }
 };
 
 const addToCart = () => {
@@ -105,17 +109,10 @@ const addToCart = () => {
     if (activeTab.value === 'terdaftar' && !inputForm.value.product_reference_id) return alert('Silakan pilih produk referensi terlebih dahulu!');
     const cObj = props.categories.find(c => c.id === inputForm.value.product_category_id), uObj = props.unitTypes.find(u => u.id === inputForm.value.unit_type_id);
     batchItems.value.push({ ...inputForm.value, status_tab: activeTab.value, category_name: cObj ? cObj.name.toUpperCase() : '-', unit_name: uObj ? uObj.name.toUpperCase() : '-' });
-    resetInputForm();
+    resetInputForm(false);
 };
 
 const removeCartItem = (i) => batchItems.value.splice(i, 1);
-const editCell = (row, key, val) => { editingCell.value = { id: row.id, key }; editedValue.value = val; };
-
-const saveCell = (row) => {
-    const inlineForm = useForm({ id: row.id, store_id: row.store_id || props.filters?.store_id || '', product_reference_id: row.product_reference_id || '', product_category_id: row.product_category_id, unit_type_id: row.unit_type_id, name: row.name, sku: row.sku, buying_price: row.buying_price, selling_price: row.selling_price, stock: row.stock || 0 });
-    inlineForm[editingCell.value.key] = editedValue.value;
-    inlineForm.post(route('product-tests.store'), { forceFormData: true, preserveScroll: true, onSuccess: () => editingCell.value = { id: null, key: null } });
-};
 
 const handleFileChange = (e) => {
     const f = e.target.files[0];
@@ -143,7 +140,7 @@ const submitBatch = () => {
             showInlineForm.value = false; 
             batchItems.value = []; 
             form.reset(); 
-            resetInputForm(); 
+            resetInputForm(true); 
         }
     });
 };
@@ -180,7 +177,7 @@ const totalBatchPurchase = computed(() => {
                         </div>
                         
                         <div v-if="form.store_id" class="flex border-b border-gray-200 w-full mt-2">
-                            <button v-for="tab in [{id:'belum_terdaftar', label:'Belum Terdaftar'}, {id:'terdaftar', label:'Terdaftar'}]" :key="tab.id" @click="activeTab = tab.id; resetInputForm()" type="button" :class="['py-2 px-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all duration-200 focus:outline-none', activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600']">{{ tab.label }}</button>
+                            <button v-for="tab in [{id:'belum_terdaftar', label:'Belum Terdaftar'}, {id:'terdaftar', label:'Terdaftar'}]" :key="tab.id" @click="activeTab = tab.id; resetInputForm(true)" type="button" :class="['py-2 px-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all duration-200 focus:outline-none', activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600']">{{ tab.label }}</button>
                         </div>
                     </div>
 
@@ -310,30 +307,20 @@ const totalBatchPurchase = computed(() => {
                     <img v-if="value" :src="value" class="w-10 h-10 object-cover rounded border border-gray-200 shadow-sm" />
                     <div v-else class="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-[8px] text-gray-400 font-bold">NO IMG</div>
                 </template>
-                <template #sku="{ row, value }">
-                    <div @dblclick="editCell(row, 'sku', value)" class="p-1">
-                        <input v-if="editingCell.id === row.id && editingCell.key === 'sku'" v-model="editedValue" @blur="saveCell(row)" @keyup.enter="saveCell(row)" type="text" class="w-full text-xs font-bold border rounded p-1 border-blue-400 focus:outline-none" autofocus/>
-                        <span v-else class="text-xs font-bold uppercase">{{ value }}</span>
-                    </div>
+                <template #sku="{ value }">
+                    <span class="text-xs font-bold uppercase">{{ value }}</span>
                 </template>
-                <template #name="{ row, value }">
-                    <div @dblclick="editCell(row, 'name', value)" class="p-1">
-                        <input v-if="editingCell.id === row.id && editingCell.key === 'name'" v-model="editedValue" @blur="saveCell(row)" @keyup.enter="saveCell(row)" type="text" class="w-full text-xs font-bold border rounded p-1 border-blue-400 focus:outline-none" autofocus/>
-                        <span v-else class="text-xs font-semibold uppercase">{{ value }}</span>
-                    </div>
+                <template #name="{ value }">
+                    <span class="text-xs font-semibold uppercase">{{ value }}</span>
                 </template>
                 <template #category_name="{ value }"><span class="text-[9px] font-black uppercase px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100">{{ value }}</span></template>
-                <template #buying_price="{ row, value }">
-                    <div @dblclick="editCell(row, 'buying_price', value)" class="p-1 flex items-center"><span class="text-gray-400 text-[10px] mr-1">Rp</span>
-                        <input v-if="editingCell.id === row.id && editingCell.key === 'buying_price'" v-model="editedValue" @blur="saveCell(row)" @keyup.enter="saveCell(row)" type="number" class="text-xs font-medium border rounded p-1 border-blue-400 focus:outline-none w-28" autofocus/>
-                        <span v-else class="font-medium">{{ Number(value).toLocaleString('id-ID') }}</span>
-                    </div>
+                <template #buying_price="{ value }">
+                    <span class="text-gray-400 text-[10px] mr-1">Rp</span>
+                    <span class="font-medium">{{ Number(value).toLocaleString('id-ID') }}</span>
                 </template>
-                <template #selling_price="{ row, value }">
-                    <div @dblclick="editCell(row, 'selling_price', value)" class="p-1 flex items-center"><span class="text-gray-400 text-[10px] mr-1">Rp</span>
-                        <input v-if="editingCell.id === row.id && editingCell.key === 'selling_price'" v-model="editedValue" @blur="saveCell(row)" @keyup.enter="saveCell(row)" type="number" class="text-xs font-black border rounded p-1 border-blue-400 focus:outline-none w-28 text-blue-700" autofocus/>
-                        <span v-else class="font-black text-blue-700">{{ Number(value).toLocaleString('id-ID') }}</span>
-                    </div>
+                <template #selling_price="{ value }">
+                    <span class="text-gray-400 text-[10px] mr-1">Rp</span>
+                    <span class="font-black text-blue-700">{{ Number(value).toLocaleString('id-ID') }}</span>
                 </template>
                 <template #created_by="{ value }"><span class="text-[10px] font-bold text-gray-500 uppercase whitespace-nowrap bg-gray-100 px-2 py-1 rounded">👤 {{ value }}</span></template>
                 <template #actions="{ row }"><div class="flex gap-4 justify-end"><button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors">✏️</button><button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors">❌</button></div></template>
