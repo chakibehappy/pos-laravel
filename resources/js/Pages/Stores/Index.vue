@@ -22,6 +22,8 @@ const form = useForm({
     store_type_id: '',
     address: '',
     password: '', 
+    phone: '',
+    receipt_footer: '',
     created_by: '',
 });
 
@@ -56,6 +58,8 @@ const openEdit = (row) => {
     form.keyname = row.keyname;
     form.store_type_id = row.store_type_id;
     form.address = row.address;
+    form.phone = row.phone;
+    form.receipt_footer = row.receipt_footer;
     form.created_by = row.creator_name;
     
     showAddForm.value = false;
@@ -131,6 +135,15 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                     <div class="md:col-span-2 flex flex-col gap-1">
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Alamat</label>
                         <input v-model="form.address" type="text" placeholder="ALAMAT LENGKAP..." class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">No. Telepon</label>
+                        <input v-model="form.phone" type="text" placeholder="NO. KONTAK" class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
+                        <span v-if="form.errors.phone" class="text-red-500 text-[10px] font-bold mt-1 uppercase">{{ form.errors.phone }}</span>
+                    </div>
+                    <div class="md:col-span-2 flex flex-col gap-1">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Catatan Penutup Struk</label>
+                        <input v-model="form.receipt_footer" type="text" placeholder="CATATAN PENUTUP STRUK..." class="border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
                     </div>
                     <div class="md:col-span-3 flex gap-3 mt-2 border-t pt-5">
                         <button type="submit" :disabled="form.processing" class="bg-black text-white px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-gray-800 shadow-sm active:scale-95 disabled:opacity-50 transition-all">

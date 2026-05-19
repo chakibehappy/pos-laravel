@@ -32,6 +32,8 @@ class StoreController extends Controller
                 $q->where('stores.name', 'like', $searchTerm)
                   ->orWhere('stores.keyname', 'like', $searchTerm)
                   ->orWhere('stores.address', 'like', $searchTerm)
+                  ->orWhere('stores.phone', 'like', $searchTerm)
+                  ->orWhere('stores.receipt_footer', 'like', $searchTerm)
                   ->orWhere('store_types.name', 'like', $searchTerm)
                   ->orWhere('pos_users.name', 'like', $searchTerm);
             });
@@ -68,7 +70,7 @@ class StoreController extends Controller
         ]);
     }
 
-    public function store(Request $request) {
+public function store(Request $request) {
     $rules = [
         'name'          => 'required|string|max:150',
         'store_type_id' => 'required|exists:store_types,id',
@@ -149,6 +151,8 @@ class StoreController extends Controller
             'keyname'       => Str::upper($request->keyname),
             'store_type_id' => $request->store_type_id,
             'address'       => $request->address,
+            'phone'         => $request->phone,
+            'receipt_footer'=> $request->receipt_footer,
             'status'        => 0, 
         ];
 
