@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use \App\Models\Store;
 use App\Models\Product;
 use App\Models\StoreProduct;
 use App\Models\DigitalWalletStore;
