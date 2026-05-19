@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\StoreType;
 
 class Product extends Model
 {
@@ -18,16 +19,18 @@ class Product extends Model
 
     /**
      * Kolom yang dapat diisi secara massal.
-     * Ditambahkan 'deleted_at' agar bisa diupdate secara manual di controller.
+     * Ditambahkan 'store_type_id' agar bisa disimpan dan diupdate lewat controller.
      */
     protected $fillable = [
         'product_category_id',
+        'store_type_id', // TAMBAHAN: Diizinkan untuk mass assignment
         'name',
         'image',
         'buying_price',
         'sku',
         'selling_price',
         'stock',
+        'type_stock',  
         'unit_type_id',
         'created_by',
         'status',      // 0: Aktif, 2: Dihapus
@@ -43,6 +46,7 @@ class Product extends Model
         'buying_price' => 'float',
         'selling_price' => 'float',
         'stock' => 'integer',
+        'type_stock' => 'integer', 
     ];
 
     /**
@@ -78,10 +82,11 @@ class Product extends Model
     }
 
     /**
-     * Relasi ke Model Store (Gudang/Toko Utama).
+     * Relasi ke Model Store (Tipe Toko).
+     * PENYESUAIAN: Mengubah foreign key dari 'store_id' menjadi 'store_type_id'
      */
     public function store(): BelongsTo
     {
-        return $this->belongsTo(Store::class, 'store_id');
+        return $this->belongsTo(StoreType::class, 'store_type_id');
     }
 }

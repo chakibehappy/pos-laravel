@@ -8,6 +8,7 @@ const props = defineProps({
     products: Object, 
     categories: Array,
     unitTypes: Array,
+    storeTypes: Array,
     filters: Object
 });
 
@@ -29,6 +30,7 @@ const columns = [
     { label: 'SKU', key: 'sku', sortable: true },
     { label: 'Nama Produk', key: 'name', sortable: true }, 
     { label: 'Kategori', key: 'category_name' },
+    { label: 'Jenis Stok', key: 'type_stock', sortable: true },
     { label: 'Modal', key: 'buying_price', sortable: true }, 
     { label: 'Jual', key: 'selling_price', sortable: true }, 
     { label: 'Satuan', key: 'unit_name' },
@@ -47,10 +49,12 @@ const form = useForm({
     id: null,
     product_category_id: '',
     unit_type_id: '',
+    store_type_id: '', 
     name: '',
     sku: '',
     buying_price: 0,
     selling_price: 0, 
+    type_stock: 0, 
     image: null,
 });
 
@@ -58,6 +62,8 @@ const openCreate = () => {
     form.reset();
     form.clearErrors();
     form.id = null;
+    form.store_type_id = ''; 
+    form.type_stock = 0;
     imagePreview.value = null;
     showModalForm.value = false;
     showInlineForm.value = true;
@@ -68,40 +74,38 @@ const openEdit = (row) => {
     form.id = row.id;
     form.product_category_id = row.product_category_id;
     form.unit_type_id = row.unit_type_id;
+    form.store_type_id = row.store_type_id ?? ''; 
     form.name = row.name;
     form.sku = row.sku;
     form.buying_price = row.buying_price; 
     form.selling_price = row.selling_price; 
+    form.type_stock = row.type_stock ?? 0;
     form.image = null;
     imagePreview.value = row.image_url;
     showInlineForm.value = false;
     showModalForm.value = true;
 };
 
-// Fungsi untuk memulai edit pada tabel (Double Click)
 const editCell = (row, key, value) => {
     editingCell.value = { id: row.id, key: key };
     editedValue.value = value;
 };
 
-// Fungsi untuk menyimpan perubahan cell ke form dan mengirim data
 const saveCell = (row) => {
-    // Masukkan data baris ke dalam form agar sinkron
     form.id = row.id;
     form.product_category_id = row.product_category_id;
     form.unit_type_id = row.unit_type_id;
+    form.store_type_id = row.store_type_id ?? ''; 
     form.name = row.name;
     form.sku = row.sku;
     form.buying_price = row.buying_price;
     form.selling_price = row.selling_price;
+    form.type_stock = row.type_stock ?? 0;
 
-    // Update key yang diubah
     form[editingCell.value.key] = editedValue.value;
 
-    // Kirim data
     submit();
     
-    // Reset state editing
     editingCell.value = { id: null, key: null };
 };
 
@@ -155,6 +159,20 @@ const destroy = (id) => {
                         </div>
 
                         <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="flex flex-col gap-1 md:col-span-3 relative h-[68px]">
+                                <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Tipe Toko</label>
+                                <select 
+                                    v-model="form.store_type_id" 
+                                    @focus="$el.setAttribute('size', '6')"
+                                    @blur="$el.setAttribute('size', '1')"
+                                    @change="$el.blur()"
+                                    class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold absolute top-[18px] z-50 w-full"
+                                >
+                                    <option value="">SEMUA TIPE USAHA</option>
+                                    <option v-for="st in storeTypes" :key="st.id" :value="st.id">{{ st.name.toUpperCase() }}</option>
+                                </select>
+                            </div>
+
                             <div class="flex flex-col gap-1">
                                 <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Nama Produk</label>
                                 <input v-model="form.name" type="text" placeholder="Masukkan Nama Produk" class="border border-gray-300 rounded p-2 text-sm uppercase focus:ring-1 focus:ring-blue-500 outline-none font-bold" />
@@ -183,6 +201,13 @@ const destroy = (id) => {
                                 <select v-model="form.unit_type_id" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold">
                                     <option value="">PILIH SATUAN</option>
                                     <option v-for="u in unitTypes" :key="u.id" :value="u.id">{{ u.name.toUpperCase() }}</option>
+                                </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Jenis Stok</label>
+                                <select v-model="form.type_stock" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold">
+                                    <option :value="0">TERBATAS</option>
+                                    <option :value="1">TIDAK TERBATAS</option>
                                 </select>
                             </div>
                         </div>
@@ -259,6 +284,15 @@ const destroy = (id) => {
                     <span class="text-[9px] font-black uppercase px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100">{{ value }}</span>
                 </template>
 
+                <template #type_stock="{ value }">
+                    <span v-if="value === 1" class="text-[9px] font-black uppercase px-2 py-1 bg-green-50 text-green-600 rounded-md border border-green-100 whitespace-nowrap">
+                        Tidak Terbatas
+                    </span>
+                    <span v-else class="text-[9px] font-black uppercase px-2 py-1 bg-amber-50 text-amber-600 rounded-md border border-amber-100 whitespace-nowrap">
+                        Terbatas
+                    </span>
+                </template>
+
                 <template #buying_price="{ row, value }">
                     <div @dblclick="editCell(row, 'buying_price', value)" class="p-1 flex items-center">
                         <span class="text-gray-400 text-[10px] mr-1">Rp</span>
@@ -320,6 +354,20 @@ const destroy = (id) => {
                     </div>
                 </div>
                 <div class="md:col-span-2 grid grid-cols-2 gap-4 uppercase text-xs font-bold text-gray-600">
+                    <div class="flex flex-col gap-1 col-span-2 relative h-[68px]">
+                        <label class="text-[10px] text-gray-400">Tipe Toko</label>
+                        <select 
+                            v-model="form.store_type_id" 
+                            @focus="$el.setAttribute('size', '6')"
+                            @blur="$el.setAttribute('size', '1')"
+                            @change="$el.blur()"
+                            class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold uppercase absolute top-[18px] z-50 w-full"
+                        >
+                            <option value="">SEMUA TIPE USAHA</option>
+                            <option v-for="st in storeTypes" :key="st.id" :value="st.id">{{ st.name.toUpperCase() }}</option>
+                        </select>
+                    </div>
+
                     <div class="flex flex-col gap-1">
                         <label class="text-[10px] text-gray-400">Nama Produk</label>
                         <input v-model="form.name" type="text" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none uppercase text-sm font-bold" />
@@ -348,6 +396,13 @@ const destroy = (id) => {
                         <label class="text-[10px] text-gray-400">Harga Jual</label>
                         <input v-model="form.selling_price" type="number" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm font-bold text-green-600" />
                     </div>
+                    <div class="flex flex-col gap-1 col-span-2">
+                        <label class="text-[10px] text-gray-400">Jenis Stok</label>
+                        <select v-model="form.type_stock" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold uppercase">
+                            <option :value="0">TERBATAS</option>
+                            <option :value="1">TIDAK TERBATAS</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="mt-8 pt-6 border-t flex gap-2">
@@ -359,8 +414,15 @@ const destroy = (id) => {
 </template>
 
 <style scoped>
+/* Menghilangkan panah select default browser agar tidak menumpuk saat size diubah */
 select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
 .animate-in-fade { animation: slide-in 0.4s ease-out; }
+
+/* Membatasi tinggi select yang memiliki atribut size (ketika sedang open) */
+select[size="6"] {
+    max-height: 190px !important;
+    overflow-y: auto !important;
+}
 
 @keyframes slide-in { 
     from { opacity: 0; transform: translateX(10px); } 
