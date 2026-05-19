@@ -192,6 +192,14 @@ const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', {
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Alamat</label>
                                 <input v-model="form.address" type="text" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
                             </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">No. Telepon</label>
+                                <input v-model="form.phone" type="text" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Catatan Bawah Struk</label>
+                                <input v-model="form.receipt_footer" type="text" class="border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none" />
+                            </div>
                         </div>
                         <div class="flex gap-3 mt-8">
                             <button type="submit" :disabled="form.processing" class="flex-1 bg-black text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50">
