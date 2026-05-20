@@ -7,6 +7,7 @@ use App\Models\ProductTest;
 use App\Models\Store;
 use App\Models\ProductCategory;
 use App\Models\UnitType;
+use App\Models\StoreType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -65,6 +66,7 @@ class ProductTestController extends Controller
                 'buying_price' => $product->buying_price,
                 'selling_price' => $product->selling_price,
                 'stock' => $currentStock, 
+                'type_stock' => $product->type_stock, 
                 'image_url' => $product->image ? asset('storage/' . $product->image) : null,
                 'created_at' => $product->updated_at->format('d/m/Y H:i'),
                 'created_by' => $posUser->name ?? 'System',
@@ -73,17 +75,15 @@ class ProductTestController extends Controller
 
         return Inertia::render('ProductTests/Index', [
             'products' => $products,
-            'all_products_reference' => ProductTest::where('status', 0)->get(['id', 'name', 'sku', 'buying_price', 'selling_price', 'product_category_id', 'unit_type_id']),
-            'stores' => Store::where('status', 0)->get(['id', 'name']),
+            'all_products_reference' => ProductTest::where('status', 0)->get(['id', 'name', 'sku', 'buying_price', 'selling_price', 'product_category_id', 'unit_type_id', 'type_stock']),
+            'stores' => Store::where('status', 0)->get(['id', 'name', 'store_type_id']),
             'categories' => ProductCategory::where('status', 0)->get(['id', 'name']),
             'unitTypes' => UnitType::all(['id', 'name']),
+            'storeTypes' => StoreType::where('status', 0)->get(['id', 'name']), 
             'filters' => $request->only(['search', 'category', 'sort', 'direction', 'store_id'])
         ]);
     }
 
-    /**
-     * TAMBAHKAN METHOD BARU INI UNTUK MENANGANI PERMINTAAN STOK REALTIME DARI VUE
-     */
     public function getStock(Request $request)
     {
         $request->validate([
@@ -106,6 +106,7 @@ class ProductTestController extends Controller
         $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
         $posUserId = $posUserAudit ? $posUserAudit->id : null;
 
+        // --- PROSES BATCH ---
         if ($request->has('products_batch')) {
             $request->validate([
                 'store_id' => 'required|numeric',
@@ -121,6 +122,8 @@ class ProductTestController extends Controller
                         $newProduct = ProductTest::create([
                             'product_category_id' => $item['product_category_id'],
                             'unit_type_id'        => $item['unit_type_id'],
+                            'store_type_id'       => $item['store_type_id'] ?? null, 
+                            'type_stock'          => $item['type_stock'] ?? 0, 
                             'name'                => $item['name'],
                             'sku'                 => $item['sku'] ?? null,
                             'buying_price'        => $item['buying_price'] ?? 0,
@@ -170,11 +173,14 @@ class ProductTestController extends Controller
             }
         }
 
+        // --- PROSES SINGLE INPUT ---
         try {
             $request->validate([
                 'id'                  => 'nullable|numeric',
                 'product_category_id' => 'required|exists:product_categories,id',
                 'unit_type_id'        => 'required|exists:unit_types,id',
+                'store_type_id'       => 'nullable|exists:store_types,id',
+                'type_stock'          => 'required|in:0,1', 
                 'name'                => 'required|string|max:150',
                 'sku'                 => 'nullable|string|max:50',
                 'buying_price'        => 'required|numeric|min:0',
@@ -218,7 +224,7 @@ class ProductTestController extends Controller
                 }
             }
 
-            $data = $request->only(['product_category_id', 'unit_type_id', 'name', 'sku', 'buying_price', 'selling_price']);
+            $data = $request->only(['product_category_id', 'unit_type_id', 'store_type_id', 'type_stock', 'name', 'sku', 'buying_price', 'selling_price']);
             $data['status'] = 0;
             $data['deleted_at'] = null;
 

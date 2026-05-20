@@ -5,7 +5,16 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import axios from 'axios'; 
 
-const props = defineProps({ products: Object, all_products_reference: Array, categories: Array, unitTypes: Array, stores: Array, filters: Object });
+const props = defineProps({ 
+    products: Object, 
+    all_products_reference: Array, 
+    categories: Array, 
+    unitTypes: Array, 
+    stores: Array, 
+    storeTypes: Array, 
+    filters: Object 
+});
+
 const selectedCategory = ref(props.filters?.category || '');
 
 watch(selectedCategory, (v) => router.get(route('product-tests.index'), { ...props.filters, category: v, page: 1 }, { preserveState: true, replace: true }));
@@ -34,8 +43,33 @@ const filteredProductsReference = computed(() => {
     });
 });
 
-const form = useForm({ id: null, business_type: '', store_id: props.filters?.store_id || '', product_category_id: '', stock_type: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, stock: 0, image: null });
-const inputForm = ref({ product_reference_id: '', product_category_id: '', stock_type: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null });
+const form = useForm({ 
+    id: null, 
+    store_type_id: '', 
+    store_id: '', 
+    product_category_id: '', 
+    type_stock: '0', 
+    unit_type_id: '', 
+    name: '', 
+    sku: '', 
+    buying_price: 0, 
+    selling_price: 0, 
+    stock: 0, 
+    image: null 
+});
+
+const inputForm = ref({ product_reference_id: '', product_category_id: '', store_type_id: '', type_stock: '0', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null });
+
+// Memfilter toko berdasarkan Jenis Usaha yang dipilih. Jika kosong, tampilkan semua toko.
+const filteredStores = computed(() => {
+    if (!form.store_type_id) return props.stores || [];
+    return (props.stores || []).filter(s => String(s.store_type_id) === String(form.store_type_id));
+});
+
+// Jika Jenis Usaha berubah, reset pilihan Toko
+watch(() => form.store_type_id, () => {
+    form.store_id = '';
+});
 
 watch(searchQuery, (newVal) => {
     inputForm.value.name = newVal;
@@ -46,10 +80,14 @@ watch(searchQuery, (newVal) => {
 });
 
 watch(() => form.store_id, async (newStoreId) => {
-    router.get(route('product-tests.index'), { ...props.filters, store_id: newStoreId }, { preserveState: true, preserveScroll: true, replace: true });
-    
-    if (inputForm.value.product_reference_id && newStoreId) {
-        await fetchCurrentStock(inputForm.value.product_reference_id, newStoreId);
+    if (newStoreId) {
+        router.get(route('product-tests.index'), { ...props.filters, store_id: newStoreId }, { preserveState: true, preserveScroll: true, replace: true });
+        
+        if (inputForm.value.product_reference_id) {
+            await fetchCurrentStock(inputForm.value.product_reference_id, newStoreId);
+        } else {
+            inputForm.value.current_stock = 0;
+        }
     } else {
         inputForm.value.current_stock = 0;
     }
@@ -75,25 +113,39 @@ const fetchCurrentStock = async (productReferenceId, storeId) => {
 const formFields = computed(() => [
     { name: 'sku', label: 'SKU / Kode Barang', type: 'text', placeholder: 'Contoh: BRG-001' },
     { name: 'product_category_id', label: 'Kategori', type: 'select', options: props.categories },
-    { name: 'stock_type', label: 'Jenis Stok', type: 'select', options: [{ id: 'Utama', name: 'UTAMA' }, { id: 'Cadangan', name: 'CADANGAN' }] },
+    { name: 'type_stock', label: 'Jenis Stok', type: 'select', options: [{ id: '0', name: 'TERBATAS' }, { id: '1', name: 'TIDAK TERBATAS' }] },
     { name: 'buying_price', label: 'Harga Modal (Beli)', type: 'number', class: 'text-blue-600' },
     { name: 'selling_price', label: 'Harga Jual', type: 'number', class: 'text-green-600' },
     { name: 'unit_type_id', label: 'Satuan Barang', type: 'select', options: props.unitTypes }
 ]);
 
-const openCreate = () => { form.reset(); form.clearErrors(); form.id = null; form.business_type = ''; form.store_id = props.filters?.store_id || ''; batchItems.value = []; resetInputForm(true); showModalForm.value = false; showInlineForm.value = true; };
+const openCreate = () => { form.reset(); form.clearErrors(); form.id = null; form.store_type_id = ''; form.store_id = ''; form.type_stock = '0'; batchItems.value = []; resetInputForm(true); showModalForm.value = false; showInlineForm.value = true; };
+
+const closeInline = () => { showInlineForm.value = false; batchItems.value = []; form.reset(); form.store_id = ''; form.store_type_id = ''; form.type_stock = '0'; resetInputForm(true); };
+
 const openEdit = (row) => {
-    form.clearErrors(); form.id = row.id; form.business_type = row.business_type || ''; form.store_id = row.store_id || props.filters?.store_id || '';
-    ['product_category_id', 'stock_type', 'unit_type_id', 'name', 'sku', 'buying_price', 'selling_price', 'stock'].forEach(k => form[k] = row[k]);
+    form.clearErrors(); form.id = row.id; form.store_type_id = row.store_type_id || ''; form.store_id = row.store_id || '';
+    ['product_category_id', 'type_stock', 'unit_type_id', 'name', 'sku', 'buying_price', 'selling_price', 'stock'].forEach(k => {
+        if (k === 'type_stock' && row[k] !== null && row[k] !== undefined) {
+            form[k] = String(row[k]);
+        } else {
+            form[k] = row[k];
+        }
+    });
     form.image = null; searchQuery.value = row.name; imagePreview.value = row.image_url; showInlineForm.value = false; showModalForm.value = true;
 };
 
 const selectProduct = async (p) => {
-    ['id:product_reference_id', 'name', 'sku', 'buying_price', 'selling_price', 'product_category_id', 'unit_type_id'].forEach(k => {
+    ['id:product_reference_id', 'name', 'sku', 'buying_price', 'selling_price', 'product_category_id', 'unit_type_id', 'type_stock'].forEach(k => {
         const [pk, fk] = k.includes(':') ? k.split(':') : [k, k];
-        inputForm.value[fk] = p[pk] || (typeof inputForm.value[fk] === 'number' ? 0 : '');
+        
+        if (fk === 'type_stock' && p[pk] !== null && p[pk] !== undefined) {
+            inputForm.value[fk] = String(p[pk]); 
+        } else {
+            inputForm.value[fk] = p[pk] || (typeof inputForm.value[fk] === 'number' ? 0 : '');
+        }
     });
-    inputForm.value.stock_type = p.stock_type || '';
+    
     selectedReferenceName.value = p.name;
     searchQuery.value = p.name;
     showDropdown.value = false;
@@ -106,7 +158,7 @@ const selectProduct = async (p) => {
 };
 
 const resetInputForm = (forceClearSearch = false) => {
-    inputForm.value = { product_reference_id: '', product_category_id: '', stock_type: '', unit_type_id: '', name: forceClearSearch ? '' : searchQuery.value, sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null };
+    inputForm.value = { product_reference_id: '', product_category_id: '', store_type_id: '', type_stock: '0', unit_type_id: '', name: forceClearSearch ? '' : searchQuery.value, sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null };
     
     if (forceClearSearch) {
         imagePreview.value = null;
@@ -126,7 +178,6 @@ const addToCart = () => {
     
     batchItems.value.push({ ...inputForm.value, status_tab: determinedTab, category_name: cObj ? cObj.name.toUpperCase() : '-', unit_name: uObj ? uObj.name.toUpperCase() : '-' });
     
-    // Reset input form tetapi pertahankan isi searchQuery (Nama Produk)
     resetInputForm(false);
 };
 
@@ -142,13 +193,17 @@ const submitBatch = () => {
     if (!form.store_id) return alert('Silakan pilih alokasi toko terlebih dahulu!');
     if (!batchItems.value.length) return alert('Keranjang batch kosong! Tambahkan minimal satu produk.');
     
-    const cleanBatchItems = batchItems.value.map(item => ({
-        ...item,
-        stock: Number(item.stock) || 0
-    }));
+    const cleanBatchItems = batchItems.value.map(item => {
+        // Jika form.store_type_id kosong (Semua Jenis Usaha), ambil store_type_id bawaan dari toko yang dipilih
+        const currentStore = props.stores.find(s => s.id === form.store_id);
+        return {
+            ...item,
+            stock: Number(item.stock) || 0,
+            store_type_id: form.store_type_id || (currentStore ? currentStore.store_type_id : null)
+        };
+    });
 
     router.post(route('product-tests.store'), {
-        business_type: form.business_type,
         store_id: form.store_id,
         products_batch: cleanBatchItems
     }, {
@@ -159,6 +214,9 @@ const submitBatch = () => {
             showInlineForm.value = false; 
             batchItems.value = []; 
             form.reset(); 
+            form.store_id = '';
+            form.store_type_id = '';
+            form.type_stock = '0';
             resetInputForm(true); 
         }
     });
@@ -182,23 +240,24 @@ const totalBatchPurchase = computed(() => {
             <div v-if="showInlineForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b px-6 py-4 flex justify-between items-center text-sm font-bold uppercase tracking-widest text-gray-700 rounded-t-xl overflow-hidden">
                     <span>➕ Tambahkan Data Produk (Batch Mode)</span>
-                    <button @click="showInlineForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
+                    <button @click="closeInline" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
                 </div>
                 <div class="p-6">
                     <div class="w-full mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1 w-full">
                             <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Jenis Usaha</label>
-                            <select v-model="form.business_type" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full text-black">
-                                <option value="" class="text-black">PILIH JENIS USAHA</option>
-                                <option value="Grosir" class="text-black">GROSIR</option>
-                                <option value="Eceran" class="text-black">ECERAN</option>
+                            <select v-model="form.store_type_id" :class="['border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full', form.store_type_id ? 'text-black' : 'text-gray-400']">
+                                <option value="" class="text-gray-400">-- SEMUA JENIS USAHA --</option>
+                                <option v-for="st in storeTypes" :key="st.id" :value="st.id" class="text-black">
+                                    {{ st.name.toUpperCase() }}
+                                </option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-1 w-full">
                             <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Alokasikan Untuk Toko</label>
                             <select v-model="form.store_id" :class="['border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full', form.store_id ? 'text-black' : 'text-gray-400']">
                                 <option value="" class="text-gray-400">PILIH TOKO</option>
-                                <option v-for="s in stores" :key="s.id" :value="s.id" class="text-black">{{ s.name.toUpperCase() }}</option>
+                                <option v-for="s in filteredStores" :key="s.id" :value="s.id" class="text-black">{{ s.name.toUpperCase() }}</option>
                             </select>
                         </div>
                     </div>
@@ -249,14 +308,16 @@ const totalBatchPurchase = computed(() => {
                                     <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">
                                         <span v-if="!!inputForm.product_reference_id" class="text-gray-400 mr-1">🔒</span>{{ field.label }}
                                     </label>
-                                    <select v-if="field.type === 'select'" v-model="inputForm[field.name]" :disabled="!!inputForm.product_reference_id && field.name !== 'stock_type'" :class="['border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed', inputForm[field.name] ? 'text-black' : 'text-gray-400']">
+                                    <select v-if="field.type === 'select'" v-model="inputForm[field.name]" :disabled="!!inputForm.product_reference_id" :class="['border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed', inputForm[field.name] !== '' && inputForm[field.name] !== undefined ? 'text-black' : 'text-gray-400']">
                                         <option value="" class="text-gray-400">PILIH {{ field.label }}</option>
                                         <option v-for="opt in field.options" :key="opt.id" :value="opt.id" class="text-black">{{ opt.name.toUpperCase() }}</option>
                                     </select>
                                     <input v-else v-model="inputForm[field.name]" :type="field.type" :placeholder="field.placeholder" :disabled="!!inputForm.product_reference_id" :class="['border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-bold uppercase disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed', field.class]" />
                                 </div>
                             </div>
-                            <div class="w-full flex justify-end mt-4"><button @click="addToCart" type="button" class="border border-blue-600 text-blue-600 px-5 py-2 rounded text-xs font-black uppercase hover:bg-blue-50 transition-all whitespace-nowrap">+ Tambahkan Ke Keranjang</button></div>
+                            <div class="w-full flex justify-end mt-4">
+                                <button @click="addToCart" type="button" class="border border-blue-600 text-blue-600 px-5 py-2 rounded text-xs font-black uppercase hover:bg-blue-50 transition-all whitespace-nowrap">+ Tambahkan Ke Keranjang</button>
+                            </div>
                         </div>
                     </div>
                     
@@ -283,7 +344,8 @@ const totalBatchPurchase = computed(() => {
                                             <img v-if="item.image_preview_url" :src="item.image_preview_url" class="w-10 h-10 object-cover rounded border border-gray-200 shadow-sm" />
                                             <div v-else class="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-[8px] text-gray-400 font-bold">NO IMG</div>
                                         </td>
-                                        <td class="py-3 px-4">{{ item.name || '-' }}</td><td class="py-3 px-4">{{ item.sku || '-' }}</td>
+                                        <td class="py-3 px-4">{{ item.name || '-' }}</td>
+                                        <td class="py-3 px-4">{{ item.sku || '-' }}</td>
                                         <td class="py-3 px-4"><span class="text-[9px] font-black uppercase px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100">{{ item.category_name }}</span></td>
                                         <td class="py-3 px-4 text-blue-600">Rp {{ Number(item.buying_price).toLocaleString('id-ID') }}</td>
                                         <td class="py-3 px-4 text-green-600">Rp {{ Number(item.selling_price).toLocaleString('id-ID') }}</td>
@@ -312,7 +374,7 @@ const totalBatchPurchase = computed(() => {
 
                         <div class="flex gap-2">
                             <button @click="submitBatch" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded text-xs font-black uppercase disabled:opacity-50 shadow-sm hover:bg-blue-700 transition-all">Simpan Produk</button>
-                            <button @click="showInlineForm = false" class="border border-gray-300 px-8 py-2.5 rounded text-xs font-bold uppercase text-gray-500 hover:bg-gray-50 transition-all">Batal</button>
+                            <button @click="closeInline" class="border border-gray-300 px-8 py-2.5 rounded text-xs font-bold uppercase text-gray-500 hover:bg-gray-50 transition-all">Batal</button>
                         </div>
                     </div>
                 </div>
@@ -362,11 +424,18 @@ const totalBatchPurchase = computed(() => {
                         <input type="file" @change="handleFileChange" class="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                 </div>
-                <div class="flex-1 grid grid-cols-1 gap-4 uppercase text-xs font-bold text-gray-600">
+                <div class="flex-1 flex flex-col uppercase text-xs font-bold text-gray-600">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1 md:col-span-2">
                             <label class="text-[10px] text-gray-400">Nama Produk</label>
                             <input v-model="form.name" type="text" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm font-bold" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-gray-400">Jenis Usaha</label>
+                            <select v-model="form.store_type_id" :class="['border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold', form.store_type_id ? 'text-black' : 'text-gray-400']">
+                                <option value="" class="text-gray-400">PILIH JENIS USAHA</option>
+                                <option v-for="st in storeTypes" :key="st.id" :value="st.id" class="text-black">{{ st.name.toUpperCase() }}</option>
+                            </select>
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] text-gray-400">SKU / Kode</label>
@@ -381,10 +450,10 @@ const totalBatchPurchase = computed(() => {
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] text-gray-400">Jenis Stok</label>
-                            <select v-model="form.stock_type" :class="['border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold', form.stock_type ? 'text-black' : 'text-gray-400']">
+                            <select v-model="form.type_stock" :class="['border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold', form.type_stock !== '' && form.type_stock !== undefined ? 'text-black' : 'text-gray-400']">
                                 <option value="" class="text-gray-400">PILIH JENIS STOK</option>
-                                <option value="Utama" class="text-black">UTAMA</option>
-                                <option value="Cadangan" class="text-black">CADANGAN</option>
+                                <option value="0" class="text-black">TERBATAS</option>
+                                <option value="1" class="text-black">TIDAK TERBATAS</option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-1">
@@ -403,18 +472,12 @@ const totalBatchPurchase = computed(() => {
                             <input v-model="form.selling_price" type="number" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm font-bold text-green-600" />
                         </div>
                     </div>
+                    <div class="mt-8 pt-6 border-t flex justify-end gap-2">
+                        <button @click="submitSingleEdit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded text-xs font-black uppercase disabled:opacity-50 shadow-sm hover:bg-blue-700 transition-all">Simpan Perubahan</button>
+                        <button @click="showModalForm = false" class="border border-gray-300 px-8 py-2.5 rounded text-xs font-bold uppercase text-gray-500 hover:bg-gray-50 transition-all">Batal</button>
+                    </div>
                 </div>
-            </div>
-            <div class="mt-8 pt-6 border-t flex gap-2">
-                <button @click="submitSingleEdit" :disabled="form.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded text-xs font-black uppercase disabled:opacity-50 hover:bg-blue-700 shadow-sm transition-all">Update Data Produk</button>
-                <button @click="showModalForm = false" class="border border-gray-300 px-8 py-2.5 rounded text-xs font-bold uppercase text-gray-500 hover:bg-gray-50 transition-all">Batal</button>
             </div>
         </div>
     </div>
 </template>
-
-<style scoped>
-select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
-.animate-in-fade { animation: slide-in 0.4s ease-out; }
-@keyframes slide-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
-</style>
