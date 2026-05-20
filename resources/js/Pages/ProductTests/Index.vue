@@ -16,7 +16,8 @@ const columns = [
     { label: 'Jual', key: 'selling_price', sortable: true }, { label: 'Satuan', key: 'unit_name' }, { label: 'Admin', key: 'created_by' }
 ];
 
-const showInlineForm = ref(false), showModalForm = ref(false), imagePreview = ref(null), searchQuery = ref(''), showDropdown = ref(false), activeTab = ref('belum_terdaftar'), batchItems = ref([]);
+const showInlineForm = ref(false), showModalForm = ref(false), imagePreview = ref(null), searchQuery = ref(''), showDropdown = ref(false), batchItems = ref([]);
+const selectedReferenceName = ref('');
 
 const closeProductDropdown = () => setTimeout(() => showDropdown.value = false, 200);
 const filteredProductsReference = computed(() => {
@@ -33,13 +34,21 @@ const filteredProductsReference = computed(() => {
     });
 });
 
-const form = useForm({ id: null, store_id: props.filters?.store_id || '', product_category_id: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, stock: 0, image: null });
-const inputForm = ref({ product_reference_id: '', product_category_id: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null });
+const form = useForm({ id: null, business_type: '', store_id: props.filters?.store_id || '', product_category_id: '', stock_type: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, stock: 0, image: null });
+const inputForm = ref({ product_reference_id: '', product_category_id: '', stock_type: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null });
+
+watch(searchQuery, (newVal) => {
+    inputForm.value.name = newVal;
+    
+    if (!newVal || newVal.trim() === '' || (inputForm.value.product_reference_id && newVal !== selectedReferenceName.value)) {
+        resetInputForm(false);
+    }
+});
 
 watch(() => form.store_id, async (newStoreId) => {
     router.get(route('product-tests.index'), { ...props.filters, store_id: newStoreId }, { preserveState: true, preserveScroll: true, replace: true });
     
-    if (activeTab.value === 'terdaftar' && inputForm.value.product_reference_id && newStoreId) {
+    if (inputForm.value.product_reference_id && newStoreId) {
         await fetchCurrentStock(inputForm.value.product_reference_id, newStoreId);
     } else {
         inputForm.value.current_stock = 0;
@@ -64,18 +73,18 @@ const fetchCurrentStock = async (productReferenceId, storeId) => {
 };
 
 const formFields = computed(() => [
-    { name: 'name', label: 'Nama Produk', type: 'text', placeholder: 'Masukkan Nama Produk' },
     { name: 'sku', label: 'SKU / Kode Barang', type: 'text', placeholder: 'Contoh: BRG-001' },
     { name: 'product_category_id', label: 'Kategori', type: 'select', options: props.categories },
+    { name: 'stock_type', label: 'Jenis Stok', type: 'select', options: [{ id: 'Utama', name: 'UTAMA' }, { id: 'Cadangan', name: 'CADANGAN' }] },
     { name: 'buying_price', label: 'Harga Modal (Beli)', type: 'number', class: 'text-blue-600' },
     { name: 'selling_price', label: 'Harga Jual', type: 'number', class: 'text-green-600' },
     { name: 'unit_type_id', label: 'Satuan Barang', type: 'select', options: props.unitTypes }
 ]);
 
-const openCreate = () => { form.reset(); form.clearErrors(); form.id = null; form.store_id = props.filters?.store_id || ''; batchItems.value = []; resetInputForm(true); showModalForm.value = false; showInlineForm.value = true; };
+const openCreate = () => { form.reset(); form.clearErrors(); form.id = null; form.business_type = ''; form.store_id = props.filters?.store_id || ''; batchItems.value = []; resetInputForm(true); showModalForm.value = false; showInlineForm.value = true; };
 const openEdit = (row) => {
-    form.clearErrors(); form.id = row.id; form.store_id = row.store_id || props.filters?.store_id || '';
-    ['product_category_id', 'unit_type_id', 'name', 'sku', 'buying_price', 'selling_price', 'stock'].forEach(k => form[k] = row[k]);
+    form.clearErrors(); form.id = row.id; form.business_type = row.business_type || ''; form.store_id = row.store_id || props.filters?.store_id || '';
+    ['product_category_id', 'stock_type', 'unit_type_id', 'name', 'sku', 'buying_price', 'selling_price', 'stock'].forEach(k => form[k] = row[k]);
     form.image = null; searchQuery.value = row.name; imagePreview.value = row.image_url; showInlineForm.value = false; showModalForm.value = true;
 };
 
@@ -84,6 +93,8 @@ const selectProduct = async (p) => {
         const [pk, fk] = k.includes(':') ? k.split(':') : [k, k];
         inputForm.value[fk] = p[pk] || (typeof inputForm.value[fk] === 'number' ? 0 : '');
     });
+    inputForm.value.stock_type = p.stock_type || '';
+    selectedReferenceName.value = p.name;
     searchQuery.value = p.name;
     showDropdown.value = false;
     
@@ -95,20 +106,27 @@ const selectProduct = async (p) => {
 };
 
 const resetInputForm = (forceClearSearch = false) => {
-    inputForm.value = { product_reference_id: '', product_category_id: '', unit_type_id: '', name: '', sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null };
-    imagePreview.value = null;
+    inputForm.value = { product_reference_id: '', product_category_id: '', stock_type: '', unit_type_id: '', name: forceClearSearch ? '' : searchQuery.value, sku: '', buying_price: 0, selling_price: 0, current_stock: 0, stock: 0, image: null, image_preview_url: null };
     
-    // Jika forceClearSearch true atau tab yang aktif bukan tab 'terdaftar', kosongkan kolom pencarian
-    if (forceClearSearch || activeTab.value !== 'terdaftar') {
+    if (forceClearSearch) {
+        imagePreview.value = null;
         searchQuery.value = '';
+        selectedReferenceName.value = '';
+    } else if (!searchQuery.value) {
+        selectedReferenceName.value = '';
     }
 };
 
 const addToCart = () => {
-    if (activeTab.value === 'belum_terdaftar' && !inputForm.value.name) return alert('Nama produk tidak boleh kosong!');
-    if (activeTab.value === 'terdaftar' && !inputForm.value.product_reference_id) return alert('Silakan pilih produk referensi terlebih dahulu!');
+    if (!inputForm.value.name) return alert('Nama produk tidak boleh kosong!');
+    if (!inputForm.value.stock || Number(inputForm.value.stock) <= 0) return alert('Jumlah stok tambahan tidak boleh 0 atau kosong!');
+    
+    const determinedTab = inputForm.value.product_reference_id ? 'terdaftar' : 'belum_terdaftar';
     const cObj = props.categories.find(c => c.id === inputForm.value.product_category_id), uObj = props.unitTypes.find(u => u.id === inputForm.value.unit_type_id);
-    batchItems.value.push({ ...inputForm.value, status_tab: activeTab.value, category_name: cObj ? cObj.name.toUpperCase() : '-', unit_name: uObj ? uObj.name.toUpperCase() : '-' });
+    
+    batchItems.value.push({ ...inputForm.value, status_tab: determinedTab, category_name: cObj ? cObj.name.toUpperCase() : '-', unit_name: uObj ? uObj.name.toUpperCase() : '-' });
+    
+    // Reset input form tetapi pertahankan isi searchQuery (Nama Produk)
     resetInputForm(false);
 };
 
@@ -130,6 +148,7 @@ const submitBatch = () => {
     }));
 
     router.post(route('product-tests.store'), {
+        business_type: form.business_type,
         store_id: form.store_id,
         products_batch: cleanBatchItems
     }, {
@@ -147,7 +166,6 @@ const submitBatch = () => {
 
 const submitSingleEdit = () => form.post(route('product-tests.store'), { forceFormData: true, preserveScroll: true, onSuccess: () => { showModalForm.value = false; form.reset(); } });
 const destroy = (id) => confirm('APAKAH ANDA YAKIN INGIN MENGHAPUS PRODUK INI? (DATA AKAN DIARSIPKAN)') && router.delete(route('product-tests.destroy', id), { preserveScroll: true });
-const selectedStoreName = computed(() => props.stores?.find(s => String(s.id) === String(form.store_id))?.name.toUpperCase() || form.store_id || '...');
 
 const totalBatchPurchase = computed(() => {
     return batchItems.value.reduce((sum, item) => {
@@ -163,21 +181,25 @@ const totalBatchPurchase = computed(() => {
         <div class="p-8">
             <div v-if="showInlineForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
                 <div class="bg-gray-50 border-b px-6 py-4 flex justify-between items-center text-sm font-bold uppercase tracking-widest text-gray-700 rounded-t-xl overflow-hidden">
-                    <span>➕ Tambahkan Produk Baru (Batch Mode)</span>
+                    <span>➕ Tambahkan Data Produk (Batch Mode)</span>
                     <button @click="showInlineForm = false" class="text-gray-400 hover:text-red-500 transition-colors">✕</button>
                 </div>
                 <div class="p-6">
-                    <div class="w-full mb-6">
+                    <div class="w-full mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1 w-full">
-                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Alokasikan Untuk Toko</label>
-                            <select v-model="form.store_id" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full">
-                                <option value="">PILIH TOKO</option>
-                                <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name.toUpperCase() }}</option>
+                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Jenis Usaha</label>
+                            <select v-model="form.business_type" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full text-black">
+                                <option value="" class="text-black">PILIH JENIS USAHA</option>
+                                <option value="Grosir" class="text-black">GROSIR</option>
+                                <option value="Eceran" class="text-black">ECERAN</option>
                             </select>
                         </div>
-                        
-                        <div v-if="form.store_id" class="flex border-b border-gray-200 w-full mt-2">
-                            <button v-for="tab in [{id:'belum_terdaftar', label:'Belum Terdaftar'}, {id:'terdaftar', label:'Terdaftar'}]" :key="tab.id" @click="activeTab = tab.id; resetInputForm(true)" type="button" :class="['py-2 px-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all duration-200 focus:outline-none', activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600']">{{ tab.label }}</button>
+                        <div class="flex flex-col gap-1 w-full">
+                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Alokasikan Untuk Toko</label>
+                            <select v-model="form.store_id" :class="['border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full', form.store_id ? 'text-black' : 'text-gray-400']">
+                                <option value="" class="text-gray-400">PILIH TOKO</option>
+                                <option v-for="s in stores" :key="s.id" :value="s.id" class="text-black">{{ s.name.toUpperCase() }}</option>
+                            </select>
                         </div>
                     </div>
 
@@ -185,55 +207,57 @@ const totalBatchPurchase = computed(() => {
                         ⚠️ PILIH TERLEBIH DAHULU TOKO YANG AKAN DIALOKASIKAN
                     </div>
 
-                    <div v-else class="grid grid-cols-1 md:grid-cols-4 gap-6 w-full relative z-[50]">
-                        <template v-if="activeTab === 'belum_terdaftar'">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Foto Produk</label>
-                                <div class="border-2 border-dashed border-gray-200 rounded-xl aspect-square flex items-center justify-center overflow-hidden relative group bg-gray-50 hover:bg-gray-100 transition-colors">
-                                    <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" />
-                                    <span v-else class="text-[10px] font-bold text-gray-300 uppercase text-center p-4">Klik/Seret Foto Ke Sini</span>
-                                    <input type="file" @change="handleFileChange" class="absolute inset-0 opacity-0 cursor-pointer" />
-                                </div>
+                    <div v-else class="flex flex-col md:flex-row gap-6 w-full relative z-[50]">
+                        <div class="w-full md:w-56 flex-shrink-0 flex flex-col">
+                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">
+                                <span v-if="!!inputForm.product_reference_id" class="text-gray-400 mr-1">🔒</span>Foto
+                            </label>
+                            <div class="border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center overflow-hidden relative group bg-gray-50 hover:bg-gray-100 transition-colors w-full h-56">
+                                <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" />
+                                <span v-else class="text-[9px] font-bold text-gray-300 uppercase text-center p-2 leading-tight">Klik/Seret Foto</span>
+                                <input type="file" @change="handleFileChange" :disabled="!!inputForm.product_reference_id" class="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed" />
                             </div>
-                            <div class="md:col-span-3 flex flex-col justify-between">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div v-for="field in formFields" :key="field.name" class="flex flex-col gap-1">
-                                        <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">{{ field.label }}</label>
-                                        <select v-if="field.type === 'select'" v-model="inputForm[field.name]" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold">
-                                            <option value="">PILIH {{ field.label }}</option>
-                                            <option v-for="opt in field.options" :key="opt.id" :value="opt.id">{{ opt.name.toUpperCase() }}</option>
-                                        </select>
-                                        <input v-else v-model="inputForm[field.name]" :type="field.type" :placeholder="field.placeholder" :class="['border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-bold uppercase', field.class]" />
-                                    </div>
-                                </div>
-                                <div class="w-full flex justify-end mt-4"><button @click="addToCart" type="button" class="border border-blue-600 text-blue-600 px-5 py-2 rounded text-xs font-black uppercase hover:bg-blue-50 transition-all whitespace-nowrap">+ Tambahkan</button></div>
-                            </div>
-                        </template>
-                        <template v-if="activeTab === 'terdaftar'">
-                            <div class="md:col-span-4 w-full relative z-[60]">
-                                <div class="flex flex-col gap-1 w-full">
-                                    <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Pilih Produk Referensi</label>
-                                    <div class="flex gap-2 w-full items-center relative">
-                                        <div class="relative flex-1">
-                                            <input v-model="searchQuery" @focus="showDropdown = true" @blur="closeProductDropdown" type="text" placeholder="CARI PRODUK..." class="border border-gray-300 rounded p-2 text-sm uppercase focus:ring-1 focus:ring-blue-500 outline-none font-bold bg-white w-full" />
-                                            <div v-if="showDropdown" class="absolute left-0 right-0 z-[100] bg-white border border-gray-200 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-2xl">
-                                                <div v-for="p in filteredProductsReference" :key="p.id" @mousedown="selectProduct(p)" class="p-3 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50 flex justify-between items-center">
-                                                    <div class="flex flex-col text-gray-800 gap-0.5 text-left">
-                                                        <span>{{ p.name }}</span>
-                                                        <span class="text-blue-600 text-[10px] font-black">MODAL: RP {{ Number(p.buying_price).toLocaleString('id-ID') }}</span>
-                                                        <span class="text-green-600 text-[10px] font-black">J: RP {{ Number(p.selling_price).toLocaleString('id-ID') }}</span>
-                                                    </div>
-                                                </div>
-                                                <div v-if="filteredProductsReference.length === 0" class="p-3 text-xs text-gray-400 font-bold text-center uppercase">
-                                                    Produk tidak ditemukan
-                                                </div>
+                        </div>
+                        <div class="flex-1 flex flex-col justify-between">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="flex flex-col gap-1 relative md:col-span-2">
+                                    <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Nama Produk</label>
+                                    <input v-model="searchQuery" @focus="showDropdown = true" @blur="closeProductDropdown" type="text" placeholder="MASUKKAN NAMA PRODUK" class="border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-bold uppercase bg-white w-full" />
+                                    
+                                    <div v-if="showDropdown" class="absolute left-0 right-0 top-[100%] z-[100] bg-white border border-gray-200 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-2xl">
+                                        <div v-for="p in filteredProductsReference" :key="p.id" @mousedown="selectProduct(p)" class="p-3 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50 flex justify-between items-center">
+                                            <div class="flex flex-col text-gray-800 gap-0.5 text-left">
+                                                <span>{{ p.name }}</span>
+                                                <span class="text-blue-600 text-[10px] font-black">MODAL: RP {{ Number(p.buying_price).toLocaleString('id-ID') }}</span>
+                                                <span class="text-green-600 text-[10px] font-black">J: RP {{ Number(p.selling_price).toLocaleString('id-ID') }}</span>
                                             </div>
                                         </div>
-                                        <button @click="addToCart" type="button" class="border border-blue-600 text-blue-600 px-5 py-2.5 rounded text-xs font-black uppercase hover:bg-blue-50 transition-all whitespace-nowrap">+ Tambahkan</button>
+                                        <div v-if="filteredProductsReference.length === 0" class="p-3 text-xs text-gray-400 font-bold text-center uppercase">
+                                            Produk tidak ditemukan
+                                        </div>
                                     </div>
                                 </div>
+
+                                <div class="flex flex-col gap-1 md:col-span-1">
+                                    <label class="text-[10px] font-black uppercase text-blue-600 tracking-widest">
+                                        STOK SAAT INI: <span class="text-red-600">({{ Number(inputForm.current_stock || 0).toLocaleString('id-ID') }} UNIT)</span>
+                                    </label>
+                                    <input v-model.number="inputForm.stock" type="number" min="1" placeholder="0" class="border border-blue-300 focus:ring-1 focus:ring-blue-500 text-blue-700 font-black rounded p-2 text-sm outline-none bg-white w-full" />
+                                </div>
+
+                                <div v-for="field in formFields" :key="field.name" class="flex flex-col gap-1">
+                                    <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">
+                                        <span v-if="!!inputForm.product_reference_id" class="text-gray-400 mr-1">🔒</span>{{ field.label }}
+                                    </label>
+                                    <select v-if="field.type === 'select'" v-model="inputForm[field.name]" :disabled="!!inputForm.product_reference_id && field.name !== 'stock_type'" :class="['border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed', inputForm[field.name] ? 'text-black' : 'text-gray-400']">
+                                        <option value="" class="text-gray-400">PILIH {{ field.label }}</option>
+                                        <option v-for="opt in field.options" :key="opt.id" :value="opt.id" class="text-black">{{ opt.name.toUpperCase() }}</option>
+                                    </select>
+                                    <input v-else v-model="inputForm[field.name]" :type="field.type" :placeholder="field.placeholder" :disabled="!!inputForm.product_reference_id" :class="['border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-bold uppercase disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed', field.class]" />
+                                </div>
                             </div>
-                        </template> 
+                            <div class="w-full flex justify-end mt-4"><button @click="addToCart" type="button" class="border border-blue-600 text-blue-600 px-5 py-2 rounded text-xs font-black uppercase hover:bg-blue-50 transition-all whitespace-nowrap">+ Tambahkan Ke Keranjang</button></div>
+                        </div>
                     </div>
                     
                     <div v-if="form.errors && Object.keys(form.errors).length > 0" class="mt-6 p-3 bg-red-50 border border-red-200 rounded text-red-600 text-xs font-bold uppercase tracking-wide">
@@ -243,12 +267,11 @@ const totalBatchPurchase = computed(() => {
                     </div>
 
                     <div v-if="batchItems.length > 0" class="mt-8 mb-6 animate-in fade-in duration-200">
-                        <h3 class="text-xs font-black uppercase tracking-widest text-gray-600 mb-3">📦 Atur Stok Barang Untuk Toko <span class="text-blue-600">"{{ selectedStoreName }}"</span></h3>
                         <div class="border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr class="bg-gray-100 text-[10px] font-black uppercase text-gray-600 tracking-widest border-b border-gray-300">
-                                        <th v-for="h in ['Status','Foto','Nama Produk','SKU / Kode','Kategori','Harga Modal','Harga Jual','Satuan','Stok Saat Ini','Stock','']" :key="h" class="py-3 px-4" :class="{'w-24': h==='Foto', 'w-28': h==='Stok Saat Ini' || h==='Stock', 'w-12 text-center': h===''}">{{ h }}</th>
+                                        <th v-for="h in ['Status','Foto','Nama Produk','SKU / Kode','Kategori','Harga Modal','Harga Jual','Satuan','Stok Saat Ini','Stok Tambahan','']" :key="h" class="py-3 px-4" :class="{'w-24': h==='Foto', 'w-12 text-center': h===''}">{{ h }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -265,8 +288,8 @@ const totalBatchPurchase = computed(() => {
                                         <td class="py-3 px-4 text-blue-600">Rp {{ Number(item.buying_price).toLocaleString('id-ID') }}</td>
                                         <td class="py-3 px-4 text-green-600">Rp {{ Number(item.selling_price).toLocaleString('id-ID') }}</td>
                                         <td class="py-3 px-4">{{ item.unit_name }}</td>
-                                        <td class="py-3 px-4 text-gray-500 font-bold">{{ Number(item.current_stock || 0).toLocaleString('id-ID') }}</td>
-                                        <td class="py-2 px-4"><input v-model.number="item.stock" type="number" min="0" class="w-full text-xs font-bold border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none text-gray-800" /></td>
+                                        <td class="py-3 px-4 text-gray-400 font-bold">{{ Number(item.current_stock || 0).toLocaleString('id-ID') }}</td>
+                                        <td class="py-3 px-4 text-blue-600 font-black">{{ Number(item.stock || 0).toLocaleString('id-ID') }}</td>
                                         <td class="py-3 px-4 text-center"><button @click="removeCartItem(idx)" type="button">❌</button></td>
                                     </tr>
                                 </tbody>
@@ -297,9 +320,9 @@ const totalBatchPurchase = computed(() => {
 
             <DataTable title="Daftar Produk Test" :resource="products" :columns="columns" :showAddButton="!showInlineForm" routeName="product-tests.index" :initialSearch="filters?.search" :filters="filters" @on-add="openCreate">
                 <template #extra-filters>
-                    <select v-model="selectedCategory" class="border border-gray-300 rounded p-2 text-xs font-bold uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none min-w-[200px] shadow-sm">
-                        <option value="">-- SEMUA KATEGORI --</option>
-                        <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name.toUpperCase() }}</option>
+                    <select v-model="selectedCategory" :class="['border border-gray-300 rounded p-2 text-xs font-bold uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none min-w-[200px] shadow-sm', selectedCategory ? 'text-black' : 'text-gray-400']">
+                        <option value="" class="text-gray-400">-- SEMUA KATEGORI --</option>
+                        <option v-for="c in categories" :key="c.id" :value="c.id" class="text-black">{{ c.name.toUpperCase() }}</option>
                     </select>
                 </template>
                 <template #created_at="{ value }"><span class="text-[10px] text-gray-400 font-bold whitespace-nowrap">{{ value }}</span></template>
@@ -331,17 +354,17 @@ const totalBatchPurchase = computed(() => {
     <div v-if="showModalForm" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div class="bg-white w-full max-w-3xl rounded-xl p-8 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-200">
             <h2 class="text-sm font-black uppercase mb-6 flex items-center gap-2 border-b pb-4 tracking-widest text-gray-700">✏️ Edit: <span class="text-blue-600">{{ form.name }}</span></h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="flex flex-col gap-2">
-                    <label class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Foto Produk</label>
-                    <div class="border-2 border-dashed border-gray-200 rounded-xl aspect-square flex items-center justify-center overflow-hidden relative bg-gray-50 group hover:bg-gray-100 transition-colors">
-                        <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" /><span v-else class="text-[10px] font-bold text-gray-300 uppercase text-center p-4">Tidak Ada Foto</span>
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="w-full md:w-32 flex-shrink-0">
+                    <label class="text-[10px] font-black uppercase text-gray-400 tracking-widest block mb-2">Foto Produk</label>
+                    <div class="border-2 border-dashed border-gray-200 rounded-xl aspect-square flex items-center justify-center overflow-hidden relative bg-gray-50 group hover:bg-gray-100 transition-colors w-full md:w-32 h-32">
+                        <img v-if="imagePreview" :src="imagePreview" class="object-cover w-full h-full" /><span v-else class="text-[10px] font-bold text-gray-300 uppercase text-center p-2 leading-tight">Tidak Ada Foto</span>
                         <input type="file" @change="handleFileChange" class="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                 </div>
-                <div class="md:col-span-2 grid grid-cols-1 gap-4 uppercase text-xs font-bold text-gray-600">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-1">
+                <div class="flex-1 grid grid-cols-1 gap-4 uppercase text-xs font-bold text-gray-600">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1 md:col-span-2">
                             <label class="text-[10px] text-gray-400">Nama Produk</label>
                             <input v-model="form.name" type="text" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm font-bold" />
                         </div>
@@ -351,14 +374,24 @@ const totalBatchPurchase = computed(() => {
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] text-gray-400">Kategori</label>
-                            <select v-model="form.product_category_id" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold">
-                                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name.toUpperCase() }}</option>
+                            <select v-model="form.product_category_id" :class="['border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold', form.product_category_id ? 'text-black' : 'text-gray-400']">
+                                <option value="" class="text-gray-400">PILIH KATEGORI</option>
+                                <option v-for="c in categories" :key="c.id" :value="c.id" class="text-black">{{ c.name.toUpperCase() }}</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-gray-400">Jenis Stok</label>
+                            <select v-model="form.stock_type" :class="['border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold', form.stock_type ? 'text-black' : 'text-gray-400']">
+                                <option value="" class="text-gray-400">PILIH JENIS STOK</option>
+                                <option value="Utama" class="text-black">UTAMA</option>
+                                <option value="Cadangan" class="text-black">CADANGAN</option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] text-gray-400">Satuan</label>
-                            <select v-model="form.unit_type_id" class="border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold">
-                                <option v-for="u in unitTypes" :key="u.id" :value="u.id">{{ u.name.toUpperCase() }}</option>
+                            <select v-model="form.unit_type_id" :class="['border border-gray-300 p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm bg-white font-bold', form.unit_type_id ? 'text-black' : 'text-gray-400']">
+                                <option value="" class="text-gray-400">PILIH SATUAN</option>
+                                <option v-for="u in unitTypes" :key="u.id" :value="u.id" class="text-black">{{ u.name.toUpperCase() }}</option>
                             </select>
                         </div>
                         <div class="flex flex-col gap-1">
