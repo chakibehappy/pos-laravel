@@ -94,9 +94,15 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
-    { label: 'Laporan Pembelian', icon: '📦', name: 'report-buying.index', route: route('report-buying.index'), roles: ['owner', 'developer'] }, 
-    { label: 'Laporan Penjualan', icon: '📋', name: 'report-stores.index', route: route('report-stores.index'), roles: ['owner', 'developer'] },
-    { label: 'Riwayat Aktifitas', icon: '📋', name: 'activity-logs.index', route: route('activity-logs.index') },
+    { 
+        label: 'Laporan', icon: '📋', isDropdown: true, roles: ['developer'],
+        activeOn: ['report-buying.*','report-stores.*'],
+        children: [
+            { label: 'Laporan Pembelian',  name: 'report-buying.index', route: route('report-buying.index'), roles: ['owner', 'developer'] },
+            { label: 'Laporan Penjualan', name: 'report-stores.index', route: route('report-stores.index'), roles: ['owner', 'developer'] },
+        ]
+    },
+    { label: 'Riwayat Aktifitas', icon: '📝', name: 'activity-logs.index', route: route('activity-logs.index') },
     
      // { label: 'Laporan Pembelian', icon: '', name: 'report-buying.index', route: route('report-buying.index') },
     // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },

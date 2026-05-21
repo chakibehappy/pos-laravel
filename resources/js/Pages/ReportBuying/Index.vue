@@ -21,6 +21,8 @@ const filterState = reactive({
 });
 
 const items = computed(() => props.purchases.data || []);
+const selectedPurchase = ref(null);
+const isModalOpen = ref(false);
 
 const filteredStores = computed(() => {
     if (!filterState.store_type_id) return props.stores;
@@ -36,6 +38,16 @@ const formatCurrency = (val) => new Intl.NumberFormat('id-ID').format(val || 0);
 const pageTotal = computed(() => {
     return items.value.reduce((acc, curr) => acc + parseFloat(curr.total || 0), 0);
 });
+
+const openDetail = (row) => {
+    selectedPurchase.value = row;
+    isModalOpen.value = true;
+};
+
+const closeModal = () => {
+    isModalOpen.value = false;
+    selectedPurchase.value = null;
+};
 
 const updateFilters = debounce(() => {
     router.get(route('report-buying.index'), 
@@ -72,7 +84,7 @@ const handleExport = () => {
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Logistik & Inventaris (Update Real-time)</p>
                         </div>
                         
-                        <div class="flex items-center gap-3">
+                        <!-- <div class="flex items-center gap-3">
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-3 flex items-center text-gray-400 text-xs">🔍</span>
                                 <input 
@@ -92,7 +104,7 @@ const handleExport = () => {
                                 </svg>
                                 Export Excel
                             </button>
-                        </div>
+                        </div> -->
                     </div>
 
                     <div class="flex flex-wrap gap-6 items-end">
@@ -135,33 +147,39 @@ const handleExport = () => {
                                 <th class="sticky top-0 left-0 z-50 px-6 py-4 text-left uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Tanggal</th>
                                 <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">ID Pembelian</th>
                                 <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Toko</th>
+                                <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Diinput Oleh</th>
                                 <th class="sticky top-0 z-40 px-4 py-4 text-right uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Qty</th>
                                 <th class="sticky top-0 z-40 px-6 py-4 text-right uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Total</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
-                            <tr v-for="row in items" :key="row.id" class="hover:bg-blue-50/30 transition-colors group">
+                            <tr 
+                                v-for="row in items" 
+                                :key="row.id" 
+                                @click="openDetail(row)"
+                                class="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                            >
                                 <td class="sticky left-0 z-10 px-6 py-4 border-r border-gray-200 bg-white group-hover:bg-blue-50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-bold text-gray-600">
                                     {{ row.tanggal }}
                                 </td>
                                 <td class="px-4 py-4 font-black text-blue-600 uppercase">{{ row.nomor_faktur }}</td>
                                 <td class="px-4 py-4 font-bold text-gray-800">{{ row.pemasok }}</td>
+                                <td class="px-4 py-4 text-gray-500 font-bold uppercase">{{ row.user?.name || row.user_name || '-' }}</td>
                                 <td class="px-4 py-4 text-right font-bold text-gray-700">{{ formatCurrency(row.kuantitas) }}</td>
                                 <td class="px-6 py-4 text-right font-black text-gray-900 bg-gray-50/30 group-hover:bg-transparent transition-colors">
                                     {{ formatCurrency(row.total) }}
                                 </td>
                             </tr>
-                        </tbody>
-                        <tfoot v-if="items.length > 0" class="sticky bottom-0 z-50">
-                            <tr class="font-black uppercase tracking-widest border-t-2 border-gray-200 text-black">
-                                <td colspan="4" class="sticky left-0 px-6 py-5 border-r border-yellow-600 bg-[#FDC700] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-right">
-                                    Total Pembelian (Halaman Ini):
+
+                            <tr v-if="items.length > 0" class="font-black uppercase tracking-widest border-t-2 border-gray-200 text-black">
+                                <td colspan="5" class="sticky left-0 px-6 py-5 border-r border-yellow-600 bg-[#FDC700] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-right">
+                                    Total Pembelian:
                                 </td>
                                 <td class="px-6 py-5 text-right bg-[#FDC700]">
                                     Rp {{ formatCurrency(pageTotal) }}
                                 </td>
                             </tr>
-                        </tfoot>
+                        </tbody>
                     </table>
                 </div>
 
@@ -191,6 +209,85 @@ const handleExport = () => {
             </div>
         </div>
     </AuthenticatedLayout>
+
+    <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="closeModal"></div>
+        
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-xl overflow-hidden transform transition-all relative z-10 animate-[fadeIn_0.2s_ease-out]">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <div>
+                    <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest">Detail Informasi</h3>
+                    <p class="text-sm font-black text-blue-600 uppercase mt-0.5">ID: {{ selectedPurchase?.nomor_faktur }}</p>
+                </div>
+                <button @click="closeModal" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-200/50 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-5 text-xs font-bold uppercase tracking-wide text-gray-600">
+                <div class="flex flex-wrap gap-x-8 gap-y-4 border-b border-gray-100 pb-4">
+                    <div>
+                        <span class="text-gray-400 font-black tracking-widest text-[10px] block mb-0.5">Tanggal</span>
+                        <span class="text-gray-900">{{ selectedPurchase?.tanggal }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400 font-black tracking-widest text-[10px] block mb-0.5">Nama Toko</span>
+                        <span class="text-gray-900">{{ selectedPurchase?.pemasok }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400 font-black tracking-widest text-[10px] block mb-0.5">Diinput Oleh</span>
+                        <span class="text-gray-900">{{ selectedPurchase?.user?.name || selectedPurchase?.user_name || '-' }}</span>
+                    </div>
+                </div>
+
+                <div>
+                    <span class="text-gray-400 font-black tracking-widest text-[10px] block mb-2">Rincian Item</span>
+                    <div class="border border-gray-200 rounded-xl overflow-hidden">
+                        <table class="w-full text-[11px] text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 border-b border-gray-200 text-gray-500 font-black tracking-widest">
+                                    <th class="px-4 py-2.5">Deskripsi</th>
+                                    <th class="px-4 py-2.5 text-right w-20">Qty</th>
+                                    <th class="px-4 py-2.5 text-right w-32">Harga Satuan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr 
+                                    v-for="(item, index) in selectedPurchase?.items_list" 
+                                    :key="index" 
+                                    class="text-gray-900 font-bold border-b border-gray-100 last:border-none"
+                                >
+                                    <td class="px-4 py-3 normal-case font-medium text-gray-600 whitespace-normal break-words">
+                                        {{ item.product_name }}
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-black text-gray-700">
+                                        {{ formatCurrency(item.qty) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-gray-500">
+                                        Rp {{ formatCurrency(item.buying_price) }}
+                                    </td>
+                                </tr>
+                                <tr v-if="!selectedPurchase?.items_list || selectedPurchase.items_list.length === 0">
+                                    <td colspan="3" class="px-4 py-3 text-center text-gray-400 italic">
+                                        Tidak ada rincian item.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 bg-blue-50/50 -mx-6 -mb-6 p-6 mt-6 border-t border-gray-100">
+                    <span class="text-blue-900 font-black tracking-widest text-[10px] flex items-center">Total Pembelian</span>
+                    <span class="col-span-2 text-right text-base font-black text-gray-900">
+                        Rp {{ formatCurrency(selectedPurchase?.total) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
 </template>
 
 <style scoped>
@@ -217,5 +314,10 @@ input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }
 </style>

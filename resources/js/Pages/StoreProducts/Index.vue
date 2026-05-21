@@ -119,7 +119,6 @@ const openEdit = (row) => {
     form.product_id = row.product_id; 
     form.stock = row.stock;
     
-    // Perbaikan variabel yang digunakan
     searchQuery.value = row.product_name; 
     storeSearchQuery.value = row.store_name;
     
@@ -148,7 +147,6 @@ const addToCart = () => {
         return;
     }
 
-    // Cek apakah item sudah ada di dalam cart
     const index = cart.value.findIndex(item => item.store_id === form.store_id && item.product_id === form.product_id);
 
     const productObj = props.products.find(p => p.id === form.product_id);
@@ -168,7 +166,7 @@ const addToCart = () => {
 
     // Reset input produk di form setelah dimasukkan ke keranjang
     form.product_id = '';
-    searchQueryProductSearch.value = '';
+    QueryProductSearch.value = '';
     searchQuery.value = '';
     form.stock = 0;
 };
@@ -179,8 +177,8 @@ const removeFromCart = (index) => {
 };
 
 const submit = () => {
-    // Jika tidak ada batch di dalam cart untuk form create, gunakan form konvensional
     if (showModalForm.value) {
+        // Form Edit (Konvensional per-baris)
         form.post(route('store-products.store'), {
             onSuccess: () => { 
                 showInlineForm.value = false; 
@@ -189,12 +187,12 @@ const submit = () => {
             },
         });
     } else {
+        // Form Create (Batch menggunakan array keranjang)
         if (cart.value.length === 0) {
             alert('Keranjang Anda kosong.');
             return;
         }
         
-        // Kirim array melalui batch
         router.post(route('store-products.store'), { batch: cart.value }, {
             preserveState: false,
             preserveScroll: false,

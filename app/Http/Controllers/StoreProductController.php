@@ -7,6 +7,8 @@ use App\Models\Product;
 use App\Models\StoreType;
 use App\Models\ProductCategory;
 use App\Models\StoreProduct;
+use App\Models\Purchase;
+use App\Models\PurchaseDetail;
 use App\Exports\StoreProductExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
@@ -65,11 +67,11 @@ class StoreProductController extends Controller
         $direction = $request->input('direction', 'desc');
 
         $allowedSorts = [
-            'store_name'          => 'stores.name',
-            'product_name'        => 'products.name',
-            'product_sku'         => 'products.sku',
+            'store_name'           => 'stores.name',
+            'product_name'         => 'products.name',
+            'product_sku'          => 'products.sku',
             'product_buying_price' => 'products.buying_price',
-            'product_selling_price' => 'products.selling_price',
+            'product_selling_price'=> 'products.selling_price',
             'stock'                => 'store_products.stock',
             'updated_at'           => 'store_products.updated_at'
         ];
@@ -94,6 +96,7 @@ class StoreProductController extends Controller
     {
         if ($request->has('batch') && is_array($request->batch)) {
             $request->validate([
+                'store_id'           => 'required|exists:stores,id',
                 'batch.*.store_id'   => 'required|exists:stores,id',
                 'batch.*.product_id' => 'required|exists:products,id',
                 'batch.*.stock'      => 'required|integer|min:0',
@@ -112,10 +115,49 @@ class StoreProductController extends Controller
             $createdBy = $posUser ? $posUser->id : null;
 
             if ($request->has('batch')) {
+                // 1. Buat SATU transaksi purchase utama menggunakan store_id dari tingkat utama payload request
+                $purchase = Purchase::create([
+                    'store_id'    => $request->store_id,
+                    'created_by'  => $createdBy,
+                    'status'      => 0,
+                    'total_harga' => 0, // Nilai awal diset 0 sebelum dihitung secara dinamis
+                ]);
+
+                // Variabel bantuan untuk menampung total akumulasi dari seluruh item detail
+                $grandTotal = 0;
+
+                // 2. Iterasi seluruh item di dalam batch keranjang
                 foreach ($request->batch as $batchItem) {
+                    // Cari product untuk mengambil nama dan harga modal (buying_price) terbaru
+                    $product = Product::find($batchItem['product_id']);
+                    
+                    $buyingPrice = $product ? $product->buying_price : 0;
+                    $qty = $batchItem['stock'];
+                    $itemTotal = $buyingPrice * $qty;
+
+                    // Akumulasikan ke grand total keseluruhan purchase
+                    $grandTotal += $itemTotal;
+
+                    // 3. Masukkan item detail purchase menggunakan id yang sama beserta harga modal dan total baris
+                    PurchaseDetail::create([
+                        'purchase_id'  => $purchase->id,
+                        'product_id'   => $batchItem['product_id'],
+                        'product_name' => $product ? $product->name : 'Unknown',
+                        'buying_price' => $buyingPrice,
+                        'qty'          => $qty,
+                        'total'        => $itemTotal,
+                    ]);
+
+                    // 4. Update atau create stock di cabang terkait
                     $this->processItem($batchItem, $createdBy);
                 }
+
+                // 5. Perbarui kolom total_harga di tabel purchases berdasarkan akumulasi semua item detail
+                $purchase->update([
+                    'total_harga' => $grandTotal
+                ]);
             } else {
+                // Proses edit konvensional per baris (jika tidak via batch)
                 $this->processItem($request->all(), $createdBy);
             }
 
