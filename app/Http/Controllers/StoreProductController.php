@@ -65,13 +65,13 @@ class StoreProductController extends Controller
         $direction = $request->input('direction', 'desc');
 
         $allowedSorts = [
-            'store_name'          => 'stores.name',
-            'product_name'        => 'products.name',
-            'product_sku'         => 'products.sku',
-            'product_buying_price' => 'products.buying_price',
+            'store_name'            => 'stores.name',
+            'product_name'          => 'products.name',
+            'product_sku'           => 'products.sku',
+            'product_buying_price'  => 'products.buying_price',
             'product_selling_price' => 'products.selling_price',
-            'stock'                => 'store_products.stock',
-            'updated_at'           => 'store_products.updated_at'
+            'stock'                 => 'store_products.stock',
+            'updated_at'            => 'store_products.updated_at'
         ];
 
         if (isset($allowedSorts[$sort])) {
@@ -92,6 +92,7 @@ class StoreProductController extends Controller
 
     public function store(Request $request)
     {
+        // Validasi input data tetap sama
         if ($request->has('batch') && is_array($request->batch)) {
             $request->validate([
                 'batch.*.store_id'   => 'required|exists:stores,id',
@@ -111,15 +112,95 @@ class StoreProductController extends Controller
             $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
             $createdBy = $posUser ? $posUser->id : null;
 
-            if ($request->has('batch')) {
-                foreach ($request->batch as $batchItem) {
-                    $this->processItem($batchItem, $createdBy);
-                }
-            } else {
+            // KONDISI A: Request Tunggal
+            if (!$request->has('batch')) {
                 $this->processItem($request->all(), $createdBy);
+                return back()->with('message', 'Data stok cabang berhasil diperbarui!');
             }
 
-            return back()->with('message', 'Data stok cabang berhasil diperbarui!');
+            // KONDISI B: Request Batch Alokasi
+            $items = $request->batch;
+            if (empty($items)) {
+                return back()->withErrors(['message' => 'Data alokasi batch kosong.']);
+            }
+
+            $storeId = $items[0]['store_id'];
+            $store = Store::findOrFail($storeId);
+
+            $purchaseId = DB::table('purchases')->insertGetId([
+                'store_id'    => $storeId,
+                'total_harga' => 0.00, 
+                'status'      => 0,
+                'created_by'  => $createdBy,
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ]);
+
+            $logDetails = [];
+            $purchaseDetailsData = [];
+            $grandTotalHarga = 0.00;
+
+            foreach ($items as $item) {
+                $product = Product::findOrFail($item['product_id']);
+                $addQty = (int) $item['stock']; // Ini adalah jumlah yang dikirim/ditambahkan
+
+                // TUGAS: Update stok (Jika sudah ada, tambah/increment; jika belum, buat baru)
+                $existing = StoreProduct::where('store_id', $storeId)
+                    ->where('product_id', $product->id)
+                    ->first();
+
+                if ($existing) {
+                    $existing->increment('stock', $addQty);
+                    $newStockTarget = $existing->fresh()->stock; // Stok setelah ditambah
+                } else {
+                    StoreProduct::create([
+                        'store_id'   => $storeId,
+                        'product_id' => $product->id,
+                        'stock'      => $addQty,
+                        'created_by' => $createdBy,
+                        'status'     => 0
+                    ]);
+                    $newStockTarget = $addQty;
+                }
+
+                // Hitung total untuk nota berdasarkan jumlah yang dikirim ($addQty)
+                $calculatedTotal = $product->buying_price * $addQty;
+                $grandTotalHarga += $calculatedTotal;
+
+                $purchaseDetailsData[] = [
+                    'purchase_id'  => $purchaseId,
+                    'product_id'   => $product->id,
+                    'product_name' => $product->name,
+                    'buying_price' => $product->buying_price,
+                    'qty'          => $addQty,
+                    'total'        => $calculatedTotal,
+                ];
+
+                $logDetails[] = "{$product->name} (+{$addQty}, Total Akhir: {$newStockTarget})";
+            }
+
+            // Insert detail nota
+            if (!empty($purchaseDetailsData)) {
+                DB::table('purchase_details')->insert($purchaseDetailsData);
+            }
+
+            // Update total_harga pada induk purchases
+            DB::table('purchases')
+                ->where('id', $purchaseId)
+                ->update(['total_harga' => $grandTotalHarga]);
+
+            $detailsString = implode(', ', $logDetails);
+            ActivityLogger::log(
+                'create',
+                'purchases',
+                $purchaseId,
+                "Alokasi stok massal di cabang {$store->name} otomatis menerbitkan Nota Pembelian #{$purchaseId}. Detail: {$detailsString}",
+                $createdBy,
+                ['new' => ['purchase_id' => $purchaseId, 'total_harga' => $grandTotalHarga]],
+                $storeId
+            );
+
+            return back()->with('message', "Stok berhasil dialokasikan! Nota Pembelian #{$purchaseId} beserta detail item berhasil dicatat.");
         });
     }
 
@@ -143,9 +224,9 @@ class StoreProductController extends Controller
         $sp = StoreProduct::updateOrCreate(
             ['store_id' => $data['store_id'], 'product_id' => $data['product_id']],
             [
-                'stock' => $data['stock'], 
+                'stock'      => $data['stock'], 
                 'created_by' => $createdBy,
-                'status' => 0, 
+                'status'     => 0, 
                 'deleted_at' => null 
             ]
         );
@@ -182,7 +263,7 @@ class StoreProductController extends Controller
 
                 // Soft Delete Manual (Archived)
                 $sp->update([
-                    'status' => 2,
+                    'status'     => 2,
                     'deleted_at' => now()
                 ]);
 

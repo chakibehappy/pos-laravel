@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Store;
 use App\Models\StoreType;
 use App\Models\Purchase;
+use App\Models\StoreProduct;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Helpers\ActivityLogger;
 
 class ReportBuyingController extends Controller
 {
@@ -51,17 +54,18 @@ class ReportBuyingController extends Controller
             $query->whereDate('purchases.created_at', '<=', $request->end_date);
         }
 
+        // --- PERUBAHAN: Hitung total dari seluruh hasil query yang terfilter menggunakan clone ---
+        $grandTotalAll = (clone $query)->sum('purchases.total_harga');
+
         // 6. Eksekusi query dengan pagination
         $purchases = $query->orderBy('purchases.id', 'desc')
             ->paginate(10)
             ->withQueryString()
             ->through(function ($item) {
-                // Ambil SEMUA detail item produk yang ada di pembelian ini
                 $details = DB::table('purchase_details')
                     ->where('purchase_id', $item->id)
                     ->get();
 
-                // Hitung total kuantitas dari semua item produk
                 $totalQty = $details->sum('qty');
 
                 return [
@@ -72,7 +76,6 @@ class ReportBuyingController extends Controller
                     'user_name'    => $item->user_name,
                     'kuantitas'    => $totalQty,
                     'total'        => $item->total,
-                    // Kirimkan array list produk ke Vue untuk di-looping
                     'items_list'   => $details->map(function ($detail) {
                         return [
                             'product_name' => $detail->product_name,
@@ -85,11 +88,91 @@ class ReportBuyingController extends Controller
             });
 
         return Inertia::render('ReportBuying/Index', [
-            'purchases'  => $purchases,
-            'stores'     => Store::where('status', '!=', 2)->get(['id', 'name', 'store_type_id']),
-            'storeTypes' => StoreType::all(['id', 'name']),
-            'filters'    => $request->only(['search', 'store_type_id', 'store_id', 'start_date', 'end_date']),
+            'purchases'     => $purchases,
+            'grandTotalAll' => $grandTotalAll, // Kirim ke Vue
+            'stores'        => Store::where('status', '!=', 2)->get(['id', 'name', 'store_type_id']),
+            'storeTypes'    => StoreType::all(['id', 'name']),
+            'filters'       => $request->only(['search', 'store_type_id', 'store_id', 'start_date', 'end_date']),
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        // (Method store tetap sama seperti sebelumnya)
+        $request->validate([
+            'batch'              => 'required|array|min:1',
+            'batch.*.store_id'   => 'required|exists:stores,id',
+            'batch.*.product_id' => 'required|exists:products,id',
+            'batch.*.stock'      => 'required|integer|min:1',
+        ]);
+
+        return DB::transaction(function () use ($request) {
+            $adminEmail = auth()->user()->email;
+            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+            $createdBy = $posUser ? $posUser->id : null;
+
+            $storeId = $request->batch[0]['store_id'];
+            $store = Store::findOrFail($storeId);
+
+            $purchase = Purchase::create([
+                'store_id'    => $storeId,
+                'total_harga' => 0,
+                'created_by'  => $createdBy,
+                'status'      => 0
+            ]);
+
+            $grandTotal = 0;
+            $logDetails = [];
+
+            foreach ($request->batch as $item) {
+                $product = Product::findOrFail($item['product_id']);
+                $qty = (int) $item['stock'];
+                $subTotal = $product->buying_price * $qty;
+                $grandTotal += $subTotal;
+
+                DB::table('purchase_details')->insert([
+                    'purchase_id'  => $purchase->id,
+                    'product_id'   => $product->id,
+                    'product_name' => $product->name,
+                    'buying_price' => $product->buying_price,
+                    'qty'          => $qty,
+                    'total'        => $subTotal,
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ]);
+
+                $storeProduct = StoreProduct::where('store_id', $storeId)
+                    ->where('product_id', $product->id)
+                    ->first();
+
+                $oldStock = $storeProduct ? $storeProduct->stock : 0;
+                $newStock = $oldStock + $qty;
+
+                StoreProduct::updateOrCreate(
+                    ['store_id' => $storeId, 'product_id' => $product->id],
+                    [
+                        'stock'      => $newStock,
+                        'created_by' => $createdBy,
+                        'status'     => 0,
+                        'deleted_at' => null
+                    ]
+                );
+
+                $logDetails[] = "{$product->name} (Qty: {$qty}, Stok lama: {$oldStock} -> Stok baru: {$newStock})";
+            }
+
+            $purchase->update(['total_harga' => $grandTotal]);
+
+            $detailsString = implode(', ', $logDetails);
+            ActivityLogger::log(
+                'create', 'purchases', $purchase->id,
+                "Mencatat nota pembelian baru #{$purchase->id} untuk cabang {$store->name}. Detail item: {$detailsString}",
+                $createdBy, ['new' => ['purchase_id' => $purchase->id, 'total_harga' => $grandTotal]],
+                $storeId
+            );
+
+            return back()->with('message', 'Transaksi pengadaan stok berhasil disimpan!');
+        });
     }
 
     public function export(Request $request)

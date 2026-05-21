@@ -147,6 +147,7 @@ const addToCart = () => {
         return;
     }
 
+    // Cek apakah item sudah ada di dalam cart
     const index = cart.value.findIndex(item => item.store_id === form.store_id && item.product_id === form.product_id);
 
     const productObj = props.products.find(p => p.id === form.product_id);
@@ -178,7 +179,6 @@ const removeFromCart = (index) => {
 
 const submit = () => {
     if (showModalForm.value) {
-        // Form Edit (Konvensional per-baris)
         form.post(route('store-products.store'), {
             onSuccess: () => { 
                 showInlineForm.value = false; 
@@ -187,7 +187,6 @@ const submit = () => {
             },
         });
     } else {
-        // Form Create (Batch menggunakan array keranjang)
         if (cart.value.length === 0) {
             alert('Keranjang Anda kosong.');
             return;
@@ -232,8 +231,19 @@ const handleExport = () => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="flex flex-col gap-1 relative">
                             <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cabang Tujuan</label>
-                            <input v-model="storeSearchQuery" @focus="showStoreDropdown = true" @blur="closeStoreDropdown" type="text" placeholder="CARI CABANG..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none" />
-                            <div v-if="showStoreDropdown" class="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-14 max-h-40 overflow-y-auto shadow-xl">
+                            <input 
+                                v-model="storeSearchQuery" 
+                                @focus="showStoreDropdown = true" 
+                                @blur="closeStoreDropdown" 
+                                type="text" 
+                                placeholder="CARI CABANG..." 
+                                :disabled="cart.length > 0"
+                                :class="[
+                                    'w-full border rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none',
+                                    cart.length > 0 ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 bg-white'
+                                ]" 
+                            />
+                            <div v-if="showStoreDropdown && cart.length === 0" class="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-14 max-h-40 overflow-y-auto shadow-xl">
                                 <div v-for="s in filteredStores" :key="s.id" @mousedown="selectStore(s)" class="p-2.5 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50">{{ s.name }}</div>
                             </div>
                         </div>

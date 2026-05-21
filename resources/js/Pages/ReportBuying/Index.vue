@@ -9,7 +9,8 @@ const props = defineProps({
     stores: { type: Array, default: () => [] },
     storeTypes: { type: Array, default: () => [] },
     filters: Object,
-    purchases: { type: Object, default: () => ({ data: [], links: [] }) }
+    purchases: { type: Object, default: () => ({ data: [], links: [] }) },
+    grandTotalAll: { type: [Number, String], default: 0 } // Tambahkan ini
 });
 
 const filterState = reactive({
@@ -35,9 +36,6 @@ watch(() => filterState.store_type_id, () => {
 
 const formatCurrency = (val) => new Intl.NumberFormat('id-ID').format(val || 0);
 
-const pageTotal = computed(() => {
-    return items.value.reduce((acc, curr) => acc + parseFloat(curr.total || 0), 0);
-});
 
 const openDetail = (row) => {
     selectedPurchase.value = row;
@@ -157,10 +155,10 @@ const handleExport = () => {
                 <div v-if="items.length > 0" class="border-t-2 border-gray-200 text-black uppercase font-black tracking-widest">
                     <div class="flex flex-col items-start md:items-end justify-center bg-[#FDC700] px-4 md:px-6 pt-3 pb-5 md:py-4 w-full gap-0.5">
                         <span class="text-[8px] sm:text-[9px] md:text-[10px] text-gray-800 font-black tracking-widest">
-                            Total Pembelian:
+                            Total Pembelian (Semua Halaman):
                         </span>
                         <span class="text-xs sm:text-sm md:text-lg font-black text-black tracking-normal">
-                            Rp {{ formatCurrency(pageTotal) }}
+                            Rp {{ formatCurrency(grandTotalAll) }}
                         </span>
                     </div>
                 </div>
