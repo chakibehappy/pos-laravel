@@ -133,11 +133,9 @@ const handleExport = () => {
                         <thead>
                             <tr class="bg-gray-50">
                                 <th class="sticky top-0 left-0 z-50 px-6 py-4 text-left uppercase font-black tracking-widest border-b border-r border-gray-200 bg-gray-50 text-gray-500">Tanggal</th>
-                                <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Nomor Faktur</th>
-                                <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Pemasok</th>
-                                <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Deskripsi</th>
+                                <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">ID Pembelian</th>
+                                <th class="sticky top-0 z-40 px-4 py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Toko</th>
                                 <th class="sticky top-0 z-40 px-4 py-4 text-right uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Qty</th>
-                                <th class="sticky top-0 z-40 px-4 py-4 text-right uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Harga Satuan</th>
                                 <th class="sticky top-0 z-40 px-6 py-4 text-right uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Total</th>
                             </tr>
                         </thead>
@@ -148,9 +146,7 @@ const handleExport = () => {
                                 </td>
                                 <td class="px-4 py-4 font-black text-blue-600 uppercase">{{ row.nomor_faktur }}</td>
                                 <td class="px-4 py-4 font-bold text-gray-800">{{ row.pemasok }}</td>
-                                <td class="px-4 py-4 text-gray-500 whitespace-normal min-w-[200px]">{{ row.deskripsi }}</td>
                                 <td class="px-4 py-4 text-right font-bold text-gray-700">{{ formatCurrency(row.kuantitas) }}</td>
-                                <td class="px-4 py-4 text-right text-gray-500">{{ formatCurrency(row.harga_satuan) }}</td>
                                 <td class="px-6 py-4 text-right font-black text-gray-900 bg-gray-50/30 group-hover:bg-transparent transition-colors">
                                     {{ formatCurrency(row.total) }}
                                 </td>
@@ -158,7 +154,7 @@ const handleExport = () => {
                         </tbody>
                         <tfoot v-if="items.length > 0" class="sticky bottom-0 z-50">
                             <tr class="font-black uppercase tracking-widest border-t-2 border-gray-200 text-black">
-                                <td colspan="6" class="sticky left-0 px-6 py-5 border-r border-yellow-600 bg-[#FDC700] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-right">
+                                <td colspan="4" class="sticky left-0 px-6 py-5 border-r border-yellow-600 bg-[#FDC700] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-right">
                                     Total Pembelian (Halaman Ini):
                                 </td>
                                 <td class="px-6 py-5 text-right bg-[#FDC700]">
