@@ -59,6 +59,14 @@ const menuItems = [
             { label: 'Aturan Tarik Tunai', name: 'withdrawal-fee-rules.index', route: route('withdrawal-fee-rules.index') }
         ]
     },
+    { 
+        label: 'Laporan', icon: '📋', isDropdown: true, roles: ['owner', 'developer'],
+        activeOn: ['report-buying.*','report-stores.*'],
+        children: [
+            { label: 'Laporan Pembelian',  name: 'report-buying.index', route: route('report-buying.index') },
+            { label: 'Laporan Penjualan', name: 'report-stores.index', route: route('report-stores.index') },
+        ]
+    },
 ];
 
 const isItemActive = (item) => {
