@@ -98,7 +98,6 @@ class ReportBuyingController extends Controller
 
     public function store(Request $request)
     {
-        // (Method store tetap sama seperti sebelumnya)
         $request->validate([
             'batch'              => 'required|array|min:1',
             'batch.*.store_id'   => 'required|exists:stores,id',
@@ -172,6 +171,59 @@ class ReportBuyingController extends Controller
             );
 
             return back()->with('message', 'Transaksi pengadaan stok berhasil disimpan!');
+        });
+    }
+
+    /**
+     * Menghapus data transaksi pembelian dan mengembalikan stok produk toko (Rollback)
+     */
+    public function destroy($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $purchase = Purchase::findOrFail($id);
+            $store = Store::findOrFail($purchase->store_id);
+
+            $adminEmail = auth()->user()->email;
+            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+            $createdBy = $posUser ? $posUser->id : null;
+
+            // 1. Ambil semua item pembelian dari tabel purchase_details
+            $details = DB::table('purchase_details')->where('purchase_id', $purchase->id)->get();
+            $logDetails = [];
+
+            foreach ($details as $detail) {
+                // 2. Cari stok produk di toko terkait
+                $storeProduct = StoreProduct::where('store_id', $purchase->store_id)
+                    ->where('product_id', $detail->product_id)
+                    ->first();
+
+                if ($storeProduct) {
+                    $oldStock = $storeProduct->stock;
+                    // Kurangi kembali stok yang dulu ditambahkan saat proses pembelian
+                    $newStock = $oldStock - $detail->qty;
+
+                    $storeProduct->update([
+                        'stock' => $newStock < 0 ? 0 : $newStock
+                    ]);
+
+                    $logDetails[] = "{$detail->product_name} (Qty dikurangi: {$detail->qty}, Stok: {$oldStock} -> {$newStock})";
+                }
+            }
+
+            // 3. Catat log pembatalan/penghapusan ke Activity Log
+            $detailsString = implode(', ', $logDetails);
+            ActivityLogger::log(
+                'delete', 'purchases', $purchase->id,
+                "Menghapus nota pembelian #{$purchase->id} dari cabang {$store->name}. Penyesuaian stok: {$detailsString}",
+                $createdBy, ['old' => ['purchase_id' => $purchase->id, 'total_harga' => $purchase->total_harga]],
+                $purchase->store_id
+            );
+
+            // 4. Hapus detail transaksi dan data utama transaksi pembelian
+            DB::table('purchase_details')->where('purchase_id', $purchase->id)->delete();
+            $purchase->delete();
+
+            return back()->with('message', 'Data pembelian berhasil dihapus dan stok toko telah disesuaikan.');
         });
     }
 

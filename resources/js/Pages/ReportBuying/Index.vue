@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, watch, computed } from 'vue';
-import { Head, router, Link } from '@inertiajs/vue3';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import debounce from 'lodash/debounce';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
@@ -10,8 +10,13 @@ const props = defineProps({
     storeTypes: { type: Array, default: () => [] },
     filters: Object,
     purchases: { type: Object, default: () => ({ data: [], links: [] }) },
-    grandTotalAll: { type: [Number, String], default: 0 } // Tambahkan ini
+    grandTotalAll: { type: [Number, String], default: 0 }
 });
+
+const page = usePage();
+
+// Validasi role developer sesuai dengan standarisasi komponen sidebar Anda
+const isDeveloper = computed(() => page.props.auth?.role === 'developer');
 
 const filterState = reactive({
     store_type_id: props.filters?.store_type_id || '',
@@ -36,7 +41,6 @@ watch(() => filterState.store_type_id, () => {
 
 const formatCurrency = (val) => new Intl.NumberFormat('id-ID').format(val || 0);
 
-
 const openDetail = (row) => {
     selectedPurchase.value = row;
     isModalOpen.value = true;
@@ -45,6 +49,15 @@ const openDetail = (row) => {
 const closeModal = () => {
     isModalOpen.value = false;
     selectedPurchase.value = null;
+};
+
+// Fungsi hapus transaksi untuk role developer
+const deletePurchase = (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus data pembelian ini?')) {
+        router.delete(route('report-buying.destroy', id), {
+            onSuccess: () => closeModal(),
+        });
+    }
 };
 
 const updateFilters = debounce(() => {
@@ -81,8 +94,6 @@ const handleExport = () => {
                             <h2 class="text-xl font-black text-gray-800 uppercase tracking-tight italic">Laporan Pembelian Barang</h2>
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Logistik & Inventaris (Update Real-time)</p>
                         </div>
-                        
-                        
                     </div>
 
                     <div class="flex flex-wrap gap-4 md:gap-6 items-end">
@@ -128,24 +139,31 @@ const handleExport = () => {
                                 <th class="sticky top-0 z-40 px-3 md:px-4 py-3 md:py-4 text-left uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Oleh</th>
                                 <th class="sticky top-0 z-40 px-3 md:px-4 py-3 md:py-4 text-right uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Qty</th>
                                 <th class="sticky top-0 z-40 px-4 md:px-6 py-3 md:py-4 text-right uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Total</th>
+                                <th v-if="isDeveloper" class="sticky top-0 z-40 px-4 py-3 text-center uppercase font-black tracking-widest border-b border-gray-200 bg-gray-50 text-gray-500">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
-                            <tr 
-                                v-for="row in items" 
-                                :key="row.id" 
-                                @click="openDetail(row)"
-                                class="hover:bg-blue-50/50 transition-colors group cursor-pointer"
-                            >
-                                <td class="sticky left-0 z-10 px-4 md:px-6 py-3 md:py-4 border-r border-gray-200 bg-white group-hover:bg-blue-50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-bold text-gray-600">
+                            <tr v-for="row in items" :key="row.id" class="hover:bg-blue-50/50 transition-colors group">
+                                <td @click="openDetail(row)" class="sticky left-0 z-10 px-4 md:px-6 py-3 md:py-4 border-r border-gray-200 bg-white group-hover:bg-blue-50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-bold text-gray-600 cursor-pointer">
                                     {{ row.tanggal }}
                                 </td>
-                                <td class="px-3 md:px-4 py-3 md:py-4 font-black text-blue-600 uppercase">{{ row.nomor_faktur }}</td>
-                                <td class="px-3 md:px-4 py-3 md:py-4 font-bold text-gray-800">{{ row.pemasok }}</td>
-                                <td class="px-3 md:px-4 py-3 md:py-4 text-gray-500 font-bold uppercase">{{ row.user?.name || row.user_name || '-' }}</td>
-                                <td class="px-3 md:px-4 py-3 md:py-4 text-right font-bold text-gray-700">{{ formatCurrency(row.kuantitas) }}</td>
-                                <td class="px-4 md:px-6 py-3 md:py-4 text-right font-black text-gray-900 bg-gray-50/30 group-hover:bg-transparent transition-colors">
+                                <td @click="openDetail(row)" class="px-3 md:px-4 py-3 md:py-4 font-black text-blue-600 uppercase cursor-pointer">{{ row.nomor_faktur }}</td>
+                                <td @click="openDetail(row)" class="px-3 md:px-4 py-3 md:py-4 font-bold text-gray-800 cursor-pointer">{{ row.pemasok }}</td>
+                                <td @click="openDetail(row)" class="px-3 md:px-4 py-3 md:py-4 text-gray-500 font-bold uppercase cursor-pointer">{{ row.user?.name || row.user_name || '-' }}</td>
+                                <td @click="openDetail(row)" class="px-3 md:px-4 py-3 md:py-4 text-right font-bold text-gray-700 cursor-pointer">{{ formatCurrency(row.kuantitas) }}</td>
+                                <td @click="openDetail(row)" class="px-4 md:px-6 py-3 md:py-4 text-right font-black text-gray-900 bg-gray-50/30 group-hover:bg-transparent transition-colors cursor-pointer">
                                     {{ formatCurrency(row.total) }}
+                                </td>
+                                <td v-if="isDeveloper" class="px-4 py-3 text-center z-20">
+                                    <button 
+                                        @click.stop="deletePurchase(row.id)" 
+                                        class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all duration-200 border border-red-200"
+                                        title="Hapus Permanen"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
@@ -264,6 +282,15 @@ const handleExport = () => {
                     <span class="col-span-2 text-right text-sm md:text-base font-black text-gray-900">
                         Rp {{ formatCurrency(selectedPurchase?.total) }}
                     </span>
+                </div>
+
+                <div v-if="isDeveloper" class="flex justify-end pt-4 border-t border-gray-100 -mx-4 md:-mx-6 px-4 md:px-6">
+                    <button 
+                        @click="deletePurchase(selectedPurchase.id)"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-sm transition-all duration-200"
+                    >
+                        Hapus Transaksi
+                    </button>
                 </div>
             </div>
         </div>

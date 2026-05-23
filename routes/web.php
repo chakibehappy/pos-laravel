@@ -224,7 +224,8 @@ Route::middleware(['auth'])->group(function () {
     // ----- route sementara laporan----
     Route::get('/report-buying', [ReportBuyingController::class, 'index'])->name('report-buying.index');
     Route::get('/report-buying/export', [ReportBuyingController::class, 'export'])->name('report-buying.export');
-
+    Route::delete('/report-buying/{id}', [ReportBuyingController::class, 'destroy'])->name('report-buying.destroy');
+    
     Route::get('/report-expense', [ReportExpenseController::class, 'index'])->name('report-expense.index');
     Route::post('/report-expense', [ReportExpenseController::class, 'store'])->name('report-expense.store');
     Route::delete('/report-expense/{id}', [ReportExpenseController::class, 'destroy'])->name('report-expense.destroy');

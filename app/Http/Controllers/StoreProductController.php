@@ -142,29 +142,41 @@ class StoreProductController extends Controller
 
             foreach ($items as $item) {
                 $product = Product::findOrFail($item['product_id']);
-                $addQty = (int) $item['stock']; // Ini adalah jumlah yang dikirim/ditambahkan
+                $inputQty = (int) $item['stock']; 
 
-                // TUGAS: Update stok (Jika sudah ada, tambah/increment; jika belum, buat baru)
+                // Cari data lama berdasarkan store_id dan product_id
                 $existing = StoreProduct::where('store_id', $storeId)
                     ->where('product_id', $product->id)
                     ->first();
 
                 if ($existing) {
-                    $existing->increment('stock', $addQty);
-                    $newStockTarget = $existing->fresh()->stock; // Stok setelah ditambah
+                    if ($existing->status == 2) {
+                        // JIKA STATUS 2: Ganti (replace) stok dengan input baru, set status ke 0, dan bersihkan deleted_at
+                        $existing->update([
+                            'stock'      => $inputQty,
+                            'status'     => 0,
+                            'deleted_at' => null
+                        ]);
+                        $newStockTarget = $inputQty;
+                    } else {
+                        // JIKA STATUS BUKAN 2 (misal status 0): Tetap tambahkan (increment) stok lama dengan input baru
+                        $existing->increment('stock', $inputQty);
+                        $newStockTarget = $existing->fresh()->stock;
+                    }
                 } else {
+                    // JIKA BELUM ADA DATA SAMA SEKALI: Buat baru
                     StoreProduct::create([
                         'store_id'   => $storeId,
                         'product_id' => $product->id,
-                        'stock'      => $addQty,
+                        'stock'      => $inputQty,
                         'created_by' => $createdBy,
                         'status'     => 0
                     ]);
-                    $newStockTarget = $addQty;
+                    $newStockTarget = $inputQty;
                 }
 
-                // Hitung total untuk nota berdasarkan jumlah yang dikirim ($addQty)
-                $calculatedTotal = $product->buying_price * $addQty;
+                // Hitung total untuk nota berdasarkan jumlah yang dikirim/diinput ($inputQty)
+                $calculatedTotal = $product->buying_price * $inputQty;
                 $grandTotalHarga += $calculatedTotal;
 
                 $purchaseDetailsData[] = [
@@ -172,11 +184,11 @@ class StoreProductController extends Controller
                     'product_id'   => $product->id,
                     'product_name' => $product->name,
                     'buying_price' => $product->buying_price,
-                    'qty'          => $addQty,
+                    'qty'          => $inputQty,
                     'total'        => $calculatedTotal,
                 ];
 
-                $logDetails[] = "{$product->name} (+{$addQty}, Total Akhir: {$newStockTarget})";
+                $logDetails[] = "{$product->name} (+{$inputQty}, Total Akhir: {$newStockTarget})";
             }
 
             // Insert detail nota
