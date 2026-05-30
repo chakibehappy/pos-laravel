@@ -128,7 +128,7 @@ class ReportStoreController extends Controller
                 ELSE td.buying_prices * td.quantity 
             END) as total_beli'),
             
-            DB::raw('SUM(CASE WHEN td.topup_transaction_id IS NOT NULL OR td.cash_withdrawal_id IS NOT NULL THEN 1 ELSE td.quantity END) as total_qty'),
+            DB::raw('SUM(CASE WHEN td.cash_withdrawal_id IS NOT NULL THEN 1 ELSE td.quantity END) as total_qty'),
             
             // JUAL: Tetap dari withdrawal_count (Misal: 26.000)
             DB::raw('SUM(CASE WHEN td.cash_withdrawal_id IS NOT NULL THEN cw.withdrawal_count ELSE 0 END) as total_tarik_jual'),
@@ -140,6 +140,7 @@ class ReportStoreController extends Controller
         ->where('t.status', 0)
         ->whereNull('t.deleted_at')
         ->whereNull('td.deleted_at')
+        ->whereNull('td.topup_transaction_id')
         ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
         ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
         // Tambahkan td.cash_withdrawal_id di groupBy agar data tidak melebur jadi satu
