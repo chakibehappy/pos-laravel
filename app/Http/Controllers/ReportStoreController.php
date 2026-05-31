@@ -227,7 +227,7 @@ class ReportStoreController extends Controller
             $totalBeliWallet = (float) $storeWall->sum('total_beli');
             $item->pembelian = $totalBeliKategori + $totalBeliWallet; 
             $item->labatariktunai = $item->tarik_tunai_jual - $item->tarik_tunai_beli;
-            $item->lansementara = $item->labatariktunai + $item->total;
+            $item->labasementara = $item->labatariktunai + $item->total;
             $item->laba_kotor = $item->labasementara - $item->pembelian;
             $item->laba_cabang = $item->laba_kotor - $item->operasional;
 
