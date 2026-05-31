@@ -37,7 +37,11 @@ class DashboardLoginController extends Controller
                 'email' => 'No account found with this email.',
             ]);
         }
-
+        if ($user->status != 0) {
+            return back()->withErrors([
+                'email' => 'Your account is inactive or not allowed to login.',
+            ]);
+        }
         if (! Hash::check($request->password, $user->password)) {
             return back()->withErrors([
                 'password' => 'Incorrect password.',
