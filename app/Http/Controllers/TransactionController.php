@@ -49,7 +49,9 @@ class TransactionController extends Controller
         if ($request->filled('end_date')) {
             $query->whereDate('transactions.transaction_at', '<=', $request->end_date);
         }
-
+        if ($request->filled('payment_id')) {
+            $query->where('transactions.payment_id', $request->payment_id);
+        }
         // Filter Pencarian Universal (Search)
         if ($request->search) {
             $query->where(function ($q) use ($request) {
@@ -78,7 +80,7 @@ class TransactionController extends Controller
         return Inertia::render('Transactions/Index', [
             'transactions' => $query->paginate(10)->withQueryString(),
             // Kirim balik state filter agar input di Vue tetap terisi (UI Konsisten)
-            'filters' => $request->only(['search', 'sort', 'direction', 'store_id', 'start_date', 'end_date']),
+            'filters' => $request->only(['search', 'sort', 'direction', 'store_id', 'payment_id', 'start_date', 'end_date']),
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
             'products' => Product::all(['id', 'name', 'selling_price as price']),

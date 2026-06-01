@@ -356,6 +356,7 @@ const formatDate = (date) => new Date(date).toLocaleString('id-ID', { day: '2-di
 const filterState = reactive({
     search: props.filters?.search || '',
     store_id: props.filters?.store_id || '',
+    payment_id: props.filters?.payment_id || '',
     start_date: props.filters?.start_date || '',
     end_date: props.filters?.end_date || '',
 });
@@ -519,7 +520,14 @@ watch(filterState, debounce(() => {
                             placeholder="Semua Toko"
                         />
                     </div>
-
+                    <div class="w-48">
+                            <SearchableSelect 
+                            v-model="filterState.payment_id"
+                            :options="paymentMethods"
+                            label="Metode Pembayaran"
+                            placeholder="Semua Metode"
+                        />
+                    </div>  
                     <div class="flex flex-col gap-1">
                         <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mulai</label>
                         <input type="date" v-model="filterState.start_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />

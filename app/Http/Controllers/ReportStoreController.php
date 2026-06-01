@@ -33,6 +33,10 @@ class ReportStoreController extends Controller
             ->whereNull('deleted_at')
             ->get(['id', 'name']);
 
+        $paymentMethods = DB::table('payment_methods')
+            ->where('status', '!=', 2)
+            ->get(['id', 'name']);
+
         // HITUNG PENGELUARAN GLOBAL
         $globalExpense = DB::table('expense_transactions')
             ->join('expense_types', 'expense_transactions.expense_type_id', '=', 'expense_types.id')
@@ -50,7 +54,8 @@ class ReportStoreController extends Controller
             'storeTypes' => $storeTypes,
             'productCategories' => $productCategories,
             'dynamicWallets' => $dynamicWallets,
-            'filters' => $request->only(['store_id', 'store_type_id', 'start_date', 'end_date']),
+            'paymentMethods' => $paymentMethods,
+            'filters' => $request->only(['store_id', 'store_type_id', 'payment_method_id', 'start_date', 'end_date']),
             'reportData' => $reportData,
             'globalExpense' => (float)$globalExpense,
         ]);
@@ -133,6 +138,7 @@ class ReportStoreController extends Controller
             ->whereNull('td.cash_withdrawal_id') // Kunci isolasi utama agar tidak bocor
             ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
             ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
+            ->when($request->payment_method_id, fn($q, $id) => $q->where('t.payment_id', $id))
             ->groupBy('t.store_id', 'p.product_category_id') 
             ->get()
             ->groupBy('store_id');
@@ -154,6 +160,7 @@ class ReportStoreController extends Controller
             ->whereNotNull('td.cash_withdrawal_id')
             ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
             ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
+            ->when($request->payment_method_id, fn($q, $id) => $q->where('t.payment_id', $id))
             ->groupBy('t.store_id')
             ->get()
             ->keyBy('store_id');
@@ -175,6 +182,7 @@ class ReportStoreController extends Controller
             ->whereNull('td.deleted_at')
             ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
             ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
+            ->when($request->payment_method_id, fn($q, $id) => $q->where('t.payment_id', $id))
             ->groupBy('t.store_id', 'dws.digital_wallet_id')
             ->get()
             ->groupBy('store_id');

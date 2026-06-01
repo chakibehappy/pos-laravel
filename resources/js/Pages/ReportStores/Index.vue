@@ -10,6 +10,7 @@ const props = defineProps({
     storeTypes: { type: Array, default: () => [] },
     productCategories: { type: Array, default: () => [] },
     dynamicWallets: { type: Array, default: () => [] },
+    paymentMethods: { type: Array, default: () => [] },
     filters: Object,
     reportData: { type: Array, default: () => [] },
     globalExpense: { type: Number, default: 0 } // Menerima data global expense dari backend
@@ -19,6 +20,7 @@ const filterState = reactive({
     // Default otomatis ke jenis usaha pertama jika tidak ada filter aktif
     store_type_id: props.filters?.store_type_id || (props.storeTypes.length > 0 ? props.storeTypes[0].id : ''),
     store_id: props.filters?.store_id || '',
+    payment_method_id: props.filters?.payment_method_id || '',
     start_date: props.filters?.start_date || '',
     end_date: props.filters?.end_date || '',
 });
@@ -183,7 +185,20 @@ const exportExcel = () => {
                                 placeholder="SEMUA CABANG" 
                             />
                         </div>
+                        <div class="w-full md:w-56">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Metode Pembayaran</label>
 
+                            <select 
+                                v-model="filterState.payment_method_id" 
+                                class="w-full border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all uppercase appearance-none bg-white cursor-pointer"
+                                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem;"
+                            >
+                                <option value="">-- SEMUA METODE --</option>
+                                <option v-for="method in paymentMethods" :key="method.id" :value="method.id">
+                                    {{ method.name }}
+                                </option>
+                            </select>
+                        </div>
                         <div class="flex flex-col gap-1 w-full md:w-auto">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mulai Tanggal</label>
                             <input type="date" v-model="filterState.start_date" class="border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase" />
