@@ -217,4 +217,4 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
             },
         ];
     }
-}
+}s
