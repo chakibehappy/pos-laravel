@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Carbon\Carbon;
 
 class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize, WithEvents, WithCustomStartCell
@@ -18,7 +19,10 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
     protected $reportData;
     protected $categories;
     protected $wallets;
-    protected $params; // Untuk menyimpan info Periode, Nama Toko, Jenis Usaha, dan nominal global
+    protected $params; 
+
+    protected $startCellRow = 5; 
+    protected $dataStartRow = 8; 
 
     public function __construct($reportData, $categories, $wallets, $params = [])
     {
@@ -30,7 +34,12 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
 
     public function startCell(): string
     {
-        return 'A5';
+        return 'A' . $this->startCellRow;
+    }
+
+    private function getTotalColumnsCount(): int
+    {
+        return 2 + (count($this->categories) * 2) + (count($this->wallets) * 2) + 2 + 3;
     }
 
     public function collection()
@@ -41,17 +50,24 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
                 $item->qty,
             ];
 
+            // FIX: Tambahkan prefix 'cat_' agar sesuai dengan ReportStoreController
             foreach ($this->categories as $cat) {
-                $keyJual = strtolower($cat->name) . '_jual';
-                $keyBeli = strtolower($cat->name) . '_beli';
-                $row[] = $item->$keyBeli;
-                $row[] = $item->$keyJual;
+                $cleanKey = strtolower(str_replace(' ', '_', $cat->name));
+                $keyBeli = 'cat_' . $cleanKey . '_beli';
+                $keyJual = 'cat_' . $cleanKey . '_jual';
+                
+                $row[] = $item->$keyBeli ?? 0;
+                $row[] = $item->$keyJual ?? 0;
             }
 
+            // FIX: Tambahkan prefix 'wallet_' agar sesuai dengan ReportStoreController
             foreach ($this->wallets as $wallet) {
                 $cleanKey = strtolower(str_replace(' ', '_', $wallet->name));
-                $row[] = $item->{$cleanKey . '_beli'};
-                $row[] = $item->{$cleanKey . '_jual'};
+                $keyBeli = 'wallet_' . $cleanKey . '_beli';
+                $keyJual = 'wallet_' . $cleanKey . '_jual';
+                
+                $row[] = $item->$keyBeli ?? 0;
+                $row[] = $item->$keyJual ?? 0;
             }
 
             $row[] = $item->tarik_tunai_beli;
@@ -65,7 +81,7 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
         });
 
         if ($rows->count() > 0) {
-            $numCols = count($rows[0]);
+            $numCols = $this->getTotalColumnsCount();
             
             // 1. Baris TOTAL
             $totalRow = ['TOTAL'];
@@ -131,8 +147,8 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 $lastRow = $sheet->getHighestRow();
-                $lastColNum = 2 + (count($this->categories) * 2) + (count($this->wallets) * 2) + 2 + 3;
-                $lastCol = $this->getColumnLetter($lastColNum);
+                $lastColNum = $this->getTotalColumnsCount();
+                $lastCol = Coordinate::stringFromColumnIndex($lastColNum);
 
                 // --- JUDUL DAN INFO ---
                 $sheet->setCellValue('A1', 'Laporan Transaksi Maar Company');
@@ -140,8 +156,8 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
                 $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
                 $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                $startDate = $this->params['start_date'] ? Carbon::parse($this->params['start_date'])->format('d-m-Y') : '-';
-                $endDate = $this->params['end_date'] ? Carbon::parse($this->params['end_date'])->format('d-m-Y') : '-';
+                $startDate = !empty($this->params['start_date']) ? Carbon::parse($this->params['start_date'])->format('d-m-Y') : '-';
+                $endDate = !empty($this->params['end_date']) ? Carbon::parse($this->params['end_date'])->format('d-m-Y') : '-';
                 $sheet->setCellValue('A2', 'Periode:'); $sheet->setCellValue('B2', $startDate);
                 $sheet->setCellValue('C2', 'Hingga :'); $sheet->setCellValue('D2', $endDate);
                 $sheet->setCellValue('A3', 'Jenis Usaha:'); $sheet->setCellValue('B3', strtoupper($this->params['store_type_name'] ?? 'SEMUA'));
@@ -150,20 +166,21 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
                 $sheet->getStyle('C2:C3')->getFont()->setBold(true);
 
                 // --- HEADER TABEL ---
-                $hStart = 5; $hEnd = 7;
+                $hStart = $this->startCellRow; 
+                $hEnd = $this->startCellRow + 2; 
                 $sheet->mergeCells("A{$hStart}:A{$hEnd}"); 
                 $sheet->mergeCells("B{$hStart}:B{$hEnd}"); 
                 $detailColsCount = (count($this->categories) * 2) + (count($this->wallets) * 2) + 2;
-                $sheet->mergeCells("C{$hStart}:" . $this->getColumnLetter(2 + $detailColsCount) . "{$hStart}");
+                $sheet->mergeCells("C{$hStart}:" . Coordinate::stringFromColumnIndex(2 + $detailColsCount) . "{$hStart}");
 
                 $currentCol = 3;
                 $totalGroups = count($this->categories) + count($this->wallets) + 1;
                 for ($i = 0; $i < $totalGroups; $i++) {
-                    $sheet->mergeCells($this->getColumnLetter($currentCol) . ($hStart+1) . ':' . $this->getColumnLetter($currentCol + 1) . ($hStart+1));
+                    $sheet->mergeCells(Coordinate::stringFromColumnIndex($currentCol) . ($hStart+1) . ':' . Coordinate::stringFromColumnIndex($currentCol + 1) . ($hStart+1));
                     $currentCol += 2;
                 }
                 for ($j = 0; $j < 3; $j++) {
-                    $col = $this->getColumnLetter($currentCol + $j);
+                    $col = Coordinate::stringFromColumnIndex($currentCol + $j);
                     $sheet->mergeCells("{$col}{$hStart}:{$col}{$hEnd}");
                 }
 
@@ -194,20 +211,10 @@ class StoreReportExport implements FromCollection, WithHeadings, ShouldAutoSize,
                 $sheet->getStyle("A{$hStart}:{$lastCol}{$lastRow}")->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
                 ]);
-                $sheet->getStyle("B8:{$lastCol}{$lastRow}")->getNumberFormat()->setFormatCode('#,##0');
+                
+                $sheet->getStyle("B{$this->dataStartRow}:{$lastCol}{$lastRow}")->getNumberFormat()->setFormatCode('#,##0');
                 $sheet->getStyle("C{$hEnd}:{$lastCol}{$hEnd}")->getFont()->setSize(8);
             },
         ];
-    }
-
-    private function getColumnLetter($columnNumber)
-    {
-        $letter = '';
-        while ($columnNumber > 0) {
-            $temp = ($columnNumber - 1) % 26;
-            $letter = chr($temp + 65) . $letter;
-            $columnNumber = ($columnNumber - $temp - 1) / 26;
-        }
-        return $letter;
     }
 }
