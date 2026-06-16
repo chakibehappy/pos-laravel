@@ -238,6 +238,10 @@ const handleExport = () => {
                         <span class="text-gray-400 font-black tracking-widest text-[8px] md:text-[10px] block mb-0.5">Diinput</span>
                         <span class="text-gray-900">{{ selectedPurchase?.user?.name || selectedPurchase?.user_name || '-' }}</span>
                     </div>
+                    <div>
+                        <span class="text-gray-400 font-black tracking-widest text-[8px] md:text-[10px] block mb-0.5">Nama Supplier</span>
+                        <span class="text-gray-900">{{ selectedPurchase?.supplier_name || '-' }}</span>
+                    </div>
                 </div>
 
                 <div>

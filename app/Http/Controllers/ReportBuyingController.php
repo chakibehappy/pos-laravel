@@ -68,14 +68,29 @@ class ReportBuyingController extends Controller
 
                 $totalQty = $details->sum('qty');
 
+                // --- PERBAIKAN SINKRONISASI: Menggunakan reference_type & reference_id sesuai database Anda ---
+                $log = DB::table('activity_logs')
+                    ->where('reference_type', 'purchases')
+                    ->where('reference_id', $item->id)
+                    ->first();
+                
+                $supplierName = '-';
+                if ($log && isset($log->description)) {
+                    // Mencari pola teks "Supplier: NamaSupplier" di dalam deskripsi log jika ada
+                    if (preg_match('/Supplier:\s*([^,.\n]+)/i', $log->description, $matches)) {
+                        $supplierName = trim($matches[1]);
+                    }
+                }
+
                 return [
-                    'id'           => $item->id,
+                    'id'            => $item->id,
                     'tanggal'      => date('d-m-Y', strtotime($item->tanggal)),
                     'nomor_faktur' => '#' . $item->id,
                     'pemasok'      => $item->pemasok,
                     'user_name'    => $item->user_name,
                     'kuantitas'    => $totalQty,
                     'total'        => $item->total,
+                    'supplier_name'=> $supplierName, // Dikirim ke Vue tanpa kolom tabel purchases baru
                     'items_list'   => $details->map(function ($detail) {
                         return [
                             'product_name' => $detail->product_name,

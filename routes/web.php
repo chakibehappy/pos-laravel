@@ -119,7 +119,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/store-products/{id}', [StoreProductController::class, 'destroy'])->name('store-products.destroy');
     // ---- eksport excel
     Route::get('store-products/export', [StoreProductController::class, 'export'])->name('store-products.export');
-    
+    Route::get('store-products/get-stock', [App\Http\Controllers\StoreProductController::class, 'getStock'])
+    ->name('store-products.get-stock');
     // --- SAMPAI DI SINI ---
 
     // --- TAMBAHKAN MULAI DARI SINI ---

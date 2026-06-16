@@ -84,20 +84,39 @@ class StoreProductController extends Controller
             'stocks' => $query->paginate(10)->withQueryString(),
             'stores' => Store::where('stores.status', '!=', 2)->get(['id', 'name', 'store_type_id']),
             'storeTypes' => StoreType::all(['id', 'name']),
-            'products' => Product::where('products.status', '!=', 2)->get(['id', 'name', 'sku', 'buying_price', 'selling_price']),
+            'products' => Product::where('products.status', '!=', 2)->get(['id', 'name', 'sku', 'buying_price', 'selling_price','product_category_id','type_stock']),
             'categories' => ProductCategory::all(['id', 'name']),
             'filters' => $request->only(['search', 'store_id', 'store_type_id', 'product_category_id', 'sort', 'direction']),
         ]);
     }
 
+    public function getStock(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required',
+            'store_id'   => 'required',
+        ]);
+
+        $storeProduct = StoreProduct::where('product_id', $request->product_id)
+            ->where('store_id', $request->store_id)
+            ->where('status', '!=', 2)
+            ->first();
+
+        return response()->json([
+            'stock' => $storeProduct ? (int) $storeProduct->stock : 0
+        ]);
+    }
+
     public function store(Request $request)
     {
-        // Validasi input data tetap sama
+        // 1. Validasi Input Dinamis
         if ($request->has('batch') && is_array($request->batch)) {
             $request->validate([
-                'batch.*.store_id'   => 'required|exists:stores,id',
-                'batch.*.product_id' => 'required|exists:products,id',
-                'batch.*.stock'      => 'required|integer|min:0',
+                'batch.*.store_id'     => 'required|exists:stores,id',
+                'batch.*.name'         => 'required|string|max:255', 
+                'batch.*.stock'        => 'required|integer|min:0',
+                'batch.*.buying_price' => 'required|numeric|min:0',
+                'batch.*.selling_price'=> 'required|numeric|min:0',
             ]);
         } else {
             $request->validate([
@@ -112,13 +131,13 @@ class StoreProductController extends Controller
             $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
             $createdBy = $posUser ? $posUser->id : null;
 
-            // KONDISI A: Request Tunggal
+            // KONDISI A: Request Tunggal (Edit Modal)
             if (!$request->has('batch')) {
                 $this->processItem($request->all(), $createdBy);
                 return back()->with('message', 'Data stok cabang berhasil diperbarui!');
             }
 
-            // KONDISI B: Request Batch Alokasi
+            // KONDISI B: Request Batch Alokasi (Mendukung Produk Baru & Terdaftar)
             $items = $request->batch;
             if (empty($items)) {
                 return back()->withErrors(['message' => 'Data alokasi batch kosong.']);
@@ -127,6 +146,7 @@ class StoreProductController extends Controller
             $storeId = $items[0]['store_id'];
             $store = Store::findOrFail($storeId);
 
+            // Buat induk Nota Pembelian (Purchases)
             $purchaseId = DB::table('purchases')->insertGetId([
                 'store_id'    => $storeId,
                 'total_harga' => 0.00, 
@@ -141,78 +161,105 @@ class StoreProductController extends Controller
             $grandTotalHarga = 0.00;
 
             foreach ($items as $item) {
-                $product = Product::findOrFail($item['product_id']);
-                $inputQty = (int) $item['stock']; 
+            $productId = $item['product_id'] ?? null;
 
-                // Cari data lama berdasarkan store_id dan product_id
-                $existing = StoreProduct::where('store_id', $storeId)
-                    ->where('product_id', $product->id)
-                    ->first();
+            // LALUAN PROSES JIKA PRODUK BELUM TERDAFTAR (BARU)
+            if (!$productId) {
+                // Generate SKU otomatis berupa kombinasi BRG- dan string acak jika kosong
+                $sku = !empty($item['sku']) ? $item['sku'] : 'BRG-' . strtoupper(Str::random(6));
 
-                if ($existing) {
-                    if ($existing->status == 2) {
-                        // JIKA STATUS 2: Ganti (replace) stok dengan input baru, set status ke 0, dan bersihkan deleted_at
-                        $existing->update([
-                            'stock'      => $inputQty,
-                            'status'     => 0,
-                            'deleted_at' => null
-                        ]);
-                        $newStockTarget = $inputQty;
-                    } else {
-                        // JIKA STATUS BUKAN 2 (misal status 0): Tetap tambahkan (increment) stok lama dengan input baru
-                        $existing->increment('stock', $inputQty);
-                        $newStockTarget = $existing->fresh()->stock;
-                    }
-                } else {
-                    // JIKA BELUM ADA DATA SAMA SEKALI: Buat baru
-                    StoreProduct::create([
-                        'store_id'   => $storeId,
-                        'product_id' => $product->id,
-                        'stock'      => $inputQty,
-                        'created_by' => $createdBy,
-                        'status'     => 0
-                    ]);
-                    $newStockTarget = $inputQty;
-                }
+                $newProduct = Product::create([
+                    'name'                => strtoupper($item['name']),
+                    'sku'                 => strtoupper($sku),
+                    'product_category_id' => $item['product_category_id'] ?: null,
+                    'type_stock'          => $item['type_stock'] ?? '0',
+                    'buying_price'        => $item['buying_price'] ?: 0,
+                    'selling_price'       => $item['selling_price'] ?: 0,
+                    'status'              => 0, // Set status aktif (0)
+                ]);
 
-                // Hitung total untuk nota berdasarkan jumlah yang dikirim/diinput ($inputQty)
-                $calculatedTotal = $product->buying_price * $inputQty;
-                $grandTotalHarga += $calculatedTotal;
-
-                $purchaseDetailsData[] = [
-                    'purchase_id'  => $purchaseId,
-                    'product_id'   => $product->id,
-                    'product_name' => $product->name,
-                    'buying_price' => $product->buying_price,
-                    'qty'          => $inputQty,
-                    'total'        => $calculatedTotal,
-                ];
-
-                $logDetails[] = "{$product->name} (+{$inputQty}, Total Akhir: {$newStockTarget})";
+                $productId = $newProduct->id;
+                $product = $newProduct;
+            } else {
+                // JIKA PRODUK SUDAH TERDAFTAR, UPDATE HARGA BELI DAN HARGA JUALNYA DI TB PRODUCTS
+                $product = Product::findOrFail($productId);
+                $product->update([
+                    'buying_price'  => $item['buying_price'] ?: $product->buying_price,
+                    'selling_price' => $item['selling_price'] ?: $product->selling_price,
+                ]);
+                
+                // Refresh data object agar kalkulasi nota di bawah menggunakan harga terbaru
+                $product = $product->fresh();
             }
 
-            // Insert detail nota
+            $inputQty = (int) $item['stock']; 
+
+            // Cari data relasi stok lama di cabang berdasarkan store_id dan product_id
+            $existing = StoreProduct::where('store_id', $storeId)
+                ->where('product_id', $productId)
+                ->first();
+
+            if ($existing) {
+                if ($existing->status == 2) {
+                    $existing->update([
+                        'stock'      => $inputQty,
+                        'status'     => 0,
+                        'deleted_at' => null
+                    ]);
+                    $newStockTarget = $inputQty;
+                } else {
+                    $existing->increment('stock', $inputQty);
+                    $newStockTarget = $existing->fresh()->stock;
+                }
+            } else {
+                StoreProduct::create([
+                    'store_id'   => $storeId,
+                    'product_id' => $productId,
+                    'stock'      => $inputQty,
+                    'created_by' => $createdBy,
+                    'status'     => 0
+                ]);
+                $newStockTarget = $inputQty;
+            }
+
+            $calculatedTotal = $product->buying_price * $inputQty;
+            $grandTotalHarga += $calculatedTotal;
+
+            $purchaseDetailsData[] = [
+                'purchase_id'  => $purchaseId,
+                'product_id'   => $productId,
+                'product_name' => $product->name,
+                'buying_price' => $product->buying_price,
+                'qty'          => $inputQty,
+                'total'        => $calculatedTotal,
+            ];
+
+            $logDetails[] = "{$product->name} (+{$inputQty}, Total Akhir: {$newStockTarget})";
+        }
+
+            // Simpan rincian data transaksi ke detail nota pembelian
             if (!empty($purchaseDetailsData)) {
                 DB::table('purchase_details')->insert($purchaseDetailsData);
             }
 
-            // Update total_harga pada induk purchases
+            // Perbarui total_harga pada induk transaksi purchases
             DB::table('purchases')
                 ->where('id', $purchaseId)
                 ->update(['total_harga' => $grandTotalHarga]);
 
             $detailsString = implode(', ', $logDetails);
+            $reqSupplier = $request->input('supplier_name', 'Umum/Tanpa Supplier');
             ActivityLogger::log(
                 'create',
                 'purchases',
                 $purchaseId,
-                "Alokasi stok massal di cabang {$store->name} otomatis menerbitkan Nota Pembelian #{$purchaseId}. Detail: {$detailsString}",
+                "Alokasi stok massal di cabang {$store->name} otomatis menerbitkan Nota Pembelian #{$purchaseId}. Supplier: {$reqSupplier}. Detail: {$detailsString}",
                 $createdBy,
                 ['new' => ['purchase_id' => $purchaseId, 'total_harga' => $grandTotalHarga]],
                 $storeId
             );
 
-            return back()->with('message', "Stok berhasil dialokasikan! Nota Pembelian #{$purchaseId} beserta detail item berhasil dicatat.");
+            return back()->with('message', "Stok berhasil dialokasikan dan produk baru berhasil didaftarkan!");
         });
     }
 

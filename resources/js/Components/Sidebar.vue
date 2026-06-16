@@ -32,13 +32,13 @@ const menuItems = [
     { label: 'Dashboard', icon: '📊', name: 'dashboard', route: route('dashboard') },
     { 
         label: 'DEV menu', icon: '🧠', isDropdown: true, roles: ['developer'],
-        activeOn: ['accounts.*','store-types.*','services.*'],
+        activeOn: ['accounts.*','store-types.*','services.*','product-tests.*'],
         children: [
             { label: 'Akun',  name: 'accounts.index', route: route('accounts.index') },
             { label: 'Jenis Usaha', name: 'store-types.index', route: route('store-types.index') },
-            { label: 'Jenis Layanan',  name: 'services.index', route: route('services.index') }
+            { label: 'Jenis Layanan',  name: 'services.index', route: route('services.index') },
             // { label: 'Import Produk', name: 'products.import.index', route: route('products.import.index') }
-            // { label: 'Test Produk', name: 'product-tests.index', route: route('product-tests.index') }
+            { label: 'Test Produk', name: 'product-tests.index', route: route('product-tests.index') }
         ]
     },
     { 
