@@ -5,15 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\CashStore;
 use App\Models\Store;
 use App\Models\StoreType;
+use App\Models\PaymentMethod; 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Helpers\ActivityLogger;
+use Carbon\Carbon;
 
 class CashStoreController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. SYNC OTOMATIS: Pastikan setiap toko di tabel stores punya baris di cash_stores
         $allStoreIds = Store::pluck('id');
         $existingCashStoreIds = CashStore::pluck('store_id')->toArray();
         $missingStores = $allStoreIds->diff($existingCashStoreIds);
@@ -27,24 +29,20 @@ class CashStoreController extends Controller
             }
         }
 
-        // 2. QUERY DATA: Ambil saldo kas dengan pencarian dan FILTER TIPE
         $query = CashStore::with('store');
 
-        // Filter Pencarian
         if ($request->filled('search')) {
             $query->whereHas('store', function ($q) use ($request) {
                 $q->where('name', 'like', "%{$request->search}%");
             });
         }
 
-        // Filter Tipe Usaha
         if ($request->filled('type')) {
             $query->whereHas('store', function ($q) use ($request) {
                 $q->where('store_type_id', $request->type);
             });
         }
 
-        // --- LOGIKA SORTING DINAMIS ---
         $sortField = $request->input('sort');
         $direction = $request->input('direction', 'asc');
 
@@ -71,74 +69,148 @@ class CashStoreController extends Controller
             $query->latest();
         }
 
-        $cashBalances = $query->paginate(10)->withQueryString();
+        $cashBalancesResult = $query->paginate(10)->withQueryString();
+        $paymentMethods = PaymentMethod::where('status', 0)->get(['id', 'name']);
+
+        // MENAMPILKAN TRANSAKSI YANG TERJADI HANYA SETELAH KAS DI-RESET / DISET KAS AWAL
+        $transactionBalances = [];
+        
+        foreach ($cashBalancesResult as $cashStore) {
+            $balances = DB::table('transactions')
+                ->where('status', 0)
+                ->where('store_id', $cashStore->store_id)
+                ->where('created_at', '>=', $cashStore->updated_at)
+                ->select('payment_id', DB::raw('SUM(subtotal) as total_amount'))
+                ->groupBy('payment_id')
+                ->get()
+                ->pluck('total_amount', 'payment_id');
+
+            $transactionBalances[$cashStore->store_id] = $balances;
+        }
 
         return Inertia::render('CashStores/Index', [
-            'cashBalances' => $cashBalances,
+            'cashBalances' => $cashBalancesResult,
             'stores' => Store::all(['id', 'name', 'store_type_id']),
             'storeTypes' => StoreType::all(['id', 'name']),
+            'paymentMethods' => $paymentMethods, 
+            'transactionBalances' => (object)$transactionBalances,
             'filters' => $request->only(['search', 'type', 'sort', 'direction']),
         ]);
     }
 
     public function store(Request $request)
     {
-        // Validasi input dari form
         $request->validate([
-            'id'          => 'required|exists:cash_store,id', 
-            'store_id'    => 'required|exists:stores,id',
-            'cash'        => 'required|numeric|min:0',
-            'action_type' => 'required|in:add,subtract,reset'
+            'id'               => 'required|exists:cash_store,id', 
+            'store_id'         => 'required|exists:stores,id',
+            'action_type'      => 'required|in:add,subtract,reset,set_initial,reset_local',
+            'cash_amounts'     => 'nullable|array', 
+            'initial_cash'     => 'nullable|numeric|min:0',
+            'target_method_id' => 'nullable|exists:payment_methods,id',
         ]);
 
         $cashStore = CashStore::findOrFail($request->id);
-        
-        // --- TAMBAHKAN INI: Tangkap data lama sebelum diupdate ---
         $oldData = $cashStore->getRawOriginal();
 
-        // Logika Kalkulasi Berdasarkan action_type
         $currentCash = (float) $cashStore->cash;
-        $inputAmount = (float) $request->cash;
         $finalCash = $currentCash;
+        $operatorId = auth()->user()->posUser->id;
+        
+        if ($request->action_type === 'set_initial') {
+            $inputAmount = (float) $request->initial_cash;
+        } else {
+            $inputAmount = $request->filled('cash_amounts') ? (float) array_sum($request->cash_amounts) : 0;
+        }
 
         $label = "Menambah Kas Toko ";
 
         if ($request->action_type === 'add') {
             $finalCash = $currentCash + $inputAmount;
+            $cashStore->timestamps = false;
+
         } elseif ($request->action_type === 'subtract') {
             $label = "Mengurangi Kas Toko ";
             $finalCash = $currentCash - $inputAmount;
+            $cashStore->timestamps = false;
+
+        } elseif ($request->action_type === 'reset_local') {
+            $label = "Mereset Lokal Metode Pembayaran ";
+            
+            if ($request->filled('target_method_id')) {
+                $method = PaymentMethod::find($request->target_method_id);
+                if ($method) {
+                    $isTunai = strtolower($method->name) === 'tunai';
+                    
+                    $currentMethodBalance = 0;
+                    if ($isTunai) {
+                        $nonTunaiTotal = DB::table('transactions')
+                            ->where('status', 0)
+                            ->where('store_id', $request->store_id)
+                            ->where('created_at', '>=', $cashStore->updated_at)
+                            ->where('payment_id', '!=', $method->id)
+                            ->sum('subtotal');
+                        $currentMethodBalance = max(0, $currentCash - $nonTunaiTotal);
+                    } else {
+                        $currentMethodBalance = DB::table('transactions')
+                            ->where('status', 0)
+                            ->where('store_id', $request->store_id)
+                            ->where('created_at', '>=', $cashStore->updated_at)
+                            ->where('payment_id', $method->id)
+                            ->sum('subtotal');
+                    }
+
+                    $inputAmount = (float)$currentMethodBalance;
+                    $finalCash = max(0, $currentCash - $inputAmount);
+                }
+            }
+
+            $cashStore->timestamps = false;
+
         } elseif ($request->action_type === 'reset') {
             $finalCash = 0;        
             $label = "Mengeset Kas Toko ";
+            $inputAmount = $currentCash; 
+            $cashStore->timestamps = true;
+
+        } elseif ($request->action_type === 'set_initial') {
+            $finalCash = $inputAmount; 
+            $label = "Mengeset Kas Awal Toko ";
+            $cashStore->timestamps = true;
         }
 
-        $operatorId = auth()->user()->posUser->id;
-
-        // Simpan hasil kalkulasi ke database
+        // Simpan perubahan ke kas global akumulasi
         $cashStore->update([
-            'cash' => max(0, $finalCash), // Pastikan tidak minus
+            'cash' => max(0, $finalCash), 
             'created_by' => $operatorId,
         ]);
+
+        $methodName = '';
+        if ($request->filled('target_method_id')) {
+            $method = PaymentMethod::find($request->target_method_id);
+            if ($method) {
+                $methodName = " via " . $method->name;
+            }
+        }
 
         $statusLabel = [
             'add' => 'ditambahkan',
             'subtract' => 'dikurangi',
-            'reset' => 'direset ke 0'
+            'reset' => 'direset ke 0',
+            'reset_local' => 'direset ke 0 secara lokal',
+            'set_initial' => 'diatur sebagai kas awal'
         ];
         
         $store = Store::find($request->store_id);
         $store_name = $store ? $store->name : 'Unknown Store';
         
-        // LOG ACTIVITY dengan Payload Lengkap
         ActivityLogger::log(
             'update', 
             'cash_store', 
             $cashStore->id, 
-            $label . $store_name . " sebesar Rp " . number_format($inputAmount, 0, ',', '.'), 
+            $label . $store_name . $methodName . " sebesar Rp " . number_format($inputAmount, 0, ',', '.'), 
             $operatorId,
             ['old' => $oldData, 'new' => $cashStore->getAttributes()], 
-            $request->store_id// <-- Payload dikirim di sini
+            $request->store_id
         );
         
         return back()->with('message', "Saldo kas berhasil {$statusLabel[$request->action_type]}!");
@@ -149,11 +221,8 @@ class CashStoreController extends Controller
         try {
             $cash = CashStore::findOrFail($id);
             $operatorId = auth()->user()->posUser->id;
-            
-            // Tangkap data lama sebelum dihapus
             $oldData = $cash->getRawOriginal();
 
-            // LOG ACTIVITY sebelum delete
             ActivityLogger::log(
                 'delete', 
                 'cash_store', 
@@ -161,11 +230,10 @@ class CashStoreController extends Controller
                 "Menghapus record kas toko ID: " . $cash->store_id, 
                 $operatorId,
                 ['old' => $oldData, 'new' => null],
-                $cash->store_id// New null karena data dihapus
+                $cash->store_id
             );
 
             $cash->delete();
-            
             return back()->with('message', 'Data kas berhasil dihapus!');
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Gagal menghapus data kas.']);
