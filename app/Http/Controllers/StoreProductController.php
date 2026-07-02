@@ -106,7 +106,86 @@ class StoreProductController extends Controller
             'stock' => $storeProduct ? (int) $storeProduct->stock : 0
         ]);
     }
+    public function transfer(Request $request)
+    {
+        // 1. Validasi Input Transfer
+        $request->validate([
+            'from_store_id' => 'required|exists:stores,id',
+            'to_store_id'   => 'required|exists:stores,id|different:from_store_id',
+            'product_id'    => 'required|exists:products,id',
+            'stock'         => 'required|integer|min:1',
+        ]);
 
+        return DB::transaction(function () use ($request) {
+            $adminEmail = auth()->user()->email;
+            $posUser = DB::table('pos_users')->where('username', $adminEmail)->first();
+            $createdBy = $posUser ? $posUser->id : null;
+
+            // 2. Cek ketersediaan stok di cabang asal
+            $sourceStock = StoreProduct::where('store_id', $request->from_store_id)
+                ->where('product_id', $request->product_id)
+                ->where('status', '!=', 2)
+                ->first();
+
+            if (!$sourceStock || $sourceStock->stock < $request->stock) {
+                return back()->withErrors(['message' => 'Stok di cabang asal tidak mencukupi untuk melakukan transfer!']);
+            }
+
+            $oldSourceStock = $sourceStock->stock;
+
+            // 3. Kurangi stok di cabang asal
+            $sourceStock->decrement('stock', $request->stock);
+
+            // 4. Cari atau buat record stok di cabang tujuan
+            $targetStock = StoreProduct::where('store_id', $request->to_store_id)
+                ->where('product_id', $request->product_id)
+                ->first();
+
+            $oldTargetStock = $targetStock ? $targetStock->stock : 0;
+
+            if ($targetStock) {
+                if ($targetStock->status == 2) {
+                    // Jika sebelumnya terhapus/diarsipkan, kembalikan statusnya menjadi aktif
+                    $targetStock->update([
+                        'stock'      => $request->stock,
+                        'status'     => 0,
+                        'deleted_at' => null
+                    ]);
+                } else {
+                    $targetStock->increment('stock', $request->stock);
+                }
+                $targetStock = $targetStock->fresh();
+            } else {
+                $targetStock = StoreProduct::create([
+                    'store_id'   => $request->to_store_id,
+                    'product_id' => $request->product_id,
+                    'stock'      => $request->stock,
+                    'created_by' => $createdBy,
+                    'status'     => 0
+                ]);
+            }
+
+            // 5. Mengambil data entitas terkait untuk keperluan penulisan log aktivitas
+            $product = Product::find($request->product_id);
+            $fromStore = Store::find($request->from_store_id);
+            $toStore = Store::find($request->to_store_id);
+
+            ActivityLogger::log(
+                'update',
+                'store_products',
+                $sourceStock->id,
+                "Transfer stok produk {$product->name} sebanyak {$request->stock} UNIT dari cabang {$fromStore->name} ke cabang {$toStore->name}",
+                $createdBy,
+                [
+                    'source_store' => ['id' => $fromStore->id, 'old_stock' => $oldSourceStock, 'new_stock' => $sourceStock->fresh()->stock],
+                    'target_store' => ['id' => $toStore->id, 'old_stock' => $oldTargetStock, 'new_stock' => $targetStock->stock]
+                ],
+                $request->from_store_id
+            );
+
+            return back()->with('message', 'Stok produk berhasil ditransfer antar cabang!');
+        });
+    }
     public function store(Request $request)
     {
         // 1. Validasi Input Dinamis

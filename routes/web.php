@@ -121,6 +121,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('store-products/export', [StoreProductController::class, 'export'])->name('store-products.export');
     Route::get('store-products/get-stock', [App\Http\Controllers\StoreProductController::class, 'getStock'])
     ->name('store-products.get-stock');
+    Route::post('/store-products/transfer', [StoreProductController::class, 'transfer'])->name('store-products.transfer');
     // --- SAMPAI DI SINI ---
 
     // --- TAMBAHKAN MULAI DARI SINI ---

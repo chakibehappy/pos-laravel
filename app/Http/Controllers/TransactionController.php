@@ -34,6 +34,8 @@ class TransactionController extends Controller
         // Default status (Aktif)
         $query->where('transactions.status', 0);
 
+        // Hanya tampilkan transaksi bernilai positif (menyembunyikan minus hasil koreksi kas)
+        $query->where('transactions.subtotal', '>', 0);
         // --- LOGIKA FILTER ---
 
         // Filter berdasarkan Toko

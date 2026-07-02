@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ExpenseTransaction;
-use App\Models\ExpenseType; // Tambahkan import model
+use App\Models\ExpenseType;
 use App\Models\Store;
 use App\Models\PosUser;
+use App\Models\CashStore; // Import Model CashStore
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,6 @@ class ExpenseController extends Controller
      */
     public function index(Request $request)
     {
-        // Tambahkan 'expenseType' ke dalam Eager Loading
         $query = ExpenseTransaction::with(['store', 'posUser', 'creator', 'expenseType'])
             ->where('status', '!=', 2);
 
@@ -30,7 +30,6 @@ class ExpenseController extends Controller
                   ->orWhereHas('posUser', function($qu) use ($request) {
                       $qu->where('name', 'like', '%' . $request->search . '%');
                   })
-                  // Filter berdasarkan nama tipe pengeluaran
                   ->orWhereHas('expenseType', function($qe) use ($request) {
                       $qe->where('name', 'like', '%' . $request->search . '%');
                   });
@@ -53,9 +52,6 @@ class ExpenseController extends Controller
             $query->latest();
         }
 
-        /**
-         * MAPPING POS USERS
-         */
         $posUsers = PosUser::select('id', 'name', 'role', 'username')
             ->where('is_active', 1)
             ->get()
@@ -69,36 +65,35 @@ class ExpenseController extends Controller
             });
 
         return Inertia::render('Expenses/Index', [
-    'resource' => $query->paginate(10)->through(function ($item) {
-        return [
-            'id'               => $item->id,
-            'transaction_at'   => $item->transaction_at,
-            'image'            => $item->image,
-            'description'      => $item->description,
-            'amount'           => $item->amount,
-            'expense_type_id'  => $item->expense_type_id,
-            // Mapping alias agar terbaca di Vue:
-            'expense_type_name'=> $item->expenseType?->name,
-            'nama_cabang'      => $item->store?->name, // Ini yang bikin teks 'GLOBAL' hilang
-            'pos_user'         => $item->posUser,
-            'store_id'         => $item->store_id,
-            'pos_user_id'      => $item->pos_user_id,
-        ];
-    })->withQueryString(),
-    'stores'       => Store::select('id', 'name')->get(),
-    'expenseTypes' => ExpenseType::select('id', 'name')->get(),
-    'posUsers'     => $posUsers,
-    'filters'      => $request->only(['search', 'sort', 'direction', 'store_id']),
-    'columns'      => [
-        ['key' => 'transaction_at', 'label' => 'Tanggal', 'sortable' => true],
-        ['key' => 'image', 'label' => 'Dokumentasi', 'sortable' => false],
-        ['key' => 'expense_type_name', 'label' => 'Tipe', 'sortable' => false],
-        ['key' => 'description', 'label' => 'Keterangan', 'sortable' => true],
-        ['key' => 'amount', 'label' => 'Nominal', 'sortable' => true],
-        ['key' => 'store_name', 'label' => 'Toko', 'sortable' => false],
-        ['key' => 'user_name', 'label' => 'PIC/Staf', 'sortable' => false],
-    ]
-]);
+            'resource' => $query->paginate(10)->through(function ($item) {
+                return [
+                    'id'               => $item->id,
+                    'transaction_at'   => $item->transaction_at,
+                    'image'            => $item->image,
+                    'description'      => $item->description,
+                    'amount'           => $item->amount,
+                    'expense_type_id'  => $item->expense_type_id,
+                    'expense_type_name'=> $item->expenseType?->name,
+                    'nama_cabang'      => $item->store?->name,
+                    'pos_user'         => $item->posUser,
+                    'store_id'         => $item->store_id,
+                    'pos_user_id'      => $item->pos_user_id,
+                ];
+            })->withQueryString(),
+            'stores'       => Store::select('id', 'name')->get(),
+            'expenseTypes' => ExpenseType::select('id', 'name')->get(),
+            'posUsers'     => $posUsers,
+            'filters'      => $request->only(['search', 'sort', 'direction', 'store_id']),
+            'columns'      => [
+                ['key' => 'transaction_at', 'label' => 'Tanggal', 'sortable' => true],
+                ['key' => 'image', 'label' => 'Dokumentasi', 'sortable' => false],
+                ['key' => 'expense_type_name', 'label' => 'Tipe', 'sortable' => false],
+                ['key' => 'description', 'label' => 'Keterangan', 'sortable' => true],
+                ['key' => 'amount', 'label' => 'Nominal', 'sortable' => true],
+                ['key' => 'store_name', 'label' => 'Toko', 'sortable' => false],
+                ['key' => 'user_name', 'label' => 'PIC/Staf', 'sortable' => false],
+            ]
+        ]);
     }
 
     /**
@@ -112,13 +107,13 @@ class ExpenseController extends Controller
     }
 
     /**
-     * Menyimpan atau memperbarui data transaksi.
+     * Menyimpan atau memperbarui data transaksi dan memotong kas toko.
      */
     public function store(Request $request)
     {
         $messages = [
             'store_id.exists'         => 'Toko yang dipilih tidak valid.',
-            'expense_type_id.required' => 'Tipe pengeluaran wajib dipilih.', // Pesan error baru
+            'expense_type_id.required'=> 'Tipe pengeluaran wajib dipilih.',
             'expense_type_id.exists'   => 'Tipe pengeluaran tidak valid.',
             'pos_user_id.required'    => 'Nama PIC/Staf wajib dipilih.',
             'pos_user_id.exists'      => 'Staff yang dipilih tidak valid.',
@@ -135,7 +130,7 @@ class ExpenseController extends Controller
 
         $request->validate([
             'store_id' => 'nullable|exists:stores,id',
-            'expense_type_id' => 'required|exists:expense_types,id', // Tambahkan validasi type
+            'expense_type_id' => 'required|exists:expense_types,id',
             'pos_user_id' => 'required|exists:pos_users,id',
             'amount' => 'required|numeric|min:0',
             'description' => 'required|string',
@@ -144,31 +139,59 @@ class ExpenseController extends Controller
         ], $messages);
 
         $posUserIdForLog = $this->getPosUserId();
-        $oldData = null;
-
-        if ($request->id) {
-            $existingExpense = ExpenseTransaction::find($request->id);
-            if ($existingExpense) {
-                $oldData = $existingExpense->getRawOriginal();
-            }
-        }
-
-        // Tambahkan expense_type_id ke list field yang diambil
-        $data = $request->only(['store_id', 'pos_user_id', 'expense_type_id', 'amount', 'description', 'transaction_at']);
         
-        if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')->store('expenses', 'public');
-        }
+        // Jalankan Database Transaction agar jika kas gagal diupdate, data pengeluaran dibatalkan
+        $expense = DB::transaction(function () use ($request, $posUserIdForLog, &$oldData) {
+            $oldData = null;
+            $diffAmount = (float) $request->amount;
+            $oldStoreId = null;
 
-        if (!$request->id) {
-            $data['created_by'] = $posUserIdForLog;
-            $data['status'] = 0;
-        }
+            if ($request->id) {
+                $existingExpense = ExpenseTransaction::find($request->id);
+                if ($existingExpense) {
+                    $oldData = $existingExpense->getRawOriginal();
+                    $oldStoreId = $existingExpense->store_id;
+                    
+                    // Kembalikan saldo kas lama dulu sebelum memotong dengan saldo baru
+                    if ($oldStoreId) {
+                        $oldCashStore = CashStore::where('store_id', $oldStoreId)->first();
+                        if ($oldCashStore) {
+                            $oldCashStore->timestamps = false;
+                            $oldCashStore->increment('cash', (float)$oldData['amount']);
+                        }
+                    }
+                }
+            }
 
-        $expense = ExpenseTransaction::updateOrCreate(['id' => $request->id], $data);
-        $expense->load(['store', 'posUser', 'expenseType']); // Load expenseType
+            $data = $request->only(['store_id', 'pos_user_id', 'expense_type_id', 'amount', 'description', 'transaction_at']);
+            
+            if ($request->hasFile('image')) {
+                $data['image'] = $request->file('image')->store('expenses', 'public');
+            }
 
-        // Mengatur nama toko untuk log (antisipasi jika null)
+            if (!$request->id) {
+                $data['created_by'] = $posUserIdForLog;
+                $data['status'] = 0;
+            }
+
+            $expenseTransaction = ExpenseTransaction::updateOrCreate(['id' => $request->id], $data);
+
+            // Potong Kas Toko Baru (jika store_id diisi / bukan Global)
+            if ($request->store_id) {
+                $newCashStore = CashStore::where('store_id', $request->store_id)->first();
+                if ($newCashStore) {
+                    $newCashStore->timestamps = false;
+                    // Ambil nilai cash baru agar tidak minus di bawah 0
+                    $finalCash = max(0, $newCashStore->cash - (float)$request->amount);
+                    $newCashStore->update(['cash' => $finalCash]);
+                }
+            }
+
+            return $expenseTransaction;
+        });
+
+        $expense->load(['store', 'posUser', 'expenseType']);
+
         $storeName = $expense->store ? $expense->store->name : 'Tanpa Lokasi';
         $typeName = $expense->expenseType ? $expense->expenseType->name : 'Tanpa Tipe';
 
@@ -183,22 +206,36 @@ class ExpenseController extends Controller
             $expense->store_id
         );
 
-        return back()->with('message', 'Data berhasil disimpan');
+        return back()->with('message', 'Data berhasil disimpan dan kas toko diperbarui.');
     }
 
     /**
-     * Soft delete manual (status 2).
+     * Soft delete manual (status 2) dan mengembalikan saldo kas toko.
      */
     public function destroy($id)
     {
-        $expense = ExpenseTransaction::with(['store', 'posUser'])->findOrFail($id);
         $posUserId = $this->getPosUserId();
-        $oldData = $expense->getRawOriginal();
 
-        $expense->update([
-            'status' => 2,
-            'deleted_at' => now()
-        ]);
+        $expense = DB::transaction(function () use ($id) {
+            $expenseTransaction = ExpenseTransaction::with(['store', 'posUser'])->findOrFail($id);
+            $oldData = $expenseTransaction->getRawOriginal();
+
+            // Kembalikan kas toko jika pengeluaran dihapus
+            if ($expenseTransaction->store_id) {
+                $cashStore = CashStore::where('store_id', $expenseTransaction->store_id)->first();
+                if ($cashStore) {
+                    $cashStore->timestamps = false;
+                    $cashStore->increment('cash', (float)$expenseTransaction->amount);
+                }
+            }
+
+            $expenseTransaction->update([
+                'status' => 2,
+                'deleted_at' => now()
+            ]);
+
+            return $expenseTransaction;
+        });
 
         $storeName = $expense->store ? $expense->store->name : 'Tanpa Lokasi';
 
@@ -208,10 +245,10 @@ class ExpenseController extends Controller
             $id,
             "Hapus pengeluaran: Toko {$storeName} oleh {$expense->posUser->name}",
             $posUserId,
-            ['old' => $oldData, 'new' => $expense->getAttributes()],
+            ['old' => $expense->getRawOriginal(), 'new' => $expense->getAttributes()],
             $expense->store_id
         );
 
-        return back()->with('message', 'Data berhasil dihapus');
+        return back()->with('message', 'Data berhasil dihapus dan kas toko dikembalikan.');
     }
 }

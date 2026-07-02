@@ -27,6 +27,10 @@ const closeProductDropdown = () => {
     setTimeout(() => { showDropdown.value = false; }, 200);
 };
 
+const closeTransferProductDropdown = () => {
+    setTimeout(() => { showTransferDropdown.value = false; }, 200);
+};
+
 // --- FILTER STATE ---
 const selectedStore = ref(props.filters?.store_id || '');
 const selectedStoreType = ref(props.filters?.store_type_id || '');
@@ -67,12 +71,18 @@ const columns = [
 ];
 
 const showInlineForm = ref(false);
+const showTransferForm = ref(false);
 const showModalForm = ref(false);
 
 const searchQuery = ref(''); 
 const showDropdown = ref(false); 
 const storeSearchQuery = ref('');
 const showStoreDropdown = ref(false);
+
+// State pencarian khusus form transfer
+const transferSearchQuery = ref('');
+const showTransferDropdown = ref(false);
+const selectedTransferProductName = ref('');
 
 const imagePreview = ref(null);
 const selectedReferenceName = ref('');
@@ -82,9 +92,17 @@ const form = useForm({
     id: null, 
     store_type_id: '',
     store_id: '', 
-    supplier_name: '', // Ditambahkan state untuk nama supplier
+    supplier_name: '', 
     product_id: '', 
     stock: 0 
+});
+
+// Form Khusus Transfer Stok
+const transferForm = useForm({
+    from_store_id: '',
+    to_store_id: '',
+    product_id: '',
+    stock: 0
 });
 
 // State untuk sistem Keranjang Baru (Batch Mode)
@@ -131,6 +149,18 @@ const filteredProductsReference = computed(() => {
     });
 });
 
+// Pencarian produk khusus form transfer
+const filteredTransferProducts = computed(() => {
+    const refs = props.products || [];
+    if (!transferSearchQuery.value) return refs;
+    const q = transferSearchQuery.value.toLowerCase().trim();
+    return refs.filter(p => {
+        const productName = p.name ? p.name.toLowerCase().trim() : '';
+        const productSku = p.sku ? p.sku.toLowerCase().trim() : '';
+        return productName.startsWith(q) || productSku.startsWith(q);
+    });
+});
+
 watch(() => form.store_type_id, () => {
     form.store_id = '';
 });
@@ -139,6 +169,13 @@ watch(searchQuery, (newVal) => {
     inputForm.value.name = newVal;
     if (!newVal || newVal.trim() === '' || (inputForm.value.product_reference_id && newVal !== selectedReferenceName.value)) {
         resetInputForm(false);
+    }
+});
+
+watch(transferSearchQuery, (newVal) => {
+    if (!newVal || newVal.trim() === '' || (transferForm.product_id && newVal !== selectedTransferProductName.value)) {
+        transferForm.product_id = '';
+        selectedTransferProductName.value = '';
     }
 });
 
@@ -171,6 +208,7 @@ const fetchCurrentStock = async (productReferenceId, storeId) => {
 };
 
 const openCreate = () => {
+    showTransferForm.value = false;
     form.reset();
     form.clearErrors();
     form.id = null;
@@ -205,6 +243,7 @@ const openEdit = (row) => {
     storeSearchQuery.value = row.store_name;
     
     showInlineForm.value = false;
+    showTransferForm.value = false;
     showModalForm.value = true;
 };
 
@@ -227,6 +266,13 @@ const selectProduct = async (p) => {
     } else {
         inputForm.value.current_stock = 0;
     }
+};
+
+const selectTransferProduct = (p) => {
+    transferForm.product_id = p.id;
+    selectedTransferProductName.value = p.name;
+    transferSearchQuery.value = p.name;
+    showTransferDropdown.value = false;
 };
 
 const resetInputForm = (forceClearSearch = false) => {
@@ -288,7 +334,7 @@ const submitBatch = () => {
         const currentStore = props.stores.find(s => s.id === form.store_id);
         return {
             store_id: form.store_id,
-            product_id: item.product_reference_id || null, // Nilai null menandakan produk baru ke backend
+            product_id: item.product_reference_id || null, 
             name: item.name,
             sku: item.sku || '',
             product_category_id: item.product_category_id || null,
@@ -341,6 +387,40 @@ const handleExport = () => {
     window.location.href = route('store-products.export', getCurrentParams());
 };
 
+const handleTransfer = () => {
+    showInlineForm.value = false;
+    transferForm.reset();
+    transferForm.clearErrors();
+    transferSearchQuery.value = '';
+    selectedTransferProductName.value = '';
+    showTransferForm.value = true;
+};
+
+const closeTransfer = () => {
+    showTransferForm.value = false;
+    transferForm.reset();
+    transferSearchQuery.value = '';
+    selectedTransferProductName.value = '';
+};
+
+const submitTransfer = () => {
+    if (!transferForm.from_store_id) return alert('Silakan pilih toko asal!');
+    if (!transferForm.to_store_id) return alert('Silakan pilih toko tujuan!');
+    if (transferForm.from_store_id === transferForm.to_store_id) return alert('Toko asal dan tujuan tidak boleh sama!');
+    if (!transferForm.product_id) return alert('Silakan pilih produk yang akan ditransfer!');
+    if (!transferForm.stock || transferForm.stock <= 0) return alert('Jumlah transfer harus lebih dari 0!');
+
+    transferForm.post(route('store-products.transfer'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showTransferForm.value = false;
+            transferForm.reset();
+            transferSearchQuery.value = '';
+            selectedTransferProductName.value = '';
+        }
+    });
+};
+
 const totalBatchPurchase = computed(() => {
     return batchItems.value.reduce((sum, item) => {
         const qty = Number(item.stock) || 0;
@@ -390,7 +470,7 @@ const totalBatchPurchase = computed(() => {
                         </div>
                     </div>
 
-                    <div v-if="!form.store_id" class="p-8 text-center border border-dashed border-dashed border-gray-300 rounded-xl bg-gray-50 my-6 text-xs font-black uppercase tracking-widest text-gray-400">
+                    <div v-if="!form.store_id" class="p-8 text-center border border-dashed border-gray-300 rounded-xl bg-gray-50 my-6 text-xs font-black uppercase tracking-widest text-gray-400">
                         ⚠️ PILIH TERLEBIH DAHULU TOKO YANG AKAN DIALOKASIKAN
                     </div>
 
@@ -451,29 +531,29 @@ const totalBatchPurchase = computed(() => {
                                 </div>
 
                                 <div v-for="field in formFields" :key="field.name" class="flex flex-col gap-1">
-                                <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">{{ field.label }}</label>
-                                
-                                <select v-if="field.type === 'select'" 
+                                    <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">{{ field.label }}</label>
+                                    
+                                    <select v-if="field.type === 'select'" 
+                                            v-model="inputForm[field.name]" 
+                                            :disabled="!!inputForm.product_reference_id"
+                                            :class="['border border-gray-300 rounded p-2 text-sm uppercase focus:ring-1 focus:ring-blue-500 outline-none font-bold', inputForm.product_reference_id ? 'bg-gray-100 text-gray-500' : 'bg-white text-black']">
+                                        <option value="" class="text-gray-400">PILIH {{ field.label }}</option>
+                                        <option v-for="opt in field.options" :key="opt.id" :value="opt.id">{{ opt.name.toUpperCase() }}</option>
+                                    </select>
+                                    
+                                    <input v-else 
                                         v-model="inputForm[field.name]" 
-                                        :disabled="!!inputForm.product_reference_id"
-                                        :class="['border border-gray-300 rounded p-2 text-sm uppercase focus:ring-1 focus:ring-blue-500 outline-none font-bold', inputForm.product_reference_id ? 'bg-gray-100 text-gray-500' : 'bg-white text-black']">
-                                    <option value="" class="text-gray-400">PILIH {{ field.label }}</option>
-                                    <option v-for="opt in field.options" :key="opt.id" :value="opt.id">{{ opt.name.toUpperCase() }}</option>
-                                </select>
-                                
-                                <input v-else 
-                                    v-model="inputForm[field.name]" 
-                                    :type="field.type" 
-                                    :placeholder="field.placeholder" 
-                                    :readonly="field.name === 'sku' && !!inputForm.product_reference_id"
-                                    :class="[
-                                        'border border-gray-300 rounded p-2 text-sm outline-none font-bold uppercase w-full', 
-                                        field.class, 
-                                        (field.name === 'sku' && !!inputForm.product_reference_id) 
-                                            ? 'bg-gray-100 text-gray-500 focus:ring-0 focus:border-gray-300' 
-                                            : 'bg-white text-black focus:ring-1 focus:ring-blue-500'
-                                    ]" />
-                            </div>
+                                        :type="field.type" 
+                                        :placeholder="field.placeholder" 
+                                        :readonly="field.name === 'sku' && !!inputForm.product_reference_id"
+                                        :class="[
+                                            'border border-gray-300 rounded p-2 text-sm outline-none font-bold uppercase w-full', 
+                                            field.class, 
+                                            (field.name === 'sku' && !!inputForm.product_reference_id) 
+                                                ? 'bg-gray-100 text-gray-500 focus:ring-0 focus:border-gray-300' 
+                                                : 'bg-white text-black focus:ring-1 focus:ring-blue-500'
+                                        ]" />
+                                </div>
                             </div>
                             <div class="w-full flex justify-end mt-4">
                                 <button @click="addToCart" type="button" class="border border-blue-600 text-blue-600 px-5 py-2 rounded text-xs font-black uppercase hover:bg-blue-50 transition-all whitespace-nowrap">+ Tambahkan Ke Keranjang</button>
@@ -533,6 +613,71 @@ const totalBatchPurchase = computed(() => {
                 </div>
             </div>
 
+            <div v-if="showTransferForm" class="mb-8 bg-white rounded-xl border border-gray-200 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+                <div class="bg-gray-50 border-b px-6 py-4 flex flex-row justify-between items-center text-sm font-bold uppercase tracking-widest text-gray-700 rounded-t-xl overflow-hidden">
+                    <div>
+                        <span class="whitespace-nowrap">🔄 Transfer Stok Antar Cabang</span>
+                    </div>
+                    <button @click="closeTransfer" class="text-gray-400 hover:text-red-500 transition-colors text-base font-normal">✕</button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="flex flex-col gap-1 w-full">
+                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Dari Toko / Cabang Asal</label>
+                            <select v-model="transferForm.from_store_id" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full text-black">
+                                <option value="">PILIH TOKO ASAL</option>
+                                <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name.toUpperCase() }}</option>
+                            </select>
+                        </div>
+
+                        <div class="flex flex-col gap-1 w-full">
+                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Ke Toko / Cabang Tujuan</label>
+                            <select v-model="transferForm.to_store_id" class="border border-gray-300 rounded p-2 text-sm uppercase bg-white focus:ring-1 focus:ring-blue-500 outline-none font-bold w-full text-black">
+                                <option value="">PILIH TOKO TUJUAN</option>
+                                <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name.toUpperCase() }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="flex flex-col gap-1 relative md:col-span-2">
+                            <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Produk</label>
+                            <input 
+                                v-model="transferSearchQuery" 
+                                @focus="showTransferDropdown = true" 
+                                @blur="closeTransferProductDropdown" 
+                                type="text" 
+                                placeholder="CARI DAN PILIH PRODUK" 
+                                class="border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-bold uppercase bg-white w-full" 
+                            />
+                            
+                            <div v-if="showTransferDropdown" class="absolute left-0 right-0 top-[100%] z-[100] bg-white border border-gray-200 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-2xl">
+                                <div v-for="p in filteredTransferProducts" :key="p.id" @mousedown="selectTransferProduct(p)" class="p-3 text-xs font-bold uppercase hover:bg-blue-50 cursor-pointer border-b border-gray-50 flex justify-between items-center">
+                                    <div class="flex flex-col text-gray-800 gap-0.5 text-left">
+                                        <span>{{ p.name }}</span>
+                                        <span class="text-gray-400 text-[10px]">SKU: {{ p.sku }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="filteredTransferProducts.length === 0" class="p-3 text-xs text-gray-400 font-bold text-center uppercase">
+                                    Produk tidak ditemukan
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1 md:col-span-1">
+                            <label class="text-[10px] font-black uppercase text-blue-600 tracking-widest">Jumlah Transfer</label>
+                            <input v-model.number="transferForm.stock" type="number" min="1" placeholder="0" class="border border-blue-300 focus:ring-1 focus:ring-blue-500 text-blue-700 font-black rounded p-2 text-sm outline-none bg-white w-full" />
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 border-t pt-4 mt-6">
+                        <button @click="submitTransfer" :disabled="transferForm.processing" class="bg-blue-600 text-white px-8 py-2.5 rounded text-xs font-black uppercase disabled:opacity-50 shadow-sm hover:bg-blue-700 transition-all">Proses Transfer</button>
+                        <button @click="closeTransfer" class="border border-gray-300 px-8 py-2.5 rounded text-xs font-bold uppercase text-gray-500 hover:bg-gray-50 transition-all">Batal</button>
+                    </div>
+                </div>
+            </div>
+
             <div v-if="showModalForm" class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                 <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                     <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
@@ -570,7 +715,7 @@ const totalBatchPurchase = computed(() => {
                 title="Stok Produk Toko"
                 :resource="stocks" 
                 :columns="columns"
-                :showAddButton="!showInlineForm"
+                :showAddButton="!showInlineForm && !showTransferForm"
                 :showExportButton="true"
                 route-name="store-products.index" 
                 :initialSearch="filters?.search || ''"
@@ -578,6 +723,17 @@ const totalBatchPurchase = computed(() => {
                 @on-add="openCreate" 
                 @on-export="handleExport"
             >
+                <template #table-actions>
+                    <button 
+                        v-if="!showInlineForm && !showTransferForm"
+                        @click="handleTransfer"
+                        type="button"
+                        class="bg-white text-black px-[3.5vw] md:px-6 py-[1vh] md:py-2 text-[2.8vw] md:text-sm font-bold uppercase border-2 border-black hover:bg-amber-500 hover:text-white transition-all shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] md:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+                    >
+                        🔄 Transfer
+                    </button>
+                </template>
+
                 <template #extra-filters>
                     <select v-model="selectedStore" class="border border-gray-300 rounded-lg p-2.5 text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500/20 outline-none min-w-[200px] uppercase shadow-sm">
                         <option value="">-- SEMUA TOKO --</option>
