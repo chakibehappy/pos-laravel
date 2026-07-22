@@ -14,6 +14,7 @@ class CashStore extends Model
     protected $fillable = [
         'store_id',
         'cash',
+        'reset_at',
         'created_by',
     ];
 

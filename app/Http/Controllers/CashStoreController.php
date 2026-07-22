@@ -115,6 +115,7 @@ class CashStoreController extends Controller
             'id'               => 'required|exists:cash_store,id', 
             'store_id'         => 'required|exists:stores,id',
             'action_type'      => 'required|in:add,subtract,reset,set_initial,reset_local',
+            'cash'             => 'nullable|numeric|min:0',
             'cash_amounts'     => 'nullable|array', 
             'initial_cash'     => 'nullable|numeric|min:0',
             'target_method_id' => 'nullable|exists:payment_methods,id',
@@ -130,7 +131,12 @@ class CashStoreController extends Controller
         if ($request->action_type === 'set_initial') {
             $inputAmount = (float) $request->initial_cash;
         } else {
-            $inputAmount = $request->filled('cash_amounts') ? (float) array_sum($request->cash_amounts) : 0;
+            // Cek apakah data datang dari form Konveksi (cash_amounts) atau Konter (cash)
+            if ($request->filled('cash_amounts')) {
+                $inputAmount = (float) array_sum($request->cash_amounts);
+            } else {
+                $inputAmount = (float) ($request->cash ?? 0); // <-- Membaca input dari form Konter
+            }
         }
 
         $label = "Menambah Kas Toko ";
@@ -235,7 +241,8 @@ class CashStoreController extends Controller
             $label = "Mengeset Kas Toko ";
             $inputAmount = $currentCash; 
             $cashStore->timestamps = true;
-
+            $cashStore->reset_at = now(); 
+            
         } elseif ($request->action_type === 'set_initial') {
             $finalCash = $inputAmount; 
             $label = "Mengeset Kas Awal Toko ";
@@ -247,6 +254,7 @@ class CashStoreController extends Controller
         $cashStore->update([
             'cash'       => max(0, $finalCash), 
             'created_by' => $operatorId,
+            'reset_at'   => $cashStore->reset_at, // <-- TAMBAHKAN BARIS INI
         ]);
 
         $methodName = '';

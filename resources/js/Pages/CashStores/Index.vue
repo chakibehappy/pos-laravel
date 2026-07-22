@@ -8,8 +8,8 @@ const props = defineProps({
     cashBalances: Object, 
     filters: Object,
     storeTypes: Array,
-    paymentMethods: Array, // Diperlukan untuk tipe non-konter (fitur lengkap)
-    transactionBalances: Object, // Diperlukan untuk tipe non-konter (fitur lengkap)
+    paymentMethods: Array, // Diperlukan untuk rincian per metode pembayaran
+    transactionBalances: Object, // Diperlukan untuk rincian per metode pembayaran
 });
 
 // --- LOGIKA INTERNAL ---
@@ -24,11 +24,11 @@ const activeMethodId = ref(null);
 const form = useForm({
     id: null,
     store_id: '',
-    cash: 0, // Untuk tipe konter (standar)
+    cash: 0, 
     action_type: 'add', 
-    cash_amounts: {}, // Untuk tipe non-konter (lengkap)
-    initial_cash: 0, // Untuk tipe non-konter (lengkap)
-    target_method_id: null, // Untuk tipe non-konter (lengkap)
+    cash_amounts: {}, 
+    initial_cash: 0, 
+    target_method_id: null, 
 });
 
 // MENGECEK APAKAH KAS TOKO WAJIB DIKUNCI (True jika kas > 0)
@@ -37,7 +37,7 @@ const isStoreLocked = (cashValue) => {
     return !isNaN(cashNum) && cashNum > 0;
 };
 
-// Menghitung rincian saldo dinamis per metode pembayaran (Spesifik Non-Konter)
+// Menghitung rincian saldo dinamis per metode pembayaran
 const getMethodBalance = (storeId, method) => {
     const storeRow = props.cashBalances.data.find(row => row.store_id === storeId);
     const globalCash = storeRow ? parseFloat(storeRow.cash || 0) : 0;
@@ -58,17 +58,7 @@ const getMethodBalance = (storeId, method) => {
     }
 };
 
-// Buka Modal Edit Standar (Konter)
-const openEditStandard = (row) => {
-    form.clearErrors();
-    form.id = row.id;
-    form.store_id = row.store_id;
-    form.cash = 0; 
-    form.action_type = 'add';
-    activeEditId.value = row.id;
-};
-
-// Buka Modal Edit Rincian Kartu (Non-Konter)
+// Buka Modal Edit Rincian Kartu/Metode Pembayaran
 const openEditNonKonter = (row, methodId) => {
     form.clearErrors();
     form.id = row.id;
@@ -86,7 +76,7 @@ const openEditNonKonter = (row, methodId) => {
     activeMethodId.value = methodId; 
 };
 
-// Fungsi Kas Awal (Non-Konter)
+// Fungsi Kas Awal
 const handleAddModal = (row) => {
     if (isStoreLocked(row.cash)) {
         alert('Kas toko masih berjalan! Silakan tekan tombol Reset Global terlebih dahulu.');
@@ -104,7 +94,7 @@ const handleAddModal = (row) => {
     submit();
 };
 
-// Fungsi Tombol Reset Global (Non-Konter)
+// Fungsi Tombol Reset Global
 const triggerGlobalReset = (row) => {
     if (confirm(`Apakah Anda yakin ingin mereset seluruh kas pada toko ${row.store?.name || ''} menjadi 0?`)) {
         form.clearErrors();
@@ -302,43 +292,103 @@ const columns = [
                             </div>
                         </div>
 
-                        <!-- ==================== TAMPILAN JIKA ADALAH KONTER (KAS TUNAI STANDAR) ==================== -->
+                        <!-- ==================== TAMPILAN JIKA ADALAH KONTER (SAMAA PERSIS SEPERTI NON-KONTER / KONVEKSI) ==================== -->
                         <div v-else class="flex flex-col gap-4 bg-gray-50/50 p-4 rounded-lg border border-dashed border-gray-200">
-                            <div class="flex gap-4 items-stretch">
-                                <div class="flex-1 bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center justify-between"
-                                     :class="activeEditId === row.id ? 'border-blue-500 ring-2 ring-blue-50' : ''">
-                                    <div class="flex flex-col">
-                                        <span class="text-[8px] font-black text-gray-300 uppercase mb-1 tracking-widest not-italic">Status</span>
-                                        <span class="text-sm font-black text-gray-800 uppercase italic">Kas Tunai Aktif</span>
-                                    </div>
-                                    <div class="flex items-center gap-8">
-                                        <div class="text-right flex flex-col">
-                                            <span class="text-[8px] font-black text-gray-300 uppercase mb-1 tracking-widest not-italic">Saldo Sekarang</span>
-                                            <span class="text-sm font-black text-blue-600 italic">{{ formatIDR(row.cash) }}</span>
-                                        </div>
-                                        <button v-if="activeEditId !== row.id" @click.stop="openEditStandard(row)" class="text-lg opacity-60 hover:opacity-100">✏️</button>
-                                    </div>
+                            
+                            <div class="bg-blue-50/40 border border-blue-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                                <div class="flex flex-col justify-center">
+                                    <span class="text-[9px] font-black text-blue-600 uppercase tracking-widest not-italic mb-0.5">KAS GLOBAL (AKUMULASI)</span>
+                                    <span class="text-base font-black text-blue-900 uppercase italic">{{ formatIDR(row.cash) }}</span>
                                 </div>
+                                <div class="flex items-center gap-4">
+                                    <div class="bg-white border border-gray-200 rounded-xl p-2 flex items-center gap-3 shadow-sm h-10"
+                                         :class="isStoreLocked(row.cash) ? 'opacity-50 bg-gray-100 pointer-events-none select-none' : ''">
+                                        <label class="text-[9px] font-black text-blue-600 uppercase tracking-wider not-italic whitespace-nowrap pl-1">Kas Awal :</label>
+                                        <input 
+                                            v-model="form.initial_cash" 
+                                            type="number" 
+                                            :disabled="isStoreLocked(row.cash)"
+                                            class="w-28 border border-gray-200 rounded-lg p-1 font-black text-xs italic focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right h-7" 
+                                            :class="isStoreLocked(row.cash) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-50 text-black'"
+                                            placeholder="0" 
+                                        />
+                                        <button 
+                                            type="button"
+                                            :disabled="isStoreLocked(row.cash)"
+                                            @click.stop="handleAddModal(row)"
+                                            class="text-xs font-black px-4 rounded-lg shadow-md transition-colors duration-150 border-none uppercase tracking-wider whitespace-nowrap h-7 flex items-center justify-center"
+                                            :class="isStoreLocked(row.cash) ? 'bg-gray-300 text-gray-400 cursor-not-allowed shadow-none' : 'bg-green-600 hover:bg-green-700 text-white'"
+                                        >
+                                            SUBMIT
+                                        </button>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        @click.stop="triggerGlobalReset(row)"
+                                        class="bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase not-italic px-4 rounded-lg shadow-md transition-colors duration-150 tracking-wider h-7 flex items-center justify-center whitespace-nowrap"
+                                    >
+                                        RESET GLOBAL
+                                    </button>
+                                </div>
+                            </div>
 
-                                <div v-if="activeEditId === row.id" class="w-1/2 bg-white border border-blue-500 rounded-xl p-5 shadow-lg relative">
-                                    <button type="button" @click="cancelEdit" class="absolute top-2 right-3 text-gray-300 hover:text-red-500 font-black">✕</button>
-                                    <form @submit.prevent="submit" class="flex flex-col gap-4">
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div class="flex flex-col">
-                                                <label class="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 not-italic">Aksi</label>
-                                                <select v-model="form.action_type" class="w-full border border-gray-200 rounded-lg p-2 text-xs font-black uppercase italic bg-gray-50 outline-none">
-                                                    <option value="add">Tambahkan (+)</option>
-                                                    <option value="subtract">Kurangi (-)</option>
-                                                    <option value="reset">Reset Ke 0</option>
-                                                </select>
-                                            </div>
-                                            <div class="flex flex-col">
-                                                <label class="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 not-italic">Nominal (Rp)</label>
-                                                <input v-model="form.cash" type="number" :disabled="form.action_type === 'reset'" class="w-full border border-gray-200 rounded-lg p-2 font-black text-sm italic" placeholder="0" />
-                                            </div>
+                            <div class="flex items-center gap-2 px-1 mt-2">
+                                <span class="text-[9px] font-black text-gray-400 uppercase tracking-wider not-italic">Rincian Per Metode Pembayaran</span>
+                                <div class="h-[1px] bg-gray-200 flex-1"></div>
+                            </div>
+
+                            <div class="flex flex-col gap-4">
+                                <div v-for="method in paymentMethods" :key="method.id" class="flex gap-4 items-stretch">
+                                    <div class="flex-1 p-2 flex items-center justify-between"
+                                         :class="(activeEditId === row.id && activeMethodId === method.id) ? 'ring-2 ring-blue-50 rounded-xl' : ''">
+                                        <div class="flex flex-col">
+                                            <span class="text-[8px] font-black text-gray-300 uppercase mb-1 tracking-widest not-italic">Metode Pembayaran</span>
+                                            <span class="text-sm font-black text-gray-800 uppercase italic">{{ method.name }}</span>
                                         </div>
-                                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-black uppercase text-[10px]">Update Kas</button>
-                                    </form>
+                                        <div class="flex items-center gap-8">
+                                            <div class="text-right flex flex-col">
+                                                <span class="text-[8px] font-black text-gray-300 uppercase mb-1 tracking-widest not-italic">Saldo Terhitung</span>
+                                                <span class="text-sm font-black text-blue-600 italic">
+                                                    {{ formatIDR(getMethodBalance(row.store_id, method)) }}
+                                                </span>
+                                            </div>
+                                            <button 
+                                                v-if="!(activeEditId === row.id && activeMethodId === method.id) && ['developer', 'owner'].includes($page.props.auth.role)" 
+                                                @click.stop="openEditNonKonter(row, method.id)" 
+                                                class="text-lg opacity-60 hover:opacity-100 transition-opacity"
+                                            >
+                                                ✏️
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="activeEditId === row.id && activeMethodId === method.id" class="w-1/2 bg-white border border-blue-500 rounded-xl p-5 shadow-lg relative">
+                                        <button type="button" @click="cancelEdit" class="absolute top-2 right-3 text-gray-300 hover:text-red-500 font-black transition-colors">✕</button>
+                                        <form @submit.prevent="submit" class="flex flex-col gap-4">
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div class="flex flex-col">
+                                                    <label class="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 not-italic">Aksi Mutasi</label>
+                                                    <select v-model="form.action_type" class="w-full border border-gray-200 rounded-lg p-2 text-xs font-black uppercase italic bg-gray-50 outline-none">
+                                                        <option value="add">Tambahkan (+)</option>
+                                                        <option value="subtract">Kurangi (-)</option>
+                                                        <option value="reset_local">Reset ke 0</option>
+                                                    </select>
+                                                </div>
+                                                <div class="flex flex-col">
+                                                    <label class="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 not-italic">Nominal {{ method.name }} (Rp)</label>
+                                                    <input 
+                                                        v-model="form.cash_amounts[method.id]" 
+                                                        type="number" 
+                                                        :disabled="form.action_type === 'reset_local'"
+                                                        class="w-full border border-gray-200 rounded-lg p-2 font-black text-sm italic focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                                                        :class="form.action_type === 'reset_local' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-black'"
+                                                        placeholder="0" 
+                                                    />
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-black uppercase text-[10px] transition-colors">Update Via {{ method.name }}</button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
