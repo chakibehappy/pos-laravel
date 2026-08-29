@@ -251,20 +251,20 @@ class ReportStoreController extends Controller
             ->whereNull('deleted_at')
             ->get(['id', 'name']);
 
+        // Mengambil daftar kasir/staff aktif
+        $staffs = DB::table('pos_users')
+            ->where('status', '!=', 2)
+            ->whereNull('deleted_at')
+            ->get(['id', 'name']);
+
         $itemsData = $this->getItemReportData($request);
 
         return Inertia::render('ReportItems/Index', [
             'stores' => $stores,
-            'filters' => $request->only(['store_id', 'start_date', 'end_date']),
+            'staffs' => $staffs,
+            'filters' => $request->only(['store_id', 'pos_user_id', 'item_name', 'start_date', 'end_date']),
             'itemsData' => $itemsData,
         ]);
-    }
-
-    public function itemExport(Request $request)
-    {
-        // You can create a new export class ItemReportExport later, similar to StoreReportExport
-        // $itemsData = $this->getItemReportData($request);
-        // return Excel::download(new ItemReportExport($itemsData, $request->all()), 'Rekap_Per_Item_' . date('Y-m-d_His') . '.xlsx');
     }
 
     private function getItemReportData(Request $request)
@@ -290,9 +290,15 @@ class ReportStoreController extends Controller
             // Hanya produk fisik, bukan topup/tarik tunai
             ->whereNull('td.topup_transaction_id')
             ->whereNull('td.cash_withdrawal_id')
+            // Terapkan filter tanggal
             ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
             ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
+            // Terapkan filter cabang
             ->when($request->store_id, fn($q, $id) => $q->where('t.store_id', $id))
+            // Terapkan filter kasir/staff
+            ->when($request->pos_user_id, fn($q, $id) => $q->where('t.pos_user_id', $id))
+            // Terapkan pencarian nama item
+            ->when($request->item_name, fn($q, $name) => $q->where('p.name', 'LIKE', "%{$name}%"))
             ->groupBy('p.id', 'p.name', 'pc.name')
             ->orderByDesc('total_qty') // Urutkan dari item paling laku
             ->get()
@@ -302,4 +308,13 @@ class ReportStoreController extends Controller
                 return $item;
             });
     }
+
+    public function itemExport(Request $request)
+    {
+        // You can create a new export class ItemReportExport later, similar to StoreReportExport
+        // $itemsData = $this->getItemReportData($request);
+        // return Excel::download(new ItemReportExport($itemsData, $request->all()), 'Rekap_Per_Item_' . date('Y-m-d_His') . '.xlsx');
+    }
+
+    
 }

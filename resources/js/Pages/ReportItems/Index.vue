@@ -6,12 +6,15 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 
 const props = defineProps({
     stores: { type: Array, default: () => [] },
+    staffs: { type: Array, default: () => [] }, // Tambahan prop staffs
     filters: Object,
     itemsData: { type: Array, default: () => [] }
 });
 
 const filterState = reactive({
     store_id: props.filters?.store_id || '',
+    pos_user_id: props.filters?.pos_user_id || '', // Filter Kasir/Staff
+    item_name: props.filters?.item_name || '',     // Filter Nama Item
     start_date: props.filters?.start_date || '',
     end_date: props.filters?.end_date || '',
 });
@@ -58,19 +61,34 @@ const exportExcel = () => {
                             <h2 class="text-lg md:text-xl font-black text-gray-800 uppercase tracking-tight">Laporan Penjualan Per Item</h2>
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Arus Jual-Beli Terintegrasi (Real-time)</p>
                         </div>
-                        
-                        <!-- <button @click="exportExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-md">
-                            Export Excel
-                        </button> -->
                     </div>
 
                     <div class="flex flex-col md:flex-row flex-wrap gap-4 items-end">
-                        <div class="w-full md:w-72">
+                        
+                        <!-- Pencarian Nama Item -->
+                        <div class="w-full md:w-64">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cari Nama Item</label>
+                            <input type="text" v-model="filterState.item_name" placeholder="KETIK NAMA ITEM..." class="w-full border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 uppercase outline-none transition-all placeholder:normal-case" />
+                        </div>
+
+                        <!-- Filter Cabang -->
+                        <div class="w-full md:w-56">
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pilih Cabang</label>
                             <select v-model="filterState.store_id" class="w-full border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all uppercase bg-white cursor-pointer">
                                 <option value="">-- SEMUA CABANG --</option>
                                 <option v-for="store in stores" :key="store.id" :value="store.id">
                                     {{ store.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter Kasir / Staff -->
+                        <div class="w-full md:w-56">
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pilih Kasir</label>
+                            <select v-model="filterState.pos_user_id" class="w-full border border-gray-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all uppercase bg-white cursor-pointer">
+                                <option value="">-- SEMUA KASIR --</option>
+                                <option v-for="staff in staffs" :key="staff.id" :value="staff.id">
+                                    {{ staff.name }}
                                 </option>
                             </select>
                         </div>
