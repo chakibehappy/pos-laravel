@@ -6,15 +6,15 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 
 const props = defineProps({
     stores: { type: Array, default: () => [] },
-    staffs: { type: Array, default: () => [] }, // Tambahan prop staffs
+    staffs: { type: Array, default: () => [] },
     filters: Object,
     itemsData: { type: Array, default: () => [] }
 });
 
 const filterState = reactive({
     store_id: props.filters?.store_id || '',
-    pos_user_id: props.filters?.pos_user_id || '', // Filter Kasir/Staff
-    item_name: props.filters?.item_name || '',     // Filter Nama Item
+    pos_user_id: props.filters?.pos_user_id || '',
+    item_name: props.filters?.item_name || '',
     start_date: props.filters?.start_date || '',
     end_date: props.filters?.end_date || '',
 });
@@ -61,6 +61,14 @@ const exportExcel = () => {
                             <h2 class="text-lg md:text-xl font-black text-gray-800 uppercase tracking-tight">Laporan Penjualan Per Item</h2>
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Status: Arus Jual-Beli Terintegrasi (Real-time)</p>
                         </div>
+                        
+                        <!-- EXPORT BUTTON ENABLED -->
+                        <button @click="exportExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-md transition-all active:scale-95">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Export Excel
+                        </button>
                     </div>
 
                     <div class="flex flex-col md:flex-row flex-wrap gap-4 items-end">

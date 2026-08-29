@@ -311,9 +311,35 @@ class ReportStoreController extends Controller
 
     public function itemExport(Request $request)
     {
-        // You can create a new export class ItemReportExport later, similar to StoreReportExport
-        // $itemsData = $this->getItemReportData($request);
-        // return Excel::download(new ItemReportExport($itemsData, $request->all()), 'Rekap_Per_Item_' . date('Y-m-d_His') . '.xlsx');
+        $itemsData = $this->getItemReportData($request);
+
+        // Cari Nama Cabang yang dipilih
+        $storeName = 'SEMUA';
+        if ($request->filled('store_id')) {
+            $store = Store::find($request->store_id);
+            $storeName = $store ? $store->name : 'SEMUA';
+        }
+
+        // Cari Nama Kasir/Staff yang dipilih
+        $staffName = 'SEMUA';
+        if ($request->filled('pos_user_id')) {
+            $staff = DB::table('pos_users')->where('id', $request->pos_user_id)->first();
+            $staffName = $staff ? $staff->name : 'SEMUA';
+        }
+
+        // Parameter tambahan untuk ditampilkan di header Excel
+        $params = array_merge($request->all(), [
+            'store_name' => $storeName,
+            'staff_name' => $staffName,
+            'item_name' => $request->filled('item_name') ? $request->item_name : 'SEMUA',
+        ]);
+
+        $fileName = 'Rekap_Per_Item_' . date('Y-m-d_His') . '.xlsx';
+
+        return Excel::download(
+            new \App\Exports\ItemReportExport($itemsData, $params), 
+            $fileName
+        );
     }
 
     
