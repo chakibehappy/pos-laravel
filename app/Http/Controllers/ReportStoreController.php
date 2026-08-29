@@ -244,4 +244,62 @@ class ReportStoreController extends Controller
 
         return $stores;
     }
+    
+    public function itemIndex(Request $request)
+    {
+        $stores = Store::where('status', '!=', 2)
+            ->whereNull('deleted_at')
+            ->get(['id', 'name']);
+
+        $itemsData = $this->getItemReportData($request);
+
+        return Inertia::render('ReportItems/Index', [
+            'stores' => $stores,
+            'filters' => $request->only(['store_id', 'start_date', 'end_date']),
+            'itemsData' => $itemsData,
+        ]);
+    }
+
+    public function itemExport(Request $request)
+    {
+        // You can create a new export class ItemReportExport later, similar to StoreReportExport
+        // $itemsData = $this->getItemReportData($request);
+        // return Excel::download(new ItemReportExport($itemsData, $request->all()), 'Rekap_Per_Item_' . date('Y-m-d_His') . '.xlsx');
+    }
+
+    private function getItemReportData(Request $request)
+    {
+        return DB::table('transaction_details as td')
+            ->join('transactions as t', 'td.transaction_id', '=', 't.id')
+            ->join('products as p', 'td.product_id', '=', 'p.id')
+            ->join('product_categories as pc', 'p.product_category_id', '=', 'pc.id')
+            ->select([
+                'p.id as product_id',
+                'p.name as product_name',
+                'pc.name as category_name',
+                DB::raw('SUM(td.quantity) as total_qty'),
+                DB::raw('SUM(CASE 
+                    WHEN td.buying_prices IS NULL OR td.buying_prices = 0 THEN COALESCE(p.buying_price, 0) * td.quantity 
+                    ELSE td.buying_prices * td.quantity 
+                END) as total_modal'),
+                DB::raw('SUM(td.subtotal) as total_omzet')
+            ])
+            ->where('t.status', 0)
+            ->whereNull('t.deleted_at')
+            ->whereNull('td.deleted_at')
+            // Hanya produk fisik, bukan topup/tarik tunai
+            ->whereNull('td.topup_transaction_id')
+            ->whereNull('td.cash_withdrawal_id')
+            ->when($request->start_date, fn($q) => $q->whereDate('t.transaction_at', '>=', $request->start_date))
+            ->when($request->end_date, fn($q) => $q->whereDate('t.transaction_at', '<=', $request->end_date))
+            ->when($request->store_id, fn($q, $id) => $q->where('t.store_id', $id))
+            ->groupBy('p.id', 'p.name', 'pc.name')
+            ->orderByDesc('total_qty') // Urutkan dari item paling laku
+            ->get()
+            ->map(function($item) {
+                // Hitung laba bersih per item
+                $item->laba = $item->total_omzet - $item->total_modal;
+                return $item;
+            });
+    }
 }

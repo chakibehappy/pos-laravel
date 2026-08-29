@@ -223,6 +223,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/report-stores', [ReportStoreController::class, 'index'])->name('report-stores.index');
     Route::get('/report-stores/export', [ReportStoreController::class, 'export'])->name('report-stores.export');
 
+    Route::get('/report-items', [ReportStoreController::class, 'itemIndex'])->name('report-items.index');
+    Route::get('/report-items/export', [ReportStoreController::class, 'itemExport'])->name('report-items.export');
+    
     // ----- route sementara laporan----
     Route::get('/report-buying', [ReportBuyingController::class, 'index'])->name('report-buying.index');
     Route::get('/report-buying/export', [ReportBuyingController::class, 'export'])->name('report-buying.export');

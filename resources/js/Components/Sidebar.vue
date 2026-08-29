@@ -100,6 +100,7 @@ const menuItems = [
         children: [
             { label: 'Laporan Pembelian',  name: 'report-buying.index', route: route('report-buying.index') },
             { label: 'Laporan Penjualan', name: 'report-stores.index', route: route('report-stores.index') },
+            { label: 'Laporan Per Item', name: 'report-items.index', route: route('report-items.index') },
         ]
     },
     { label: 'Riwayat Aktifitas', icon: '📝', name: 'activity-logs.index', route: route('activity-logs.index') },
