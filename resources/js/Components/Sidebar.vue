@@ -96,10 +96,11 @@ const menuItems = [
     },
     { 
         label: 'Laporan', icon: '📋', isDropdown: true, roles: ['owner', 'developer'],
-        activeOn: ['report-buying.*','report-stores.*'],
+        activeOn: ['report-buying.*','report-stores.*', 'reports.items.*'],
         children: [
             { label: 'Laporan Pembelian',  name: 'report-buying.index', route: route('report-buying.index') },
             { label: 'Laporan Penjualan', name: 'report-stores.index', route: route('report-stores.index') },
+            { label: 'Penjualan Per Item', name: 'reports.items.index', route: route('reports.items.index') },
         ]
     },
     { label: 'Riwayat Aktifitas', icon: '📝', name: 'activity-logs.index', route: route('activity-logs.index') },

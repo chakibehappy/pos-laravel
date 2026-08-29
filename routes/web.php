@@ -36,6 +36,7 @@ use App\Http\Controllers\ReportExpenseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Imports\ProductImportController;
 use App\Http\Controllers\ProductTestController;
+use App\Http\Controllers\ReportItemController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -246,4 +247,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/product-tests', [ProductTestController::class, 'store'])->name('product-tests.store');
     Route::delete('/product-tests/{id}', [ProductTestController::class, 'destroy'])->name('product-tests.destroy');
     Route::get('/product-tests/get-stock', [ProductTestController::class, 'getStock'])->name('product-tests.get-stock');
+
+    Route::get('/reports/items', [ReportItemController::class, 'index'])->name('reports.items.index');
+    Route::get('/reports/items/export', [ReportItemController::class, 'export'])->name('reports.items.export');
 });
