@@ -9,7 +9,15 @@ const props = defineProps({
     categories: Array,
     unitTypes: Array,
     storeTypes: Array,
-    filters: Object
+    filters: Object,
+    canEdit: {
+        type: Boolean,
+        default: true
+    },
+    canDelete: {
+        type: Boolean,
+        default: true
+    }
 });
 
 const selectedCategory = ref(props.filters?.category || '');
@@ -70,6 +78,8 @@ const openCreate = () => {
 };
 
 const openEdit = (row) => {
+    if (!props.canEdit) return;
+    
     form.clearErrors();
     form.id = row.id;
     form.product_category_id = row.product_category_id;
@@ -87,11 +97,15 @@ const openEdit = (row) => {
 };
 
 const editCell = (row, key, value) => {
+    if (!props.canEdit) return;
+    
     editingCell.value = { id: row.id, key: key };
     editedValue.value = value;
 };
 
 const saveCell = (row) => {
+    if (!props.canEdit) return;
+
     form.id = row.id;
     form.product_category_id = row.product_category_id;
     form.unit_type_id = row.unit_type_id;
@@ -129,6 +143,8 @@ const submit = () => {
 };
 
 const destroy = (id) => {
+    if (!props.canDelete) return;
+
     if (confirm('APAKAH ANDA YAKIN INGIN MENGHAPUS PRODUK INI? (DATA AKAN DIARSIPKAN)')) {
         router.delete(route('products.destroy', id), {
             preserveScroll: true
@@ -253,7 +269,7 @@ const destroy = (id) => {
                 <template #sku="{ row, value }">
                     <div @dblclick="editCell(row, 'sku', value)" class="p-1">
                         <input 
-                            v-if="editingCell.id === row.id && editingCell.key === 'sku'"
+                            v-if="canEdit && editingCell.id === row.id && editingCell.key === 'sku'"
                             v-model="editedValue"
                             @blur="saveCell(row)"
                             @keyup.enter="saveCell(row)"
@@ -268,7 +284,7 @@ const destroy = (id) => {
                 <template #name="{ row, value }">
                     <div @dblclick="editCell(row, 'name', value)" class="p-1">
                         <input 
-                            v-if="editingCell.id === row.id && editingCell.key === 'name'"
+                            v-if="canEdit && editingCell.id === row.id && editingCell.key === 'name'"
                             v-model="editedValue"
                             @blur="saveCell(row)"
                             @keyup.enter="saveCell(row)"
@@ -297,7 +313,7 @@ const destroy = (id) => {
                     <div @dblclick="editCell(row, 'buying_price', value)" class="p-1 flex items-center">
                         <span class="text-gray-400 text-[10px] mr-1">Rp</span>
                         <input 
-                            v-if="editingCell.id === row.id && editingCell.key === 'buying_price'"
+                            v-if="canEdit && editingCell.id === row.id && editingCell.key === 'buying_price'"
                             v-model="editedValue"
                             @blur="saveCell(row)"
                             @keyup.enter="saveCell(row)"
@@ -313,7 +329,7 @@ const destroy = (id) => {
                     <div @dblclick="editCell(row, 'selling_price', value)" class="p-1 flex items-center">
                         <span class="text-gray-400 text-[10px] mr-1">Rp</span>
                         <input 
-                            v-if="editingCell.id === row.id && editingCell.key === 'selling_price'"
+                            v-if="canEdit && editingCell.id === row.id && editingCell.key === 'selling_price'"
                             v-model="editedValue"
                             @blur="saveCell(row)"
                             @keyup.enter="saveCell(row)"
@@ -331,8 +347,8 @@ const destroy = (id) => {
 
                 <template #actions="{ row }">
                     <div class="flex gap-4 justify-end">
-                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors">✏️</button>
-                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors">❌</button>
+                        <button v-if="canEdit" @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors">✏️</button>
+                        <button v-if="canDelete" @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-colors">❌</button>
                     </div>
                 </template>
             </DataTable>
@@ -414,11 +430,9 @@ const destroy = (id) => {
 </template>
 
 <style scoped>
-/* Menghilangkan panah select default browser agar tidak menumpuk saat size diubah */
 select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
 .animate-in-fade { animation: slide-in 0.4s ease-out; }
 
-/* Membatasi tinggi select yang memiliki atribut size (ketika sedang open) */
 select[size="6"] {
     max-height: 190px !important;
     overflow-y: auto !important;

@@ -109,11 +109,20 @@ class DigitalWalletStoreController extends Controller
             ]
         );
 
+        // Ambil data user login saat ini (PosUser)
+        $currentUser = auth()->user()->posUser ?? null;
+        $canEditDigitalWallet = false;
+
+        if ($currentUser) {
+            $canEditDigitalWallet = (bool) $currentUser->edit_digitalwalletstore;
+        }
+
         return Inertia::render('DigitalWalletStores/Index', [
-            'resource' => $paginatedItems,
-            'stores'   => Store::whereIn('store_type_id', $konterTypeIds)->get(['id', 'name']),
-            'wallets'  => DigitalWallet::all(['id', 'name']),
-            'filters'  => $request->only(['search', 'sort', 'direction']),
+            'resource'             => $paginatedItems,
+            'stores'               => Store::whereIn('store_type_id', $konterTypeIds)->get(['id', 'name']),
+            'wallets'              => DigitalWallet::all(['id', 'name']),
+            'filters'              => $request->only(['search', 'sort', 'direction']),
+            'canEditDigitalWallet' => $canEditDigitalWallet,
         ]);
     }
 

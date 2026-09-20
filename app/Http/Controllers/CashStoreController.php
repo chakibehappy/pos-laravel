@@ -76,21 +76,16 @@ class CashStoreController extends Controller
         $transactionBalances = [];
         
         foreach ($cashBalancesResult as $cashStore) {
-            // 1. Inisialisasi query dasar tanpa filter waktu dahulu
             $balancesQuery = DB::table('transactions')
                 ->where('status', 0)
                 ->where('store_id', $cashStore->store_id);
 
-            // 2. Cek kondisi reset_at secara aman
             if (!is_null($cashStore->reset_at)) {
-                // Jika reset_at sudah terisi (sudah pernah ditekan tombol Set Kas Awal)
                 $balancesQuery->where('created_at', '>=', $cashStore->reset_at);
             } else {
-                // Jika reset_at masih NULL (data lama sebelum migrasi), gunakan updated_at sebagai pengaman
                 $balancesQuery->where('created_at', '>=', $cashStore->updated_at);
             }
 
-            // 3. Ambil dan susun datanya
             $balances = $balancesQuery->select('payment_id', DB::raw('SUM(subtotal) as total_amount'))
                 ->groupBy('payment_id')
                 ->get()
@@ -99,13 +94,26 @@ class CashStoreController extends Controller
             $transactionBalances[$cashStore->store_id] = $balances;
         }
 
+        // Ambil data user login saat ini (PosUser)
+        $currentUser = auth()->user()->posUser ?? null;
+        $canEditCash  = false;
+        $canResetCash = false;
+
+        if ($currentUser) {
+            // Pengguna diizinkan jika bernilai 1/true pada edit_cashstore & reset_cashstore
+            $canEditCash  = (bool) $currentUser->edit_cashstore;
+            $canResetCash = (bool) $currentUser->reset_cashstore;
+        }
+
         return Inertia::render('CashStores/Index', [
-            'cashBalances' => $cashBalancesResult,
-            'stores' => Store::all(['id', 'name', 'store_type_id']),
-            'storeTypes' => StoreType::all(['id', 'name']),
-            'paymentMethods' => $paymentMethods, 
-            'transactionBalances' => (object)$transactionBalances,
-            'filters' => $request->only(['search', 'type', 'sort', 'direction']),
+            'cashBalances'       => $cashBalancesResult,
+            'stores'             => Store::all(['id', 'name', 'store_type_id']),
+            'storeTypes'         => StoreType::all(['id', 'name']),
+            'paymentMethods'     => $paymentMethods, 
+            'transactionBalances'=> (object)$transactionBalances,
+            'filters'            => $request->only(['search', 'type', 'sort', 'direction']),
+            'canEditCash'        => $canEditCash,  // Mengirim izin edit kas
+            'canResetCash'       => $canResetCash, // Mengirim izin reset kas
         ]);
     }
 
@@ -131,11 +139,10 @@ class CashStoreController extends Controller
         if ($request->action_type === 'set_initial') {
             $inputAmount = (float) $request->initial_cash;
         } else {
-            // Cek apakah data datang dari form Konveksi (cash_amounts) atau Konter (cash)
             if ($request->filled('cash_amounts')) {
                 $inputAmount = (float) array_sum($request->cash_amounts);
             } else {
-                $inputAmount = (float) ($request->cash ?? 0); // <-- Membaca input dari form Konter
+                $inputAmount = (float) ($request->cash ?? 0);
             }
         }
 
@@ -145,7 +152,6 @@ class CashStoreController extends Controller
             $finalCash = $currentCash + $inputAmount;
             $cashStore->timestamps = false;
 
-            // --- CARA 2: INSERT HANYA KE TRANSACTIONS ---
             if ($request->filled('target_method_id') && intval($request->target_method_id) !== 1 && $inputAmount > 0) {
                 DB::table('transactions')->insert([
                     'store_id'       => $request->store_id,
@@ -166,7 +172,6 @@ class CashStoreController extends Controller
             $finalCash = $currentCash - $inputAmount;
             $cashStore->timestamps = false;
 
-            // --- CARA 2: INSERT HANYA KE TRANSACTIONS (MINUS) ---
             if ($request->filled('target_method_id') && intval($request->target_method_id) !== 1 && $inputAmount > 0) {
                 $minusAmount = -$inputAmount;
 
@@ -215,7 +220,6 @@ class CashStoreController extends Controller
                     $inputAmount = (float)$currentMethodBalance;
                     $finalCash = max(0, $currentCash - $inputAmount);
 
-                    // Pembersihan reset_local non-tunai hanya ke transactions
                     if (!$isTunai && $inputAmount > 0) {
                         $minusAmount = -$inputAmount;
                         DB::table('transactions')->insert([
@@ -250,11 +254,10 @@ class CashStoreController extends Controller
             $cashStore->reset_at = now();
         }
 
-        // Simpan perubahan ke kas global akumulasi
         $cashStore->update([
             'cash'       => max(0, $finalCash), 
             'created_by' => $operatorId,
-            'reset_at'   => $cashStore->reset_at, // <-- TAMBAHKAN BARIS INI
+            'reset_at'   => $cashStore->reset_at,
         ]);
 
         $methodName = '';

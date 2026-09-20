@@ -36,6 +36,34 @@ class TransactionController extends Controller
 
         // Hanya tampilkan transaksi bernilai positif (menyembunyikan minus hasil koreksi kas)
         $query->where('transactions.subtotal', '>', 0);
+
+        // Ambil data user yang sedang login dari tabel pos_users
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Status Hak Akses Default (True)
+        $canAdd = true;
+        $canEdit = true;
+        $canDelete = true;
+        $canDetail = true;
+
+        // Cek Khusus Role Admin
+        if ($currentUser && $currentUser->role === 'admin') {
+            if (isset($currentUser->add_transactions)) {
+                $canAdd = (bool) $currentUser->add_transactions;
+            }
+            if (isset($currentUser->edit_transactions)) {
+                $canEdit = (bool) $currentUser->edit_transactions;
+            }
+            if (isset($currentUser->delete_transactions)) {
+                $canDelete = (bool) $currentUser->delete_transactions;
+            }
+            if (isset($currentUser->detail_transactions)) {
+                $canDetail = (bool) $currentUser->detail_transactions;
+            }
+        }
+
         // --- LOGIKA FILTER ---
 
         // Filter berdasarkan Toko
@@ -81,7 +109,6 @@ class TransactionController extends Controller
 
         return Inertia::render('Transactions/Index', [
             'transactions' => $query->paginate(10)->withQueryString(),
-            // Kirim balik state filter agar input di Vue tetap terisi (UI Konsisten)
             'filters' => $request->only(['search', 'sort', 'direction', 'store_id', 'payment_id', 'start_date', 'end_date']),
             'stores' => Store::all(['id', 'name']),
             'pos_users' => PosUser::all(['id', 'name']),
@@ -92,6 +119,10 @@ class TransactionController extends Controller
             'digital_wallet_stores' => DigitalWalletStore::with('wallet:id,name')->get(),
             'withdrawal_source_type' => DB::table('withdrawal_source_type')->select('id', 'name')->get(),
             'withdrawal_rules' => WithdrawalFeeRule::all(['min_limit', 'max_limit', 'fee']),
+            'canAdd' => $canAdd,
+            'canEdit' => $canEdit,
+            'canDelete' => $canDelete,
+            'canDetail' => $canDetail,
         ]);
     }
 
@@ -108,6 +139,15 @@ class TransactionController extends Controller
     public function destroy($id)
     {
         try {
+            $currentUser = DB::table('pos_users')
+                ->where('username', auth()->user()->email)
+                ->first();
+
+            // Proteksi Server-side Delete untuk Admin
+            if ($currentUser && $currentUser->role === 'admin' && isset($currentUser->delete_transactions) && !(bool)$currentUser->delete_transactions) {
+                return redirect()->back()->withErrors(['message' => 'Anda tidak memiliki akses untuk menghapus transaksi.']);
+            }
+
             DB::transaction(function () use ($id) {
                 // Eager Load detail secara mendalam agar OLD data sangat lengkap
                 $transaction = Transaction::with([
@@ -158,6 +198,20 @@ class TransactionController extends Controller
 
     private function processTransaction(Request $request, $id = null)
     {
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Proteksi Server-side Add & Edit untuk Admin
+        if ($currentUser && $currentUser->role === 'admin') {
+            if (!$id && isset($currentUser->add_transactions) && !(bool)$currentUser->add_transactions) {
+                return back()->withErrors(['message' => 'Anda tidak memiliki akses untuk menambah transaksi.']);
+            }
+            if ($id && isset($currentUser->edit_transactions) && !(bool)$currentUser->edit_transactions) {
+                return back()->withErrors(['message' => 'Anda tidak memiliki akses untuk mengubah transaksi.']);
+            }
+        }
+
         $request->validate([
             'store_id'       => 'required|exists:stores,id',
             'pos_user_id'    => 'required|exists:pos_users,id',
@@ -173,7 +227,7 @@ class TransactionController extends Controller
         $matchPosUser = PosUser::where('username', $adminEmail)->first();
         $automatedCreatedBy = $matchPosUser ? $matchPosUser->id : $request->pos_user_id;
 
-       $calcSubtotal = 0;
+        $calcSubtotal = 0;
         foreach ($request->details as $item) {
             if ($item['type'] === 'tarik_tunai') {
                 $nominalKotor = $item['meta']['amount'] ?? 0;
@@ -198,7 +252,6 @@ class TransactionController extends Controller
                     $oldData = $old->toArray(); 
                     
                     $this->rollbackAssets($old);
-                    // DB::table('cash_store')->where('store_id', $old->store_id)->decrement('cash', $old->subtotal);
                     $old->details()->delete();
                 }
 
@@ -216,8 +269,6 @@ class TransactionController extends Controller
                         'deleted_at'     => null
                     ]
                 );
-
-                // DB::table('cash_store')->where('store_id', $storeId)->increment('cash', $calcSubtotal);
 
                 foreach ($request->details as $item) {
                     $topupTransId = null;
@@ -255,17 +306,15 @@ class TransactionController extends Controller
                     }
 
                     if ($item['type'] === 'tarik_tunai') {
-                        // 1. Hitung uang fisik yang sebenarnya keluar dari laci
-                        $nominalKotor = $item['meta']['amount']; // misal 200000
+                        $nominalKotor = $item['meta']['amount'];
                         $rule = WithdrawalFeeRule::where('min_limit', '<=', $nominalKotor)
                             ->where(function ($q) use ($nominalKotor) {
                                 $q->where('max_limit', '>=', $nominalKotor)
-                                ->orWhere('max_limit', '<', 0); // Untuk limit tak terhingga
+                                ->orWhere('max_limit', '<', 0);
                             })
                             ->orderBy('min_limit', 'desc')
                             ->first();
 
-                        // Jika aturan ditemukan, gunakan fee dari database. Jika tidak, gunakan input manual.
                         $feeAdmin = $rule ? $rule->fee : ($item['meta']['fee'] ?? 0);
                         $uangKeluar   = $nominalKotor - $feeAdmin;
                         
@@ -273,15 +322,14 @@ class TransactionController extends Controller
                             'store_id'             => $storeId,
                             'customer_name'        => $item['meta']['customer_name'],
                             'withdrawal_source_id' => $item['meta']['withdrawal_source_id'],
-                            'withdrawal_count'     => $nominalKotor, // SIMPAN 197.000 (Uang Fisik)
+                            'withdrawal_count'     => $nominalKotor,
                             'admin_fee'            => $feeAdmin,
                             'created_by'           => $automatedCreatedBy,
                             'created_at'           => $request->transaction_at,
                             'updated_at'           => now(),
                         ]);
 
-                        // 2. Kurangi kas toko sejumlah uang fisik yang keluar saja
-                         DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $uangKeluar);
+                        DB::table('cash_store')->where('store_id', $storeId)->decrement('cash', $uangKeluar);
                     }
 
                     $transaction->details()->create([
@@ -289,17 +337,15 @@ class TransactionController extends Controller
                         'topup_transaction_id' => $topupTransId,
                         'cash_withdrawal_id'   => $cashWithId,
                         'buying_prices'        => $buyingPrice,
-                        // 3. Selling Price tetap catat 200.000 agar Admin tahu nilai transaksinya
                         'selling_prices'       => ($item['type'] === 'tarik_tunai') ? $item['meta']['amount'] : $item['price'],
                         'quantity'             => ($item['type'] === 'produk') ? $item['quantity'] : 1,
-                        'subtotal' => $itemSubtotal,
-                        'created_by' => $automatedCreatedBy
+                        'subtotal'             => $itemSubtotal,
+                        'created_by'           => $automatedCreatedBy
                     ]);
                 }
                 return $transaction;
             });
 
-            // Refresh & Eager Load rincian agar 'new' payload lengkap
             $transaction->load(['details.product', 'details.topupTransaction', 'details.cashWithdrawal']);
 
             ActivityLogger::log(
@@ -310,7 +356,7 @@ class TransactionController extends Controller
                 auth()->user()->posUser->id ?? $automatedCreatedBy,
                 [
                     'old' => $oldData, 
-                    'new' => $transaction->toArray() // Sekarang mencakup key 'details'
+                    'new' => $transaction->toArray()
                 ],
                 $transaction->store_id
             );
@@ -323,7 +369,6 @@ class TransactionController extends Controller
 
     private function rollbackAssets($transaction)
     {
-        // Gunakan load jika details belum dimuat
         if (!$transaction->relationLoaded('details')) {
             $transaction->load('details');
         }
@@ -337,18 +382,14 @@ class TransactionController extends Controller
                     ->decrement('cash', $detail->subtotal);
             }
 
-            // 
             if ($detail->topup_transaction_id) {
                 $topup = DB::table('topup_transactions')->where('id', $detail->topup_transaction_id)->first();
                 if ($topup) {
-                    // 1. Kembalikan saldo Wallet
                     DigitalWalletStore::where('id', $topup->digital_wallet_store_id)
                         ->increment('balance', $topup->nominal_request);
                     
-                    // 2. Kurangi kas toko karena uang pembayaran topup ditarik kembali/dibatalkan
                     DB::table('cash_store')->where('store_id', $transaction->store_id)->decrement('cash', $topup->nominal_pay);
 
-                    // 3. Hapus transaksi topup
                     DB::table('topup_transactions')->where('id', $topup->id)->delete();
                 }
             }
@@ -357,7 +398,6 @@ class TransactionController extends Controller
                 if ($withdraw) {
                     $uangFisikDahulu = $withdraw->withdrawal_count - $withdraw->admin_fee;
                     
-                    // Benar: Kembalikan uang ke laci karena tarik tunai dibatalkan
                     DB::table('cash_store')->where('store_id', $transaction->store_id)
                         ->increment('cash', $uangFisikDahulu);
                     

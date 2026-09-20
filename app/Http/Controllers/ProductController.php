@@ -25,6 +25,24 @@ class ProductController extends Controller
             $sortField = 'updated_at';
         }
 
+        // Ambil data user yang sedang login dari tabel pos_users
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Cek hak akses edit & delete khusus role admin
+        $canEdit = true;
+        $canDelete = true;
+
+        if ($currentUser && $currentUser->role === 'admin') {
+            if (!(bool)$currentUser->edit_products) {
+                $canEdit = false;
+            }
+            if (!(bool)$currentUser->delete_products) {
+                $canDelete = false;
+            }
+        }
+
         $products = Product::with(['category', 'store', 'unitType'])
             ->where('products.status', 0) 
             ->when($request->search, function ($query, $search) {
@@ -45,7 +63,7 @@ class ProductController extends Controller
 
             return [
                 'id' => $product->id,
-                'store_type_id' => $product->store_type_id, // Menambahkan store_type_id ke response
+                'store_type_id' => $product->store_type_id,
                 'store_name' => $product->store->name ?? 'N/A',
                 'product_category_id' => $product->product_category_id,
                 'category_name' => $product->category->name ?? 'Umum',
@@ -65,21 +83,30 @@ class ProductController extends Controller
 
         return Inertia::render('Products/Index', [
             'products' => $products,
-            'storeTypes' => StoreType::where('status', 0)->get(['id', 'name']), // Mengirim storeTypes sesuai kebutuhan prop di frontend
+            'storeTypes' => StoreType::where('status', 0)->get(['id', 'name']),
             'categories' => ProductCategory::where('status', 0)->get(['id', 'name']),
             'unitTypes' => UnitType::all(['id', 'name']),
-            'filters' => $request->only(['search', 'category', 'sort', 'direction'])
+            'filters' => $request->only(['search', 'category', 'sort', 'direction']),
+            'canEdit' => $canEdit,
+            'canDelete' => $canDelete, // Kirim status hak akses hapus ke Vue
         ]);
     }
 
     public function store(Request $request)
     {
         try {
+            $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
+            $posUserId = $posUserAudit ? $posUserAudit->id : null;
+
+            if ($request->id && $posUserAudit && $posUserAudit->role === 'admin' && !(bool)$posUserAudit->edit_products) {
+                return back()->withErrors(['error' => 'Anda tidak memiliki akses untuk mengubah data produk.']);
+            }
+
             $request->validate([
                 'id'                  => 'nullable|numeric',
                 'product_category_id' => 'required|exists:product_categories,id',
                 'unit_type_id'        => 'required|exists:unit_types,id',
-                'store_type_id' => 'nullable|exists:store_types,id', // Menambahkan validasi store_type_id
+                'store_type_id'       => 'nullable|exists:store_types,id',
                 'name'                => 'required|string|max:150',
                 'sku'                 => 'nullable|string|max:50',
                 'buying_price'        => 'required|numeric|min:0',
@@ -87,9 +114,6 @@ class ProductController extends Controller
                 'type_stock'          => 'required|in:0,1', 
                 'image'               => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             ]);
-
-            $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
-            $posUserId = $posUserAudit ? $posUserAudit->id : null;
             
             $oldData = null;
             $changeDetails = ""; 
@@ -99,9 +123,8 @@ class ProductController extends Controller
                 if ($existingProduct) {
                     $oldData = $existingProduct->getRawOriginal();
                     
-                    // --- LOGIKA DETEKSI PERUBAHAN ---
                     $fieldsToWatch = [
-                        'store_type_id' => 'Tipe Toko', // Menambahkan deteksi perubahan Tipe Toko
+                        'store_type_id' => 'Tipe Toko',
                         'name'          => 'Nama',
                         'sku'           => 'SKU',
                         'buying_price'  => 'Harga Beli',
@@ -142,7 +165,6 @@ class ProductController extends Controller
                 }
             }
 
-            // Menyertakan store_type_id ke dalam data array untuk eksekusi query database
             $data = $request->only(['product_category_id', 'unit_type_id', 'store_type_id', 'name', 'sku', 'buying_price', 'selling_price', 'type_stock']);
             $data['status'] = 0;
             $data['deleted_at'] = null;
@@ -196,11 +218,16 @@ class ProductController extends Controller
 
     public function destroy($id)
     {
-        $product = Product::findOrFail($id);
-        $oldData = $product->getRawOriginal();
-
         $posUserAudit = DB::table('pos_users')->where('username', auth()->user()->email)->first();
         $posUserId = $posUserAudit ? $posUserAudit->id : null;
+
+        // Proteksi Server-side: Cegah eksekusi hapus jika admin tidak memiliki izin
+        if ($posUserAudit && $posUserAudit->role === 'admin' && !(bool)$posUserAudit->delete_products) {
+            return back()->withErrors(['error' => 'Anda tidak memiliki akses untuk menghapus produk.']);
+        }
+
+        $product = Product::findOrFail($id);
+        $oldData = $product->getRawOriginal();
 
         ActivityLogger::log(
             'delete',

@@ -13,6 +13,18 @@ const props = defineProps({
     stores: Array,
     posUsers: Array,
     expenseTypes: Array,
+    canAdd: {
+        type: Boolean,
+        default: true
+    },
+    canEdit: {
+        type: Boolean,
+        default: true
+    },
+    canDelete: {
+        type: Boolean,
+        default: true
+    }
 });
 
 const page = usePage();
@@ -81,6 +93,8 @@ const form = useForm({
 });
 
 const openAddModal = () => {
+    if (!props.canAdd) return;
+
     isEditing.value = false;
     form.reset();
     form.clearErrors();
@@ -96,6 +110,8 @@ const openAddModal = () => {
 };
 
 const openEditModal = (row) => {
+    if (!props.canEdit) return;
+
     isEditing.value = true;
     form.clearErrors();
     form.id = row.id;
@@ -110,6 +126,9 @@ const openEditModal = (row) => {
 };
 
 const submit = () => {
+    if (isEditing.value && !props.canEdit) return;
+    if (!isEditing.value && !props.canAdd) return;
+
     form.clearErrors();
     const selectedType = props.expenseTypes.find(t => t.id === form.expense_type_id);
     const typeName = selectedType ? selectedType.name.toLowerCase() : '';
@@ -128,6 +147,8 @@ const submit = () => {
 };
 
 const deleteExpense = (id) => {
+    if (!props.canDelete) return;
+
     if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
         router.delete(route('expenses.destroy', id), {
             preserveScroll: true,
@@ -157,7 +178,7 @@ const formatCurrency = (value) => {
                     :columns="columns"
                     :filters="filters"
                     route-name="expenses.index"
-                    show-add-button
+                    :show-add-button="canAdd"
                     @on-add="openAddModal"
                     :initial-search="filters?.search || ''"
                 >
@@ -235,10 +256,10 @@ const formatCurrency = (value) => {
 
                     <template #actions="{ row }">
                         <div class="flex justify-end gap-2">
-                            <button @click="openEditModal(row)" class="w-8 h-8 flex items-center justify-center bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm">
+                            <button v-if="canEdit" @click="openEditModal(row)" class="w-8 h-8 flex items-center justify-center bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm">
                                 ✏️
                             </button>
-                            <button @click="deleteExpense(row.id)" class="w-8 h-8 flex items-center justify-center bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm">
+                            <button v-if="canDelete" @click="deleteExpense(row.id)" class="w-8 h-8 flex items-center justify-center bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm">
                                 ❌
                             </button>
                         </div>

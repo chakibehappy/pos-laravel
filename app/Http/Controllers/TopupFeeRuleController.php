@@ -23,6 +23,29 @@ class TopupFeeRuleController extends Controller
             $sortField = 'created_at';
         }
         
+        // Ambil data user yang sedang login dari tabel pos_users
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Status Hak Akses Default (True)
+        $canAdd = true;
+        $canEdit = true;
+        $canDelete = true;
+
+        // Cek Khusus Role Admin
+        if ($currentUser && $currentUser->role === 'admin') {
+            if (isset($currentUser->add_topup_rules)) {
+                $canAdd = (bool) $currentUser->add_topup_rules;
+            }
+            if (isset($currentUser->edit_topup_rules)) {
+                $canEdit = (bool) $currentUser->edit_topup_rules;
+            }
+            if (isset($currentUser->delete_topup_rules)) {
+                $canDelete = (bool) $currentUser->delete_topup_rules;
+            }
+        }
+
         // Global Scope di model biasanya sudah memfilter status != 2
         $data = TopupFeeRule::with(['topup_trans_type', 'wallet_target', 'creator'])
             ->when($request->search, function ($query, $search) {
@@ -44,6 +67,9 @@ class TopupFeeRuleController extends Controller
             'filters' => $request->only(['search', 'sort', 'direction']),
             'transTypes' => TopupTransType::all(),
             'walletTargets' => DigitalWallet::all(),
+            'canAdd' => $canAdd,
+            'canEdit' => $canEdit,
+            'canDelete' => $canDelete,
         ]);
     }
 
@@ -59,6 +85,20 @@ class TopupFeeRuleController extends Controller
 
     public function store(Request $request)
     {
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Proteksi Server-side Add & Edit untuk Admin
+        if ($currentUser && $currentUser->role === 'admin') {
+            if (!$request->id && isset($currentUser->add_topup_rules) && !(bool)$currentUser->add_topup_rules) {
+                return back()->withErrors(['error' => 'Anda tidak memiliki akses untuk menambah aturan biaya top up.']);
+            }
+            if ($request->id && isset($currentUser->edit_topup_rules) && !(bool)$currentUser->edit_topup_rules) {
+                return back()->withErrors(['error' => 'Anda tidak memiliki akses untuk mengubah aturan biaya top up.']);
+            }
+        }
+
         $request->validate([
             'rules' => 'required|array|min:1',
             'rules.*.topup_trans_type_id' => 'required|exists:topup_trans_type,id',
@@ -147,6 +187,15 @@ class TopupFeeRuleController extends Controller
 
     public function destroy($id)
     {
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Proteksi Server-side Delete untuk Admin
+        if ($currentUser && $currentUser->role === 'admin' && isset($currentUser->delete_topup_rules) && !(bool)$currentUser->delete_topup_rules) {
+            return back()->withErrors(['error' => 'Anda tidak memiliki akses untuk menghapus aturan biaya top up.']);
+        }
+
         try {
             return DB::transaction(function () use ($id) {
                 $rule = TopupFeeRule::findOrFail($id);

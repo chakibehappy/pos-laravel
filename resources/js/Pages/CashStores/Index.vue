@@ -8,8 +8,10 @@ const props = defineProps({
     cashBalances: Object, 
     filters: Object,
     storeTypes: Array,
-    paymentMethods: Array, // Diperlukan untuk rincian per metode pembayaran
-    transactionBalances: Object, // Diperlukan untuk rincian per metode pembayaran
+    paymentMethods: Array,
+    transactionBalances: Object,
+    canEditCash: Boolean,  // Prop permission edit kas
+    canResetCash: Boolean, // Prop permission reset kas
 });
 
 // --- LOGIKA INTERNAL ---
@@ -222,6 +224,7 @@ const columns = [
                                         </button>
                                     </div>
                                     <button 
+                                        v-if="['developer', 'owner'].includes($page.props.auth.role) || canResetCash"
                                         type="button"
                                         @click.stop="triggerGlobalReset(row)"
                                         class="bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase not-italic px-4 rounded-lg shadow-md transition-colors duration-150 tracking-wider h-7 flex items-center justify-center whitespace-nowrap"
@@ -251,10 +254,11 @@ const columns = [
                                                     {{ formatIDR(getMethodBalance(row.store_id, method)) }}
                                                 </span>
                                             </div>
+                                            <!-- Tombol pensil ditampilkan jika role developer/owner ATAU canEditCash = true -->
                                             <button 
-                                                v-if="!(activeEditId === row.id && activeMethodId === method.id) && ['developer', 'owner'].includes($page.props.auth.role)" 
+                                                v-if="!(activeEditId === row.id && activeMethodId === method.id) && (['developer', 'owner'].includes($page.props.auth.role) || canEditCash)" 
                                                 @click.stop="openEditNonKonter(row, method.id)" 
-                                                class="text-lg opacity-60 hover:opacity-100 transition-opacity"
+                                                class="text-lg opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                                             >
                                                 ✏️
                                             </button>
@@ -292,7 +296,7 @@ const columns = [
                             </div>
                         </div>
 
-                        <!-- ==================== TAMPILAN JIKA ADALAH KONTER (SAMAA PERSIS SEPERTI NON-KONTER / KONVEKSI) ==================== -->
+                        <!-- ==================== TAMPILAN JIKA ADALAH KONTER ==================== -->
                         <div v-else class="flex flex-col gap-4 bg-gray-50/50 p-4 rounded-lg border border-dashed border-gray-200">
                             
                             <div class="bg-blue-50/40 border border-blue-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
@@ -323,6 +327,7 @@ const columns = [
                                         </button>
                                     </div>
                                     <button 
+                                        v-if="['developer', 'owner'].includes($page.props.auth.role) || canResetCash"
                                         type="button"
                                         @click.stop="triggerGlobalReset(row)"
                                         class="bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase not-italic px-4 rounded-lg shadow-md transition-colors duration-150 tracking-wider h-7 flex items-center justify-center whitespace-nowrap"
@@ -352,10 +357,11 @@ const columns = [
                                                     {{ formatIDR(getMethodBalance(row.store_id, method)) }}
                                                 </span>
                                             </div>
+                                            <!-- Tombol pensil ditampilkan jika role developer/owner ATAU canEditCash = true -->
                                             <button 
-                                                v-if="!(activeEditId === row.id && activeMethodId === method.id) && ['developer', 'owner'].includes($page.props.auth.role)" 
+                                                v-if="!(activeEditId === row.id && activeMethodId === method.id) && (['developer', 'owner'].includes($page.props.auth.role) || canEditCash)" 
                                                 @click.stop="openEditNonKonter(row, method.id)" 
-                                                class="text-lg opacity-60 hover:opacity-100 transition-opacity"
+                                                class="text-lg opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                                             >
                                                 ✏️
                                             </button>

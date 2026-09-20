@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed, reactive } from 'vue'; // Tambahkan reactive
+import { ref, watch, computed, reactive } from 'vue'; 
 import { useForm, Head, usePage, router } from '@inertiajs/vue3'; 
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -8,7 +8,7 @@ import SearchableSelect from '@/Components/SearchableSelect.vue';
 // IMPORT VIEW DETAIL
 import TransactionDetailView from '@/Pages/TransactionsDetails/Index.vue';
 
-import debounce from 'lodash/debounce'; // Tambahkan ini
+import debounce from 'lodash/debounce';
 
 const props = defineProps({ 
     transactions: Object,
@@ -21,7 +21,23 @@ const props = defineProps({
     digital_wallet_stores: Array, 
     withdrawal_source_type: Array, 
     withdrawal_rules: Array,
-    filters: Object 
+    filters: Object,
+    canAdd: {
+        type: Boolean,
+        default: true
+    },
+    canEdit: {
+        type: Boolean,
+        default: true
+    },
+    canDelete: {
+        type: Boolean,
+        default: true
+    },
+    canDetail: {
+        type: Boolean,
+        default: true
+    }
 });
 
 const page = usePage();
@@ -159,27 +175,30 @@ watch(() => singleEntry.value.type, (newType) => {
     singleEntry.value.type = newType;
     refreshProductList();
 });
+
 watch(() => singleEntry.value.withdrawal_amount, (newAmount) => {
     if (singleEntry.value.type === 'tarik_tunai') {
         singleEntry.value.admin_fee = autoCalculateWithdrawalFee(newAmount);
     }
 });
+
 const calculateAll = () => {
     form.subtotal = form.details.reduce((acc, item) => acc + Number(item.subtotal), 0);
     form.total = form.subtotal + Number(form.tax);
 };
+
 const autoCalculateWithdrawalFee = (amount) => {
     if (!amount || amount <= 0 || !props.withdrawal_rules) return 0;
 
     const rule = props.withdrawal_rules.find(r => {
         const min = parseFloat(r.min_limit);
         const max = parseFloat(r.max_limit);
-        // Jika max_limit bernilai negatif (misal -1), artinya tidak terbatas
         return amount >= min && (max < 0 || amount <= max);
     });
 
     return rule ? parseFloat(rule.fee) : 0;
 };
+
 const addToBatch = () => {
     errorMessage.value = '';
     if (!form.store_id) { errorMessage.value = "Pilih toko terlebih dahulu!"; return; }
@@ -224,34 +243,28 @@ const addToBatch = () => {
                 topup_trans_type_id: s.id 
             }
         });
-    // --- CARI BAGIAN INI ---
-        // --- BAGIAN YANG DIUBAH ---
-        } else if (singleEntry.value.type === 'tarik_tunai') {
-            const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
-            if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
-                errorMessage.value = "Lengkapi data Tarik Tunai!"; return;
-            }
-            
-            form.details.push({
-                type: 'tarik_tunai', 
-                product_id: null, 
-                name: `TARIK TUNAI [${wType.name}]`,
-                note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
-                
-                // UBAH DISINI: price diisi dengan admin_fee agar muncul di kolom Harga
-                price: singleEntry.value.admin_fee, 
-                
-                quantity: 1, 
-                // Subtotal tetap 0 agar tidak menambah Grand Total (sesuai logika Anda sebelumnya)
-                subtotal: 0, 
-                meta: { 
-                    customer_name: singleEntry.value.customer_name, 
-                    amount: singleEntry.value.withdrawal_amount, 
-                    fee: singleEntry.value.admin_fee, 
-                    withdrawal_source_id: wType.id 
-                }
-            });
+    } else if (singleEntry.value.type === 'tarik_tunai') {
+        const wType = withdrawalTypeOptions.value.find(x => x.id == singleEntry.value.withdrawal_source_id);
+        if (!singleEntry.value.customer_name || !singleEntry.value.withdrawal_amount || !wType) {
+            errorMessage.value = "Lengkapi data Tarik Tunai!"; return;
         }
+        
+        form.details.push({
+            type: 'tarik_tunai', 
+            product_id: null, 
+            name: `TARIK TUNAI [${wType.name}]`,
+            note: `${Number(singleEntry.value.withdrawal_amount).toLocaleString('id-ID')} - ${singleEntry.value.customer_name}`,
+            price: singleEntry.value.admin_fee, 
+            quantity: 1, 
+            subtotal: 0, 
+            meta: { 
+                customer_name: singleEntry.value.customer_name, 
+                amount: singleEntry.value.withdrawal_amount, 
+                fee: singleEntry.value.admin_fee, 
+                withdrawal_source_id: wType.id 
+            }
+        });
+    }
     
     calculateAll();
 
@@ -276,6 +289,9 @@ const closeForm = () => {
 };
 
 const submit = () => {
+    if (isEditMode.value && !props.canEdit) return;
+    if (!isEditMode.value && !props.canAdd) return;
+
     errorMessage.value = '';
     if (form.details.length === 0) { errorMessage.value = "Keranjang masih kosong!"; return; }
     if (!form.payment_id) { errorMessage.value = "Pilih metode pembayaran!"; return; }
@@ -294,6 +310,8 @@ const submit = () => {
 };
 
 const openCreate = () => {
+    if (!props.canAdd) return;
+
     isEditMode.value = false;
     form.reset();
     form.id = null; 
@@ -305,6 +323,8 @@ const openCreate = () => {
 };
 
 const openEdit = (row) => {
+    if (!props.canEdit) return;
+
     isEditMode.value = true;
     form.id = row.id;
     form.store_id = row.store_id;
@@ -339,12 +359,16 @@ const openEdit = (row) => {
 };
 
 const handleOpenDetail = (id) => {
+    if (!props.canDetail) return;
+
     selectedTransactionId.value = id;
     isDetailModalOpen.value = true;
     setTimeout(() => { detailRef.value?.fetchDetails(); }, 50);
 };
 
 const confirmDelete = (row) => {
+    if (!props.canDelete) return;
+
     if (confirm(`Apakah Anda yakin ingin membatalkan transaksi #${row.id}?\nStok dan saldo akan otomatis dikembalikan.`)) {
         router.delete(route('transactions.destroy', row.id));
     }
@@ -427,7 +451,7 @@ watch(filterState, debounce(() => {
                             <div class="md:col-span-2"><label class="text-[10px] font-bold text-gray-400 uppercase">Harga Jual</label><input v-model.number="singleEntry.price" type="number" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" /></div>
                         </template>
 
-                            <template v-if="singleEntry.type === 'tarik_tunai'">
+                        <template v-if="singleEntry.type === 'tarik_tunai'">
                             <div class="md:col-span-3">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Pelanggan</label>
                                 <input v-model="singleEntry.customer_name" type="text" class="w-full border border-gray-300 p-2 rounded-lg h-[38px] text-sm" />
@@ -499,46 +523,46 @@ watch(filterState, debounce(() => {
                 </div>
             </div>
 
-           <DataTable 
+            <DataTable 
                 title="Riwayat Transaksi" 
                 :resource="transactions" 
                 :columns="columns" 
                 :filters="filters"
-                :showAddButton="true" 
+                :showAddButton="canAdd" 
                 route-name="transactions.index" 
                 :initial-search="filters?.search || ''"
                 @on-add="openCreate"
             >
 
-            <template #extra-filters>
-                <div class="flex flex-wrap items-end gap-3">
-                    <div class="w-48">
-                        <SearchableSelect 
-                            v-model="filterState.store_id"
-                            :options="stores"
-                            label="Lokasi Toko"
-                            placeholder="Semua Toko"
-                        />
-                    </div>
-                    <div class="w-48">
+                <template #extra-filters>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div class="w-48">
                             <SearchableSelect 
-                            v-model="filterState.payment_id"
-                            :options="paymentMethods"
-                            label="Metode Pembayaran"
-                            placeholder="Semua Metode"
-                        />
-                    </div>  
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mulai</label>
-                        <input type="date" v-model="filterState.start_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
-                    </div>
+                                v-model="filterState.store_id"
+                                :options="stores"
+                                label="Lokasi Toko"
+                                placeholder="Semua Toko"
+                            />
+                        </div>
+                        <div class="w-48">
+                            <SearchableSelect 
+                                v-model="filterState.payment_id"
+                                :options="paymentMethods"
+                                label="Metode Pembayaran"
+                                placeholder="Semua Metode"
+                            />
+                        </div>  
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mulai</label>
+                            <input type="date" v-model="filterState.start_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        </div>
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sampai</label>
-                        <input type="date" v-model="filterState.end_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sampai</label>
+                            <input type="date" v-model="filterState.end_date" class="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        </div>
                     </div>
-                </div>
-            </template>
+                </template>
             
                 <template #transaction_at="{ value }"> 
                     <span class="text-gray-500 font-medium">{{ formatDate(value) }}</span> 
@@ -562,9 +586,9 @@ watch(filterState, debounce(() => {
 
                 <template #actions="{ row }">
                     <div class="flex items-center gap-2 justify-end">
-                        <button @click="handleOpenDetail(row.id)" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100">🔎</button>
-                        <button @click="openEdit(row)" class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg font-black text-[10px] uppercase hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-100">✏️</button>
-                        <button @click="confirmDelete(row)" class="px-3 py-1 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100">❌</button>
+                        <button v-if="canDetail" @click="handleOpenDetail(row.id)" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100">🔎</button>
+                        <button v-if="canEdit" @click="openEdit(row)" class="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg font-black text-[10px] uppercase hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-100">✏️</button>
+                        <button v-if="canDelete" @click="confirmDelete(row)" class="px-3 py-1 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase hover:bg-red-500 hover:text-white transition-all shadow-sm border border-red-100">❌</button>
                     </div>
                 </template>
             </DataTable>

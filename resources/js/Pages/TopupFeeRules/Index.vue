@@ -9,7 +9,19 @@ const props = defineProps({
     data: Object,
     transTypes: Array,
     walletTargets: Array, 
-    filters: Object
+    filters: Object,
+    canAdd: {
+        type: Boolean,
+        default: true
+    },
+    canEdit: {
+        type: Boolean,
+        default: true
+    },
+    canDelete: {
+        type: Boolean,
+        default: true
+    }
 });
 
 // Konfigurasi kolom sesuai dengan DataTable.vue
@@ -51,6 +63,8 @@ const getName = (list, id) => {
 };
 
 const openCreate = () => {
+    if (!props.canAdd) return;
+
     isEditMode.value = false;
     errorMessage.value = '';
     form.reset();
@@ -60,6 +74,8 @@ const openCreate = () => {
 };
 
 const openEdit = (row) => {
+    if (!props.canEdit) return;
+
     isEditMode.value = true;
     errorMessage.value = '';
     form.clearErrors();
@@ -119,6 +135,9 @@ const removeFromBatch = (index) => {
 };
 
 const submit = () => {
+    if (isEditMode.value && !props.canEdit) return;
+    if (!isEditMode.value && !props.canAdd) return;
+
     errorMessage.value = '';
 
     if (isEditMode.value && isEditInvalid.value) {
@@ -144,6 +163,8 @@ const submit = () => {
 };
 
 const destroy = (row) => {
+    if (!props.canDelete) return;
+
     const typeName = row.topup_trans_type?.name || 'Unknown';
     if (confirm(`Hapus/Arsipkan aturan biaya untuk tipe "${typeName}"?`)) {
         router.delete(route('topup-fee-rules.destroy', row.id));
@@ -283,7 +304,7 @@ const displayLimit = (value) => {
                 :filters="filters"
                 routeName="topup-fee-rules.index" 
                 :initialSearch="filters?.search || ''"
-                :showAddButton="!showForm"
+                :showAddButton="!showForm && canAdd"
                 @on-add="openCreate"
             >
                 <template #topup_trans_type_id="{ row }">
@@ -325,8 +346,8 @@ const displayLimit = (value) => {
                 
                 <template #actions="{ row }">
                     <div class="flex gap-4 justify-end items-center">
-                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
-                        <button @click="destroy(row)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
+                        <button v-if="canEdit" @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-colors transform hover:scale-125">✏️</button>
+                        <button v-if="canDelete" @click="destroy(row)" class="text-gray-300 hover:text-red-600 transition-colors transform hover:scale-125">❌</button>
                     </div>
                 </template>
             </DataTable>

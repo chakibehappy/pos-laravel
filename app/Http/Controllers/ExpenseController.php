@@ -52,6 +52,29 @@ class ExpenseController extends Controller
             $query->latest();
         }
 
+        // Ambil data user yang sedang login dari tabel pos_users
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Status Hak Akses Default (True)
+        $canAdd = true;
+        $canEdit = true;
+        $canDelete = true;
+
+        // Cek Khusus Role Admin
+        if ($currentUser && $currentUser->role === 'admin') {
+            if (isset($currentUser->add_expense)) {
+                $canAdd = (bool) $currentUser->add_expense;
+            }
+            if (isset($currentUser->edit_expense)) {
+                $canEdit = (bool) $currentUser->edit_expense;
+            }
+            if (isset($currentUser->delete_expense)) {
+                $canDelete = (bool) $currentUser->delete_expense;
+            }
+        }
+
         $posUsers = PosUser::select('id', 'name', 'role', 'username')
             ->where('is_active', 1)
             ->get()
@@ -84,6 +107,9 @@ class ExpenseController extends Controller
             'expenseTypes' => ExpenseType::select('id', 'name')->get(),
             'posUsers'     => $posUsers,
             'filters'      => $request->only(['search', 'sort', 'direction', 'store_id']),
+            'canAdd'       => $canAdd,
+            'canEdit'      => $canEdit,
+            'canDelete'    => $canDelete,
             'columns'      => [
                 ['key' => 'transaction_at', 'label' => 'Tanggal', 'sortable' => true],
                 ['key' => 'image', 'label' => 'Dokumentasi', 'sortable' => false],
@@ -111,6 +137,20 @@ class ExpenseController extends Controller
      */
     public function store(Request $request)
     {
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Proteksi Server-side Add & Edit untuk Admin
+        if ($currentUser && $currentUser->role === 'admin') {
+            if (!$request->id && isset($currentUser->add_expense) && !(bool)$currentUser->add_expense) {
+                return back()->withErrors(['message' => 'Anda tidak memiliki akses untuk menambah pengeluaran.']);
+            }
+            if ($request->id && isset($currentUser->edit_expense) && !(bool)$currentUser->edit_expense) {
+                return back()->withErrors(['message' => 'Anda tidak memiliki akses untuk mengubah pengeluaran.']);
+            }
+        }
+
         $messages = [
             'store_id.exists'         => 'Toko yang dipilih tidak valid.',
             'expense_type_id.required'=> 'Tipe pengeluaran wajib dipilih.',
@@ -214,6 +254,15 @@ class ExpenseController extends Controller
      */
     public function destroy($id)
     {
+        $currentUser = DB::table('pos_users')
+            ->where('username', auth()->user()->email)
+            ->first();
+
+        // Proteksi Server-side Delete untuk Admin
+        if ($currentUser && $currentUser->role === 'admin' && isset($currentUser->delete_expense) && !(bool)$currentUser->delete_expense) {
+            return back()->withErrors(['message' => 'Anda tidak memiliki akses untuk menghapus pengeluaran.']);
+        }
+
         $posUserId = $this->getPosUserId();
 
         $expense = DB::transaction(function () use ($id) {

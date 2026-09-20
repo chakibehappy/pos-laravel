@@ -7,6 +7,7 @@ import DataTable from '@/Components/DataTable.vue';
 const props = defineProps({
     resource: Object, 
     filters: Object,
+    canEditDigitalWallet: Boolean,
 });
 
 // --- LOGIKA ACCORDION ---
@@ -112,7 +113,13 @@ const columns = [
                                             <span class="text-[8px] font-black text-gray-300 uppercase mb-1 tracking-widest not-italic">Saldo Saat Ini</span>
                                             <span class="text-sm font-black text-blue-600 italic">{{ formatIDR(w.balance) }}</span>
                                         </div>
-                                        <button v-if="activeEditId !== w.id" @click.stop="openEdit(w)" class="text-lg opacity-60 hover:opacity-100 transition-transform active:scale-90">✏️</button>
+                                        <button 
+                                            v-if="activeEditId !== w.id && (['developer', 'owner'].includes($page.props.auth.role) || canEditDigitalWallet)" 
+                                            @click.stop="openEdit(w)" 
+                                            class="text-lg opacity-60 hover:opacity-100 transition-transform active:scale-90 cursor-pointer"
+                                        >
+                                            ✏️
+                                        </button>
                                         <div v-else class="w-[28px]"></div>
                                     </div>
                                 </div>

@@ -34,11 +34,15 @@ class WithdrawalFeeRuleController extends Controller
             });
         }
 
+        // Ambil data PosUser pengakses
+        $posUser = PosUser::where('username', Auth::user()->email)->first();
+
         return Inertia::render('WithdrawalFeeRules/Index', [
             'resource' => $query->orderBy($sortField, $sortDirection)
                                ->paginate(10)
                                ->withQueryString(),
             'filters'  => $request->only(['search', 'sort', 'direction']),
+            'posUser'  => $posUser,
         ]);
     }
 

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useForm, router, Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -7,7 +7,32 @@ import debounce from 'lodash/debounce';
 
 const props = defineProps({ 
     resource: Object,
-    filters: Object 
+    filters: Object,
+    posUser: Object
+});
+
+// Pengecekan hak akses tambah
+const canAdd = computed(() => {
+    if (props.posUser?.role !== 'admin') {
+        return true;
+    }
+    return Number(props.posUser?.add_withdraw_rules) === 1;
+});
+
+// Pengecekan hak akses edit
+const canEdit = computed(() => {
+    if (props.posUser?.role !== 'admin') {
+        return true;
+    }
+    return Number(props.posUser?.edit_withdraw_rules) === 1;
+});
+
+// Pengecekan hak akses hapus
+const canDelete = computed(() => {
+    if (props.posUser?.role !== 'admin') {
+        return true;
+    }
+    return Number(props.posUser?.delete_withdraw_rules) === 1;
 });
 
 // Konfigurasi kolom dengan properti sortable
@@ -43,6 +68,8 @@ const form = useForm({
 });
 
 const openCreate = () => {
+    if (!canAdd.value) return;
+
     errorMessage.value = '';
     form.reset();
     form.id = null;
@@ -50,6 +77,8 @@ const openCreate = () => {
 };
 
 const openEdit = (row) => {
+    if (!canEdit.value) return;
+
     errorMessage.value = '';
     form.clearErrors();
     form.id = row.id;
@@ -76,6 +105,8 @@ const submit = () => {
 };
 
 const destroy = (id) => {
+    if (!canDelete.value) return;
+
     if (confirm('Apakah Anda yakin ingin menghapus/mengarsipkan aturan ini?')) {
         router.delete(route('withdrawal-fee-rules.destroy', id));
     }
@@ -149,7 +180,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
                 :resource="resource" 
                 :columns="columns"
                 :filters="filters"
-                :showAddButton="!showForm"
+                :showAddButton="!showForm && canAdd"
                 routeName="withdrawal-fee-rules.index" 
                 :initialSearch="filters.search"
                 @on-add="openCreate" 
@@ -176,10 +207,10 @@ const formatCurrency = (value) => new Intl.NumberFormat('id-ID').format(value);
 
                 <template #actions="{ row }">
                     <div class="flex flex-row gap-5 justify-end items-center px-2">
-                        <button @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-all transform hover:scale-125" title="Edit">
+                        <button v-if="canEdit" @click="openEdit(row)" class="text-gray-300 hover:text-blue-600 transition-all transform hover:scale-125" title="Edit">
                             ✏️
                         </button>
-                        <button @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-all transform hover:scale-125" title="Hapus">
+                        <button v-if="canDelete" @click="destroy(row.id)" class="text-gray-300 hover:text-red-600 transition-all transform hover:scale-125" title="Hapus">
                             ❌
                         </button>
                     </div>

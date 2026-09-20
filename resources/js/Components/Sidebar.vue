@@ -96,15 +96,15 @@ const menuItems = [
     },
     { 
         label: 'Laporan', icon: '📋', isDropdown: true, roles: ['owner', 'developer'],
-        activeOn: ['report-buying.*','report-stores.*'],
+        activeOn: ['report-buying.*','report-stores.*','report-items.*'],
         children: [
             { label: 'Laporan Pembelian',  name: 'report-buying.index', route: route('report-buying.index') },
             { label: 'Laporan Penjualan', name: 'report-stores.index', route: route('report-stores.index') },
             { label: 'Laporan Per Item', name: 'report-items.index', route: route('report-items.index') },
         ]
     },
+    { label: 'Pengaturan', icon: '⚙️', roles: ['owner', 'developer'], name: 'setting-fiturs.index', route: route('setting-fiturs.index') },
     { label: 'Riwayat Aktifitas', icon: '📝', name: 'activity-logs.index', route: route('activity-logs.index') },
-    
      // { label: 'Laporan Pembelian', icon: '', name: 'report-buying.index', route: route('report-buying.index') },
     // { label: 'Laporan Pengeluaran', icon: '💸', name: 'report-expense.index', route: route('report-expense.index') },
 ];
